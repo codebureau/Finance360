@@ -198,7 +198,17 @@ def test_an_unknown_or_moved_tag_aborts_before_the_backup() -> None:
     assert host.names() == ["status", "fetch"]
 
 
-@pytest.mark.parametrize("tag", ["main", "1.2.3", "v1.2", "v1.2.3;rm -rf /", "../v1.2.3", ""])
+def test_a_moved_tag_shows_gits_reason_and_does_not_silence_it() -> None:
+    host = FakeHost(fetch_exit=1)
+    with pytest.raises(deploy.DeployError, match=r"failed \(1\): fatal: couldn't find remote ref"):
+        make(host).deploy(TAG)
+    fetch = next(c for c in host.calls if c[:2] == ["git", "fetch"])
+    assert "--quiet" not in fetch
+
+
+@pytest.mark.parametrize(
+    "tag", ["main", "1.2.3", "v1.2", "v1.2.3;rm -rf /", "../v1.2.3", "", "v1.2.3\n"]
+)
 def test_only_release_tags_are_accepted(tag: str) -> None:
     host = FakeHost()
     with pytest.raises(deploy.DeployError, match="not a release tag"):
