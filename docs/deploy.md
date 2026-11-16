@@ -87,15 +87,20 @@ In order, stopping at the first problem:
 1. **Checks** Docker, compose, git, free disk (3 GB) and that `FINANCE360_HTTPS_PORT` is free on the
    host. A taken port is refused, with nothing changed; pick another in `target.local.env`.
 2. **Makes the folders** (the clone, the key's folder and rclone's folder, mode 700) and clones the
-   repo. It tries `chown` to the container's uid 10001 and, if it cannot, prints the `sudo chown`
-   to run.
+   repo. The folders are handed to the container's uid 10001 only after the key is written (step 3),
+   because a `chown -R` before that would miss the key file. If setup has no root or passwordless
+   sudo it never prompts: it prints one `sudo chown -R 10001 ...` line at the very end, to run on the
+   host once. (Printing the line was chosen over documenting a manual step: setup knows the exact
+   folders, so the line cannot be mistyped.)
 3. **Generates the Backup key** (a random 64-character key from the desktop's CSPRNG), writes it to
    the host file (mode 400) and **shows it once**. Put it in the password manager as *Finance360
    Backup key* before pressing Enter. It is never printed or logged again, and never passed on a
    command line.
 4. **Deploys the tag** through the normal path (`deploy <tag> --first` on a new host).
 5. **Exports Caddy's root certificate** to your Desktop (`finance360-root.crt`, or `--cert-out
-   PATH`) and prints its SHA-256 and the steps for each device.
+   PATH`), prints the full path it saved to and its SHA-256, and the steps for each device. On
+   Windows the Desktop is the one the OS reports (it moves when OneDrive redirects it); if no
+   Desktop folder exists the file goes in the current folder.
 6. With `--tailscale`: reads the host's overlay VPN name (`*.ts.net`), appends it to
    `FINANCE360_ALLOWED_HOSTS` in `target.local.env` (before the deploy, so the host picks it up),
    runs `tailscale serve --bg --https=443 https+insecure://127.0.0.1:<HTTPS port>` and checks that
@@ -115,8 +120,10 @@ in the browser (ADR-0010), then switch Backups on as in [`backup-setup.md`](back
 Copy `finance360-root.crt` to the device. Check the SHA-256 shown by setup if you like.
 
 - **Windows:** double-click the file, *Install Certificate*, *Local Machine*, *Place all
-  certificates in the following store*, *Trusted Root Certification Authorities*. Restart the
-  browser.
+  certificates in the following store*, *Trusted Root Certification Authorities*.
+- **Any browser, after installing:** fully quit it (including background processes and any startup
+  boost or "continue running in the background" feature), then reopen it. Until then it keeps using
+  the old trust list.
 - **iOS:** open the file (AirDrop or mail), *Settings > Profile Downloaded > Install*; then
   *Settings > General > About > Certificate Trust Settings* and switch it on. Both steps are needed.
 - **Android:** *Settings > Security > (Encryption & credentials) > Install a certificate > CA

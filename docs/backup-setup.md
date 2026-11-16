@@ -39,6 +39,17 @@ On the host, configure rclone once, outside the repo:
 2. Run `RCLONE_CONFIG=/srv/finance360/rclone/rclone.conf rclone config`, choose **n** (new remote),
    name it `offsite` (any name; the examples use this one), pick your cloud storage's type, and
    follow its sign-in. `rclone lsd offsite:` should list your folders.
+   **On a host with no browser (headless):** run the configuration inside the container instead
+   (it has rclone, and the config folder is the one mounted for it):
+   ```
+   docker compose run --rm --entrypoint rclone finance360 config
+   ```
+   Choose **n**, name and type the remote as above, and when it asks *Use web browser to
+   automatically authenticate rclone with remote?* answer **n**. rclone then prints a command of
+   the form `rclone authorize "<type>" "<token>"`. Run exactly that on a machine that has rclone
+   and a browser (the desktop), sign in when the browser opens, and copy the token it prints. Paste
+   the token back at the host's *config_token>* prompt. If the config folder is not writable by
+   the container user, fix its ownership first (`sudo chown -R 10001 /srv/finance360/rclone`).
 3. Choose where the repo goes, e.g. `Finance360`. The restic repo is created there on the first
    Backup.
 

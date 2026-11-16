@@ -49,7 +49,7 @@ from typing import Protocol
 
 DEFAULT_CONFIG = Path(__file__).resolve().parent / "target.local.env"
 # Release tags: vMAJOR.MINOR.PATCH with an optional pre-release suffix (docs/deploy.md).
-TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$")
+TAG_PATTERN = re.compile(r"v\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?")
 PLACEHOLDER = re.compile(r"<[^<>]*>|CHANGE_?ME", re.IGNORECASE)
 SHA_LENGTH = 12
 HEALTH_TIMEOUT = 120.0
@@ -239,7 +239,8 @@ class Deployer:
 
     def resolve(self, tag: str) -> str:
         """Fetch tags without overwriting one (a moved tag fails) and return the tag's short SHA."""
-        self._ok(["git", "fetch", "--quiet", "--no-tags", "origin", "tag", tag], f"fetching {tag}")
+        # No --quiet: it also hides git's reason, and a moved tag's refusal is only useful with it.
+        self._ok(["git", "fetch", "--no-tags", "origin", "tag", tag], f"fetching {tag}")
         return self._ok(
             ["git", "rev-parse", f"--short={SHA_LENGTH}", f"{tag}^{{commit}}"],
             f"resolving {tag}",
@@ -343,7 +344,7 @@ class Deployer:
     # -- the whole run ------------------------------------------------------------------------
 
     def deploy(self, tag: str, *, first: bool = False) -> int:
-        if not TAG_PATTERN.match(tag):
+        if not TAG_PATTERN.fullmatch(tag):
             raise DeployError(
                 f"{tag!r} is not a release tag. Release tags look like v1.2.3 (docs/deploy.md)."
             )
@@ -392,7 +393,8 @@ PORT_SCRIPT = (
 DEVICE_STEPS = """\
 Trust the certificate once on each device (then renewals are invisible):
   Windows   double-click the file > Install Certificate > Local Machine > "Place all certificates
-            in the following store" > Trusted Root Certification Authorities. Restart the browser.
+            in the following store" > Trusted Root Certification Authorities. Fully quit the browser
+            (background processes and any startup boost too), then reopen it.
   iOS       send the file to the device (AirDrop, email), open it, Settings > Profile Downloaded >
             Install; then Settings > General > About > Certificate Trust Settings > enable it.
   Android   Settings > Security > (Encryption & credentials) > Install a certificate > CA
@@ -548,28 +550,40 @@ class Setup:
 
     # -- steps --------------------------------------------------------------------------------
 
+    def owned_folders(self) -> list[str]:
+        """The folders the container user (uid 10001) must read: the key's and rclone's."""
+        key_dir = str(host_path(self.target.app_env["FINANCE360_BACKUP_KEY_FILE"]).parent)
+        folders = [key_dir]
+        if rclone := self.target.app_env.get("FINANCE360_RCLONE_CONFIG_DIR"):
+            folders.append(rclone)
+        return folders
+
+    def hand_over(self) -> str:
+        """Give the container user the folders; returns the sudo line to run if that needs it.
+
+        Runs after the key is written (``chown -R`` before it would miss the key file). Needs root
+        or passwordless sudo; without either it never prompts, it hands back one line to run.
+        """
+        pending = [
+            folder
+            for folder in self.owned_folders()
+            if not any(
+                self.run(argv + [APP_UID, folder], anywhere=True).returncode == 0
+                for argv in (["chown", "-R"], ["sudo", "-n", "chown", "-R"])
+            )
+        ]
+        if not pending:
+            return ""
+        return f"sudo chown -R {APP_UID} " + " ".join(shlex.quote(f) for f in pending)
+
     def folders(self) -> None:
         remote_dir = self.target.remote_dir
         if not self._clone_exists():
             self._out(["mkdir", "-p", str(host_path(remote_dir).parent)], "making folders")
             self.say(f"Cloning {self.target.repo_url} ...")
             self._out(["git", "clone", "--quiet", self.target.repo_url, remote_dir], "git clone")
-        key_dir = str(host_path(self.target.app_env["FINANCE360_BACKUP_KEY_FILE"]).parent)
-        folders = [key_dir]
-        if rclone := self.target.app_env.get("FINANCE360_RCLONE_CONFIG_DIR"):
-            folders.append(rclone)
-        for folder in folders:
+        for folder in self.owned_folders():
             self._out(["sh", "-c", MKDIR_SCRIPT, "sh", folder], f"making {folder}")
-            # The container user must read these (docs/backup-setup.md); needs root or sudo.
-            owned = any(
-                self.run(argv + [APP_UID, folder], anywhere=True).returncode == 0
-                for argv in (["chown", "-R"], ["sudo", "-n", "chown", "-R"])
-            )
-            if not owned:
-                self.say(
-                    f"  note: could not give uid {APP_UID} ownership of {folder}; "
-                    f"run on the host:  sudo chown -R {APP_UID} {folder}"
-                )
 
     def backup_key(self) -> None:
         path = self.target.app_env["FINANCE360_BACKUP_KEY_FILE"]
@@ -668,6 +682,7 @@ class Setup:
         port = self.check()
         self.folders()
         self.backup_key()
+        sudo_line = self.hand_over()
         name = ""
         if self.tailscale:
             name = self.tailscale_name()
@@ -676,6 +691,7 @@ class Setup:
         if self.tailscale:
             self.serve(name, port)
         fingerprint = self.export_ca()
+        self.say(f"Saved the root certificate to {self.cert_out.resolve()}")
         entry = self.target.app_env["FINANCE360_ALLOWED_HOSTS"].split(",")[0].strip()
         url = f"https://{entry}" if ":" in entry else f"https://{entry}:{port}"
         self.say(
@@ -687,12 +703,48 @@ class Setup:
             f"Then open {url} and finish the app's own setup with the one-off code "
             "(docs/deploy.md)."
         )
+        if sudo_line:
+            self.say(
+                f"\nOne step needs root. The container user must own the key and rclone folders; "
+                f"run this on the host, then the next backup can read them:\n  {sudo_line}"
+            )
         return 0
 
 
+def windows_desktop() -> Path | None:
+    """The real Desktop folder on Windows (it moves when OneDrive redirects it), else None."""
+    if sys.platform != "win32":
+        return None
+    import ctypes  # noqa: PLC0415
+    from ctypes import wintypes  # noqa: PLC0415
+
+    class Guid(ctypes.Structure):
+        _fields_ = [  # noqa: RUF012
+            ("a", wintypes.DWORD),
+            ("b", wintypes.WORD),
+            ("c", wintypes.WORD),
+            ("d", ctypes.c_ubyte * 8),
+        ]
+
+    # FOLDERID_Desktop B4BFCC3A-DB2C-424C-B029-7FE99A87C641
+    tail = (ctypes.c_ubyte * 8)(0xB0, 0x29, 0x7F, 0xE9, 0x9A, 0x87, 0xC6, 0x41)
+    desktop_id = Guid(0xB4BFCC3A, 0xDB2C, 0x424C, tail)
+    out = ctypes.c_wchar_p()
+    shell = ctypes.windll.shell32  # pyright: ignore[reportAttributeAccessIssue]
+    if shell.SHGetKnownFolderPath(ctypes.byref(desktop_id), 0, None, ctypes.byref(out)) != 0:
+        return None
+    path = Path(out.value) if out.value else None
+    ctypes.windll.ole32.CoTaskMemFree(out)  # pyright: ignore[reportAttributeAccessIssue]
+    return path
+
+
 def default_cert_path() -> Path:
-    desktop = Path.home() / "Desktop"
-    return (desktop if desktop.is_dir() else Path.cwd()) / "finance360-root.crt"
+    """The Desktop (the OS's own answer first, then the usual spots), else the working folder."""
+    home = Path.home()
+    for candidate in (windows_desktop(), home / "OneDrive" / "Desktop", home / "Desktop"):
+        if candidate is not None and candidate.is_dir():
+            return candidate / "finance360-root.crt"
+    return Path.cwd() / "finance360-root.crt"
 
 
 def main(argv: list[str] | None = None) -> int:

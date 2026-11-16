@@ -33,13 +33,14 @@ class SetupHost(FakeHost):
         clone_exists: bool = True,
         running: bool = False,
         probe_code: str = "422",
+        chown_works: bool = False,
         **kwargs: object,
     ) -> None:
         super().__init__(running=running, **kwargs)  # type: ignore[arg-type]
         self.tools_missing, self.port_in_use = tools_missing, port_in_use
         self.proxy_running, self.key_exists = proxy_running, key_exists
         self.clone_exists, self.probe_code = clone_exists, probe_code
-        self.container_publishes = container_publishes
+        self.container_publishes, self.chown_works = container_publishes, chown_works
 
     def __call__(
         self,
@@ -73,8 +74,10 @@ class SetupHost(FakeHost):
             return self._record(argv, input, Result(0 if self.clone_exists else 1))
         if argv[:2] == ["sh", "-c"] and argv[2] == deploy.MKDIR_SCRIPT:
             return self._record(argv, input, Result(0))
-        if argv[:2] == ["git", "clone"] or argv[0] in {"mkdir", "chown"}:
-            return self._record(argv, input, Result(0 if argv[0] != "chown" else 1))
+        if argv[:2] == ["sudo", "-n"] or argv[0] == "chown":
+            return self._record(argv, input, Result(0 if self.chown_works else 1, "", "denied"))
+        if argv[:2] == ["git", "clone"] or argv[0] == "mkdir":
+            return self._record(argv, input, Result(0))
         if argv[:2] == ["sh", "-c"] and argv[2] == deploy.KEY_SCRIPT:
             state = "exists" if self.key_exists else "created"
             return self._record(argv, input, Result(0, state + "\n"))
@@ -139,6 +142,7 @@ def steps(host: SetupHost) -> list[str]:
             ("ss -ltnH", "port"),
             ("git clone", "clone"),
             ("mkdir", "folders"),
+            ("chown -R 10001", "chown"),
             ('cat > "$1"', "key"),
             ("git checkout", "checkout"),
             (" up ", "up"),
@@ -171,6 +175,53 @@ def test_setup_checks_first_then_makes_folders_key_deploys_and_exports_the_ca(
     for os_name in ("Windows", "iOS", "Android"):
         assert os_name in text
     assert "https://192.0.2.10:8843" in text
+
+
+def test_setup_saves_the_certificate_and_prints_where(tmp_path: Path) -> None:
+    host = SetupHost()
+    setup, out, _ = make(tmp_path, host)
+    setup.cert_out = tmp_path / "nested" / "root.crt"  # a folder that does not exist yet
+    setup.go("v1.2.3")
+    assert setup.cert_out.read_text(encoding="ascii") == PEM
+    assert any(m == f"Saved the root certificate to {setup.cert_out.resolve()}" for m in out)
+
+
+def test_ownership_is_handed_over_after_the_key_is_written(tmp_path: Path) -> None:
+    host = SetupHost(chown_works=True)
+    setup, out, _ = make(tmp_path, host)
+    setup.go("v1.2.3")
+    order = steps(host)
+    assert order.index("folders") < order.index("key") < order.index("chown")
+    owned = [c[-1] for c in host.calls if c[:2] == ["chown", "-R"]]
+    assert owned == ["/srv/f360/secrets", "/srv/f360/rclone"]
+    assert not any("sudo chown" in m for m in out)
+
+
+def test_without_root_one_sudo_line_is_printed_last(tmp_path: Path) -> None:
+    host = SetupHost(chown_works=False)
+    setup, out, _ = make(tmp_path, host)
+    setup.go("v1.2.3")
+    assert out[-1].endswith("sudo chown -R 10001 /srv/f360/secrets /srv/f360/rclone")
+    assert out[-2].startswith("\nSetup complete.")  # the sudo line follows the summary
+    assert host.calls.index(["sudo", "-n", "chown", "-R", "10001", "/srv/f360/secrets"]) > 0
+
+
+def test_the_certificate_goes_to_the_desktop_the_os_reports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    redirected, plain = tmp_path / "OneDrive" / "Desktop", tmp_path / "Desktop"
+    redirected.mkdir(parents=True)
+    plain.mkdir()  # an empty stub left behind by the redirect must not win
+    monkeypatch.setattr(deploy.Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(deploy, "windows_desktop", lambda: redirected)
+    assert deploy.default_cert_path() == redirected / "finance360-root.crt"
+    monkeypatch.setattr(deploy, "windows_desktop", lambda: None)
+    assert deploy.default_cert_path() == redirected / "finance360-root.crt"
+    redirected.rmdir()
+    assert deploy.default_cert_path() == plain / "finance360-root.crt"
+    plain.rmdir()
+    monkeypatch.chdir(tmp_path)
+    assert deploy.default_cert_path() == tmp_path / "finance360-root.crt"
 
 
 def test_the_backup_key_is_shown_once_and_only_travels_on_stdin(tmp_path: Path) -> None:
