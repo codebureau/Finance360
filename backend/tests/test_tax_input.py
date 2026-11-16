@@ -15,7 +15,7 @@ from tax_support import FY, aud, invented_rules, member, tax_input
 
 from finance360.capabilities.tax import input as tinput
 from finance360.capabilities.tax import labels, result_json, rules
-from finance360.capabilities.tax.engine import estimate
+from finance360.capabilities.tax.engine import TAX_ENGINE_VERSION, estimate
 from finance360.capabilities.tax.input import InputError, MemberInput, TaxInput
 from finance360.core.money import Money
 
@@ -168,7 +168,9 @@ def test_a_result_survives_a_json_round_trip_exactly() -> None:
     assert result_json.to_json(result_json.from_json(text)) == text
     assert result.incomplete and result.unmodelled
     with pytest.raises(InputError):
-        result_json.from_json(text.replace('"engine_version":2', '"engine_version":1.5'))
+        result_json.from_json(
+            text.replace(f'"engine_version":{TAX_ENGINE_VERSION}', '"engine_version":1.5')
+        )
 
 
 # --- the registry ------------------------------------------------------------------------

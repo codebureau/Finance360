@@ -373,7 +373,7 @@ def test_memo_figures_do_not_make_an_estimate_incomplete(sample: TestClient) -> 
     alex = res.json()["members"][0]
     # the statement's gross pay, the interest, and the business less the camera and the home office
     # and the car (6,000.00 - 495.89 - 1,037.40 - 849.55)
-    assert alex["total_income"] == "235650.53"
+    assert alex["total_income"] == "235651.00"
     assert alex["credits"] == "28500.00"  # its tax withheld
 
 

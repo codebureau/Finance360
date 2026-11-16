@@ -189,9 +189,19 @@ _LABELS: tuple[Label, ...] = (
         "Managed fund and trust distributions (not capital gains)",
         INCOME,
         "investment",
-        "Share of net income, excluding capital gains (enter those under capital gains).",
+        "As the managed fund tax statement prints it: the unfranked distribution (13U) plus the "
+        "franked distribution (13C), which already includes its franking credit. Excludes "
+        "capital gains (enter those under capital gains).",
     ),
-    _money("trust_franking_credits", "13", "Managed fund franking credits", CREDIT, "investment"),
+    _money(
+        "trust_franking_credits",
+        "13",
+        "Managed fund franking credits",
+        CREDIT,
+        "investment",
+        "The franking credit line of the statement (13Q). A credit only: it is already inside "
+        "the franked distribution (13C), so it is not added to income again.",
+    ),
     # Capital gains
     _money(
         "gains_discountable",

@@ -218,7 +218,7 @@ def test_an_estimate_for_the_synthetic_household(sample: TestClient) -> None:
     assert res.status_code == 200, res.text
     data = res.json()
     assert (data["financial_year"], data["financial_year_label"]) == (FY, rulepack.fy_label(FY))
-    assert data["engine_version"] == 2
+    assert data["engine_version"] == 3
     assert data["rule_pack_version"] == f"au/2096-97/r{PACK.revision}"
     assert data["incomplete"] is False and data["unmodelled"] == []
     alex, jordan = data["members"]

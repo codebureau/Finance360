@@ -32,6 +32,7 @@ On the [Tax estimate](/tax), choose the financial year, enter the number of depe
 Things to know:
 - It is worked out fresh each time from your Tax records. Calculating saves nothing. Press **Save estimate** to keep this result exactly as it is now (see Tax what-ifs and saved estimates, below).
 - It covers two Members, assessed as a couple.
+- **Whole dollars, as on the return.** Each income and deduction label drops its cents before the labels are added up, the way the tax office does, so the taxable income is the same as a lodged return built from the same figures. Tax withheld, TFN amounts withheld, franking credits and PAYG instalments keep their cents. The net capital gain, after the discount, is also shown in whole dollars. The Tax records and label totals still hold the exact cents.
 - **Prefilled from Income streams.** Where you have no Tax records for a Member's salary in that year, the estimate uses the Member's [Income streams](/income-streams) instead and marks the total *Prefilled from Income streams*. A prefilled figure is a forecast: it is the stream's stated yearly amount (not indexed), shared between owners by their shares, and counted only for the part of the year the stream runs. A stream that starts or ends on a Life event such as retirement is counted for the whole year, and the screen says so. It is never saved as a Tax record. See Prefilled from Income streams, below.
 - It needs the Rule pack's figures for that year. The screen lists the years it holds, and says so plainly if the year you chose is not one of them. It never borrows another year's figures.
 - **Incomplete** means your records include a return item the estimate does not model. It lists them and leaves them out of the tax.
@@ -167,6 +168,13 @@ Community Development Employment Projects payments are not recorded.
 Open an income statement and, if you have the previous financial year's statement for the **same Member and the same employer**, the page shows **Compared with last year**: each figure this year, last year, and the change (this year minus last year, so a fall is negative). A figure that is 0 in both years is left out. It is how you see a bonus or your salary sacrifice move from one year to the next. Nothing is shown when there is no earlier statement.
 
 Finance360 knows an employer only by the **Employer** name you enter, ignoring capital letters and extra spaces. If you leave it blank it uses the record's Description instead, so give both years' statements the same Employer name. A statement with a different name is a different employer and is not compared.
+
+## Entering a managed fund tax statement
+A managed fund's tax statement lists its amounts against return items. Enter them as printed, on two labels:
+- **Managed fund and trust distributions (not capital gains)**: item **13U** (unfranked distribution) plus item **13C** (franked distribution). The franked distribution already includes its franking credit, so do not add the credit to it.
+- **Managed fund franking credits**: item **13Q**. This counts only as a credit against the tax, never as income a second time.
+
+Capital gains on the statement go under the capital gains labels (the discountable gain grossed up). Dividends you hold directly are different: there the franked amount leaves out the credit, so you enter it under **Dividends: franking credits** as well and the estimate adds it to income.
 
 ## A tax year, step by step
 1. Once: add your Members on [Household](/household).

@@ -25,7 +25,7 @@ from finance360.capabilities.tax.rules import Band, TaxRules
 from finance360.core.money import BASE_CURRENCY, Money, ato_scale, ato_whole_dollars, format_amount
 from finance360.core.rate import PPM, Rate
 
-TAX_ENGINE_VERSION = 2
+TAX_ENGINE_VERSION = 3
 
 ZERO = Money(0, BASE_CURRENCY)
 
@@ -242,18 +242,27 @@ def _assess(member: MemberInput, inp: TaxInput) -> _Stage:
     m = member.money
     notes: list[str] = []
 
-    employment = m("salary") + m("allowances")
-    interest = m("interest")
-    dividends = m("dividends_unfranked") + m("dividends_franked") + m("franking_credits")
-    trust = m("trust_income") + m("trust_franking_credits")
+    def w(key: str) -> Money:
+        """An income or deduction label as the return shows it: whole dollars, cents dropped."""
+        return ato_whole_dollars(m(key))
+
+    employment = w("salary") + w("allowances")
+    interest = w("interest")
+    dividends = w("dividends_unfranked") + w("dividends_franked") + m("franking_credits")
+    # A managed fund statement's franked amount (13C) already carries the franking credit, so the
+    # credit (13Q) is only a credit: it is not income a second time.
+    trust = w("trust_income")
 
     gain = net_capital_gain(m("gains_discountable"), m("gains_other"), m("capital_losses"), rules)
+    # The return shows the net capital gain (item 18) in whole dollars; the gains and losses before
+    # the discount are worked in cents.
+    gain = NetGain(ato_whole_dollars(gain.net), gain.loss_carried_forward)
     if gain.loss_carried_forward.amount_minor > 0:
         notes.append(f"Capital loss of {format_amount(gain.loss_carried_forward)} carried forward.")
 
-    net_rent = m("rent_gross") - m("rent_interest") - m("rent_capital_works") - m("rent_other")
+    net_rent = w("rent_gross") - w("rent_interest") - w("rent_capital_works") - w("rent_other")
 
-    net_business = m("business_income") - m("business_expenses")
+    net_business = w("business_income") - w("business_expenses")
     if net_business.amount_minor < 0 and not member.flag("business_loss_rules_met"):
         notes.append(
             f"Business loss of {format_amount(-net_business)} deferred (non-commercial loss "
@@ -270,13 +279,13 @@ def _assess(member: MemberInput, inp: TaxInput) -> _Stage:
             gain.net,
             net_rent,
             net_business,
-            m("other_income"),
+            w("other_income"),
         ]
     )
 
     work_actual = _total(
-        [m(k) for k in ("work_car", "work_travel", "work_clothing", "work_self_education")]
-        + [m("work_other"), m("low_value_pool")]
+        [w(k) for k in ("work_car", "work_travel", "work_clothing", "work_self_education")]
+        + [w("work_other"), w("low_value_pool")]
     )
     work_related = work_actual
     instant = rules.standard_work_deduction
@@ -288,13 +297,13 @@ def _assess(member: MemberInput, inp: TaxInput) -> _Stage:
     ):
         work_related = instant
         notes.append("Instant work-related expenses deduction used in place of D1 to D6.")
-    investment_deductions = m("interest_deductions") + m("dividend_deductions")
+    investment_deductions = w("interest_deductions") + w("dividend_deductions")
     other_deductions = _total(
         [
-            m("gifts_donations"),
-            m("tax_affairs"),
-            m("personal_super_contributions"),
-            m("other_deductions"),
+            w("gifts_donations"),
+            w("tax_affairs"),
+            w("personal_super_contributions"),
+            w("other_deductions"),
         ]
     )
     total_deductions = work_related + investment_deductions + other_deductions
@@ -306,7 +315,7 @@ def _assess(member: MemberInput, inp: TaxInput) -> _Stage:
 
     financial_loss = _pos(investment_deductions - (interest + dividends + trust))
     net_investment_loss = financial_loss + _pos(-net_rent)
-    reportable_super = m("reportable_employer_super") + m("personal_super_contributions")
+    reportable_super = m("reportable_employer_super") + w("personal_super_contributions")
     fringe = m("reportable_fringe_benefits")
 
     basic_tax = bracket_tax(taxable, rules.resident_brackets)

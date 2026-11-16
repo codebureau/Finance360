@@ -624,7 +624,9 @@ def test_with_the_rate_the_worksheet_the_label_total_and_the_estimate_agree(
     )
     assert estimate.status_code == 200, estimate.text
     # 120,000.00 salary + 412.37 interest + (6,000.00 business income - 495.89 - 607.62 - 849.55)
-    assert estimate.json()["members"][0]["total_income"] == "236080.31"
+    assert (
+        estimate.json()["members"][0]["total_income"] == "236080.00"
+    )  # each label drops its cents
     other_year = sample.get("/api/tax/label-totals", params={"financial_year": FY + 1}).json()
     assert all(
         t["label_key"] != "business_expenses" or t["amount"] != "607.62"

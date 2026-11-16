@@ -190,7 +190,7 @@ def test_years_past_the_packs_last_figures_are_carried_and_say_so() -> None:
 
 def test_a_run_records_the_tax_engine_and_rule_pack_versions() -> None:
     used = run_estimate(10_000_000, years=1).used
-    assert used.tax_engine_version == 2  # TAX_ENGINE_VERSION
+    assert used.tax_engine_version == 3  # TAX_ENGINE_VERSION
     assert used.rule_pack_version == PACK.version_label
 
 
@@ -283,7 +283,7 @@ def test_tax_on_estimates_take_home_instead_of_the_stated_amount(sample: TestCli
     off = project(sample, scenario_id(sample, "Likely"))
     p = project(sample, on)
     tax = p["tax"]
-    assert tax["tax_engine_version"] == 2 and tax["rule_pack_version"].startswith(
+    assert tax["tax_engine_version"] == 3 and tax["rule_pack_version"].startswith(
         PACK.version_label
     )
     year0 = tax["years"][0]
@@ -304,7 +304,7 @@ def test_a_saved_run_keeps_the_tax_versions_and_never_changes(sample: TestClient
     assert res.status_code == 201, res.text
     run_id = res.json()["id"]
     saved = sample.get(f"/api/projection/runs/{run_id}").json()
-    assert saved["tax"]["tax_engine_version"] == 2
+    assert saved["tax"]["tax_engine_version"] == 3
     assert saved["tax"]["rule_pack_version"].startswith(PACK.version_label)
     assert res.json()["rule_pack_version"].startswith(PACK.version_label)
     live = project(sample, on)

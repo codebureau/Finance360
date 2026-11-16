@@ -108,7 +108,7 @@ def test_a_label_with_a_figure_the_engine_does_not_model_is_reported(tmp_path: P
 
 def test_the_report_never_echoes_an_entered_or_lodged_figure_or_a_name(tmp_path: Path) -> None:
     case = json.loads(json.dumps(GOOD))
-    case["members"][0]["expected"]["net_outcome"] = "123456.78"
+    case["members"][0]["expected"]["taxable_income"] = "123456.78"
     case["members"][0]["labels"]["government_allowances"] = "987654.32"
     case["members"][0]["other"] = ["Some lodged line"]
     text = run(case, tmp_path).text()
@@ -181,3 +181,57 @@ def test_a_file_that_is_not_json_is_refused(tmp_path: Path) -> None:
     (folder / f"{FY}.json").write_text("{ not json")
     with pytest.raises(CaseError):
         load_case(folder / f"{FY}.json")
+
+
+def test_a_net_outcome_with_the_wrong_sign_is_refused_naming_the_member_only(
+    tmp_path: Path,
+) -> None:
+    case = json.loads(json.dumps(GOOD))
+    case["members"][0]["expected"]["net_outcome"] = "-990.00"
+    with pytest.raises(CaseError) as error:
+        load_case(write(tmp_path / "proof", case))
+    text = str(error.value)
+    assert text.startswith("member 1: net_outcome does not equal credits less total tax")
+    assert "sign" in text and "990" not in text and "14000" not in text
+
+
+def test_a_net_outcome_a_few_cents_out_is_accepted(tmp_path: Path) -> None:
+    case = json.loads(json.dumps(GOOD))
+    case["members"][0]["expected"]["net_outcome"] = "990.05"
+    load_case(write(tmp_path / "proof", case))
+    case["members"][0]["expected"]["net_outcome"] = "990.06"
+    with pytest.raises(CaseError):
+        load_case(write(tmp_path / "proof", case))
+
+
+def test_total_tax_is_used_when_given_and_the_check_waits_for_all_parts(tmp_path: Path) -> None:
+    case = json.loads(json.dumps(GOOD))
+    case["members"][0]["expected"]["total_tax"] = "13010.00"
+    load_case(write(tmp_path / "proof", case))
+    case["members"][0]["expected"]["total_tax"] = "13000.00"
+    with pytest.raises(CaseError):
+        load_case(write(tmp_path / "proof", case))
+    # without the tax components (and no total) there is nothing to check against
+    del case["members"][0]["expected"]["total_tax"]
+    del case["members"][0]["expected"]["offsets"]
+    case["members"][0]["expected"]["net_outcome"] = "-1.00"
+    load_case(write(tmp_path / "proof", case))
+
+
+def test_thousands_separators_in_amounts_are_accepted(tmp_path: Path) -> None:
+    case = json.loads(json.dumps(GOOD))
+    case["members"][0]["labels"]["salary"] = "80,000.00"
+    case["members"][0]["expected"]["tax_on_taxable_income"] = "10,610.00"
+    case["members"][0]["expected"]["credits"] = "14,000.00"
+    assert run(case, tmp_path).clean
+
+
+def test_the_net_outcome_check_is_skipped_for_a_member_with_other_assessed_lines(
+    tmp_path: Path,
+) -> None:
+    case = json.loads(json.dumps(GOOD))
+    case["members"][0]["expected"]["net_outcome"] = "1090.00"
+    with pytest.raises(CaseError):
+        load_case(write(tmp_path / "proof", case))
+    case["members"][0]["other"] = ["Some offset"]
+    load_case(write(tmp_path / "proof", case))
