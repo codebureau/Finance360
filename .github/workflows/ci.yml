@@ -1,19 +1,20 @@
 name: CI
 
 # Step order within each job is the order AGENTS.md documents; keep the two in sync.
-# Docs-only changes skip CI (nothing builds or tests Markdown); security.yml still runs on them.
+# Docs-only changes start this workflow (so the `ci-result` check below always reports) but the
+# `changes` job finds no area to run, so only `changes` and `ci-result` execute; security.yml
+# still runs on them too.
 # On a PR, each job runs only when its area changed (the `changes` job). A change to this file,
 # a release tag, the weekly run and a manual run each run everything.
-# A draft PR runs nothing here: CI runs when it is marked ready and on each push after that.
+# A draft PR runs no real job here: CI runs when it is marked ready and on each push after that.
+# `ci-result` is the one required check: it passes when every job that ran passed (skipped is
+# fine) and fails if any failed or was cancelled.
 # The slow tier (tier 2) runs only when the plumbing it exercises changed (`slow` below).
 # No run on push to main: the PR run is the gate, and re-running it after every merge roughly
 # doubled Actions minutes. The weekly run catches a merge of a PR that was behind main.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
   push:
     tags: ["v*"]
   schedule:
@@ -157,3 +158,24 @@ jobs:
       - uses: actions/checkout@v7
       - name: Build image
         run: docker build --build-arg GIT_SHA=${{ github.sha }} -t finance360:ci .
+
+  # The single check the `main` ruleset requires. It always runs, so a PR whose other jobs are all
+  # skipped (docs-only, or a draft) still gets a result. Keep `needs` listing every other job; a
+  # test (test_ci_workflow.py) fails if one is missing.
+  ci-result:
+    name: CI result
+    if: always()
+    needs: [changes, backend, frontend, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any job failed or was cancelled
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          for r in $RESULTS; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "::error::A CI job finished as '$r'."; exit 1 ;;
+            esac
+          done

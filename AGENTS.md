@@ -112,7 +112,7 @@ Commands marked *planned* don't exist yet; the issue that makes each real update
 | Review a PR (maintainer only) | `review <PR#>` · `review --stop` · `review --reset` (`scripts/review.py`; see "Review slot" below). Needs Python 3.10+, `git`, `gh`, Docker; not `uv` |
 
 **Agents run tier 1 locally (see "Test tiers"); CI is the gate for the rest.** CI is
-`.github/workflows/ci.yml`: three parallel jobs on Python 3.14 and Node 25 (the image's versions;
+`.github/workflows/ci.yml`: a `changes` job, three parallel jobs and a `CI result` job, on Python 3.14 and Node 25 (the image's versions;
 keep them in step with the `Dockerfile`). Within each job the steps run in this order:
 
 1. **backend**: `uv sync --frozen` → `ruff check .` → `ruff format --check .` → `pyright` →
@@ -135,8 +135,10 @@ keep them in step with the `Dockerfile`). Within each job the steps run in this 
    demand. Migration and model changes are covered at the release tag; run it on demand before
    tagging if in doubt.
 
-**What runs when.** A change that touches only `docs/**` or Markdown files skips `ci.yml` (and
-`platform.yml`). On a PR, `ci.yml`'s `changes` job then runs only the affected jobs:
+**What runs when.** A change that touches only `docs/**` or Markdown files skips `platform.yml`. It
+still starts `ci.yml`, but only the `changes` and `CI result` jobs run (backend, frontend and docker
+all skip), so the required check below always reports. On a PR, `ci.yml`'s `changes` job runs only
+the affected jobs:
 - **backend:** any change outside `frontend/` (the backend tests read `scripts/`, `deploy/`,
   `fixtures/` and the compose files).
 - **frontend:** a change under `frontend/`. A change to the API it is generated from (`backend/`,
@@ -148,8 +150,15 @@ keep them in step with the `Dockerfile`). Within each job the steps run in this 
   capability or its unit tests skips it. `test_ci_workflow.py` keeps the pattern's file list equal
   to `SLOW_FILES`.
 
-**Drafts run nothing but `security.yml`.** `ci.yml`, `audit.yml` and `platform.yml` skip a draft PR
-and run when it is marked ready, then on each push. So open a PR as a draft, and mark it ready to run
+**`CI result` is the required check.** The `main` ruleset requires it beside the three Security
+checks (once it has run, the maintainer adds it in Settings). It always runs (`if: always()`), needs
+every other job in `ci.yml`, passes when each of them succeeded or was skipped, and fails if any
+failed or was cancelled. Requiring `backend`, `frontend` or `docker` directly would block PRs where
+they skip. A new job in `ci.yml` must be added to its `needs`; `test_ci_workflow.py` enforces it.
+
+**Drafts run no real job.** `ci.yml`, `audit.yml` and `platform.yml` skip a draft PR (in `ci.yml`
+only `CI result` starts, and passes on skipped jobs; a draft cannot be merged anyway) and run when it
+is marked ready, then on each push. So open a PR as a draft, and mark it ready to run
 CI once the local checks (tier 1, plus the slow tier for the area) pass. While reworking a ready PR
 after review, convert it back to draft until all the fixes are pushed, then mark it ready again.
 
