@@ -44,3 +44,43 @@ def test_plumbing_and_the_fixture_trigger_the_slow_tier_and_a_capability_alone_d
         "frontend/src/components/tax-page.tsx",
     ):
         assert not pattern.search(path), path
+
+
+TEXT = CI.read_text(encoding="utf-8")
+JOBS_HEADER = "\njobs:\n"
+JOB_KEY = re.compile(r"^  ([a-z][\w-]*):\s*$", re.MULTILINE)
+
+
+def job_names() -> set[str]:
+    return set(JOB_KEY.findall(TEXT.split(JOBS_HEADER, 1)[1]))
+
+
+def job_block(name: str) -> str:
+    after = TEXT.split(JOBS_HEADER, 1)[1].split(f"\n  {name}:\n", 1)[1]
+    return JOB_KEY.split(after)[0]
+
+
+def test_ci_result_always_runs_and_needs_every_other_job() -> None:
+    block = job_block("ci-result")
+    assert re.search(r"^    name: CI result$", block, re.MULTILINE)
+    assert re.search(r"^    if: always\(\)$", block, re.MULTILINE)
+    needs = re.search(r"^    needs: \[([^\]]*)\]$", block, re.MULTILINE)
+    assert needs is not None
+    assert {n.strip() for n in needs.group(1).split(",")} == job_names() - {"ci-result"}
+
+
+def test_ci_result_fails_on_failure_or_cancel_and_accepts_skipped() -> None:
+    block = job_block("ci-result")
+    assert "join(needs.*.result" in block
+    assert "success|skipped) ;;" in block
+    assert "*) " in block and "exit 1" in block
+
+
+def test_docs_only_changes_start_ci_but_run_no_area_job() -> None:
+    assert "paths-ignore:" not in TEXT
+    for name in ("backend", "frontend", "docker"):
+        assert "needs.changes.outputs" in job_block(name), name
+    found = re.search(r"\[backend\]='([^']*)'", TEXT)
+    assert found is not None
+    for path in ("docs/adr/0001.md", "README.md", "frontend/src/a.tsx"):
+        assert re.search(found.group(1), path), path
