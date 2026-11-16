@@ -370,7 +370,7 @@ test("the sidebar links to Imports", async () => {
   expect(screen.getByRole("link", { name: "Imports" })).toHaveAttribute("aria-current", "page");
 });
 
-// --- the Identifiers section on the Account detail page (issue #92) ---------------------------
+// --- the Identifiers section on the Account detail page ---------------------------------------
 
 const IDENT = {
   id: 7,
@@ -618,7 +618,7 @@ test("a New transaction types panel blocks commit; choosing a meaning and saving
   const choices = within(line.getByLabelText("Meaning of Managed Fund Transaction"))
     .getAllByRole("option")
     .map((o) => o.textContent);
-  expect(choices).toEqual(["Choose…", "Buy", "Sell", "Ignore"]);
+  expect(choices).toEqual(["Chooseâ€¦", "Buy", "Sell", "Ignore"]);
   fireEvent.change(line.getByLabelText("Meaning of Managed Fund Transaction"), { target: { value: "buy" } });
   fireEvent.click(line.getByRole("button", { name: "Save" }));
   await waitFor(() => expect(screen.queryByText("Commit blocked")).not.toBeInTheDocument());

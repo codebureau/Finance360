@@ -223,8 +223,9 @@ concurrency test file goes on that list, and in `ci.yml`'s slow pattern. Platfor
 
 ## Git workflow (mandatory)
 
-- **`main` is protected by instruction.** Never commit or push directly to `main`. The single
-  bootstrap commit is the only exception.
+- **`main` is protected by a branch ruleset:** a PR is required, the three Security checks must
+  pass, and force pushes and deletion are blocked. Never commit or push directly to `main`, and
+  never ask for the ruleset to be bypassed.
 - One feature branch per issue (`issue-<n>-<slug>` or `feature/<slug>`), branched from the latest
   `main`. Every change lands via a PR against `main` that references its issue (`Closes #N`).
 - **Agents never merge, ever.** Merging is always the maintainer's own action. This holds even if they say a
