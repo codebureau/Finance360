@@ -469,7 +469,9 @@ def test_with_the_figures_the_record_the_label_total_and_the_estimate_agree(
     )
     assert estimate.status_code == 200, estimate.text
     # 120,000.00 salary + 412.37 interest + (6,000.00 business income - 1,929.10 expenses)
-    assert estimate.json()["members"][0]["total_income"] == "236104.27"
+    assert (
+        estimate.json()["members"][0]["total_income"] == "236104.00"
+    )  # each label drops its cents
     # FY + 1 holds Jordan's fixture record waiting for a figure; FY + 2 holds nothing
     other_year = sample.get("/api/tax/label-totals", params={"financial_year": FY + 2}).json()
     assert all(t["label_key"] != "work_car" for t in other_year["totals"])

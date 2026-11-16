@@ -28,7 +28,7 @@ from finance360.core.money import Money
 
 #: Bump together with ``TAX_ENGINE_VERSION`` whenever the engine returns something different for the
 #: same input (ADR-0015 s3). The goldens below were worked out with this version.
-GOLDEN_ENGINE_VERSION = 2
+GOLDEN_ENGINE_VERSION = 3
 
 
 def test_golden_answers_were_computed_with_this_engine_version() -> None:
@@ -154,9 +154,9 @@ def test_gains_business_instant_deduction_and_offset_golden() -> None:
     ).members[0]
     # Losses use the 2,000 of other gains first, then 1,000 of the discountable gains; the 9,000
     # left is taxed at 60% (a 40% discount): 5,400.
-    # Income 50,000.99 + 5,400 + 12,000, less the instant deduction of 800 in place of 300 of car
-    # expenses: 66,600.99, truncated to whole dollars.
-    assert m.total_income == aud("67400.99") and m.total_deductions == aud("800")
+    # Income 50,000 (the 0.99 is dropped, as on the return) + 5,400 + 12,000, less the instant
+    # deduction of 800 in place of 300 of car expenses: 66,600.
+    assert m.total_income == aud("67400") and m.total_deductions == aud("800")
     assert m.taxable_income == aud("66600")
     assert m.tax_on_taxable_income == aud("7662")  # 2,030 + 25,600 at 22%
     # The offset: the share of tax on business income (12,000 of 66,600) at 12%.
@@ -199,7 +199,118 @@ def test_the_instant_deduction_needs_a_year_that_has_one_and_work_expenses_below
 def test_a_deduction_beyond_income_is_a_tax_loss_and_taxable_income_is_zero() -> None:
     m = estimate(tax_input(member(1, salary="1000", other_deductions="1500.50"))).members[0]
     assert m.taxable_income == aud("0")
-    assert "Tax loss of 500.50 carried forward." in m.notes
+    assert "Tax loss of 500.00 carried forward." in m.notes
+
+
+# --- a managed fund statement: the franking credit is already inside the franked amount (#53) ---
+
+
+def test_a_managed_fund_statement_entered_as_printed_counts_the_franking_credit_once() -> None:
+    # Statement items 13U 40.00 and 13C 120.00 (the gross-up is inside it), 13Q 36.00.
+    m = estimate(tax_input(member(1, trust_income="160", trust_franking_credits="36"))).members[0]
+    assert m.total_income == aud("160")  # not 196
+    assert m.taxable_income == aud("160")
+    assert m.franking_credits == aud("36") and m.credits == aud("36")
+
+
+def test_direct_dividends_still_add_the_franking_credit_to_income() -> None:
+    # Item 11: the franked amount excludes the credit, so the gross-up is added.
+    m = estimate(
+        tax_input(
+            member(1, dividends_unfranked="40", dividends_franked="70", franking_credits="30")
+        )
+    ).members[0]
+    assert m.total_income == aud("140")
+    assert m.franking_credits == aud("30") and m.credits == aud("30")
+
+
+# --- the return drops the cents of each income and deduction label first (#55) ----------------
+
+
+def test_cents_are_dropped_from_each_label_before_adding_up() -> None:
+    # Labels 100.60 + 200.70 less a deduction of 50.90: the return gives 100 + 200 - 50.
+    first = estimate(
+        tax_input(member(1, salary="100.60", other_income="200.70", other_deductions="50.90"))
+    ).members[0]
+    assert first.taxable_income == aud("250")
+    # The engine used to add in cents (250.40) and round once, so a smaller deduction showed it:
+    second = estimate(
+        tax_input(member(1, salary="100.60", other_income="200.70", other_deductions="50.20"))
+    ).members[0]
+    assert second.taxable_income == aud("250")  # 100 + 200 - 50; adding in cents gave 251
+    assert (second.total_income, second.total_deductions) == (aud("300"), aud("50"))
+
+
+def test_cents_are_dropped_per_label_in_rent_and_business_too() -> None:
+    m = estimate(
+        tax_input(
+            member(
+                1,
+                rent_gross="1000.90",
+                rent_interest="300.90",
+                rent_other="100.90",
+                business_income="500.50",
+                business_expenses="200.50",
+                work_other="10.99",
+                interest_deductions="20.99",
+            )
+        )
+    ).members[0]
+    # rent 1000 - 300 - 100 = 600; business 500 - 200 = 300; deductions 10 + 20
+    assert m.total_income == aud("900") and m.total_deductions == aud("30")
+    assert m.taxable_income == aud("870")
+
+
+def test_the_net_capital_gain_is_the_label_that_drops_its_cents() -> None:
+    # 1,000.99 discountable, discount 40%: 600.594 -> 600.59 net; the return shows 600.
+    m = estimate(tax_input(member(1, gains_discountable="1000.99"))).members[0]
+    assert m.total_income == aud("600")
+
+
+def test_credits_keep_their_cents() -> None:
+    m = estimate(
+        tax_input(
+            member(
+                1,
+                salary="50000.99",
+                tax_withheld="9000.45",
+                tfn_withheld="1.11",
+                payg_instalments="200.25",
+                franking_credits="30.30",
+                trust_franking_credits="6.06",
+            )
+        )
+    ).members[0]
+    assert m.tax_withheld == aud("9001.56")
+    assert m.payg_instalments == aud("200.25")
+    assert m.franking_credits == aud("36.36")
+    assert m.credits == aud("9238.17")
+
+
+@settings(max_examples=60, deadline=None)
+@given(
+    st.lists(st.integers(0, 50_000_000), min_size=2, max_size=2),
+    st.lists(st.integers(0, 5_000_000), min_size=2, max_size=2),
+)
+def test_taxable_income_is_the_whole_dollar_labels_added_and_subtracted(
+    incomes: list[int], deductions: list[int]
+) -> None:
+    def text(cents: int) -> str:
+        return f"{cents // 100}.{cents % 100:02d}"
+
+    m = estimate(
+        tax_input(
+            member(
+                1,
+                salary=text(incomes[0]),
+                other_income=text(incomes[1]),
+                work_other=text(deductions[0]),
+                other_deductions=text(deductions[1]),
+            )
+        )
+    ).members[0]
+    whole = sum(c // 100 for c in incomes) - sum(c // 100 for c in deductions)
+    assert m.taxable_income == aud(str(max(0, whole)))
 
 
 # --- family tests -------------------------------------------------------------------------

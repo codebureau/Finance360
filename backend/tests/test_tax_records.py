@@ -479,13 +479,14 @@ def test_the_estimate_screen_reads_the_registers_totals(sample: TestClient) -> N
     alex, jordan = res.json()["members"]
     # Alex: salary and interest, plus 6,000.00 of business income less the camera's 495.89 and the
     # home office's 1,037.40 and the car's 849.55 (965.4 km at 0.88)
-    assert (alex["total_income"], jordan["total_income"]) == ("235650.53", "86500.00")
+    assert (alex["total_income"], jordan["total_income"]) == ("235651.00", "86500.00")
     assert res.json()["incomplete"] is False
     # Alex: 480.00 of internet, 250.00 donated, 320.00 of agent fee
     assert alex["total_deductions"] == "1050.00"
     # Jordan: 320.00 of agent fee, the desk's 400.00 (800.00 at 50%, claimed in full) and the
     # casual home office hours' 45.85 (65.50 hours at 0.70) and the car's 679.18 (771.8 km at 0.88)
-    assert jordan["total_deductions"] == "1445.03"
+    # (each label is summed, then drops its cents, as on the return)
+    assert jordan["total_deductions"] == "1444.00"
     # an edit to a record moves the estimate
     salary = next(r for r in records(sample, member_id=ALEX, label="salary"))
     sample.put(
@@ -502,4 +503,4 @@ def test_the_estimate_screen_reads_the_registers_totals(sample: TestClient) -> N
     again = sample.post(
         "/api/tax/estimate", json={"financial_year": FY, "dependants": 0, "member_ids": [ALEX]}
     ).json()
-    assert again["members"][0]["total_income"] == "245650.53"
+    assert again["members"][0]["total_income"] == "245651.00"

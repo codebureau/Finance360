@@ -54,23 +54,23 @@ def steps(m: dict[str, Any]) -> dict[str, str]:
 
 def test_a_member_above_the_threshold_is_taxed_on_the_lesser_amount(sample: TestClient) -> None:
     alex = member(estimate(sample), ALEX)
-    # Taxable 234,600 + fringe benefits 9,000 + no losses + 14,400 contributions = 258,000: 8,000
+    # Taxable 234,601 + fringe benefits 9,000 + no losses + 14,400 contributions = 258,001: 8,001
     # over the 250,000 threshold, which is less than the contributions, so 15% of 8,000.
     assert steps(alex) == {
         "Excess concessional contributions": "0.00",
         "Low tax contributions": "14400.00",
-        "Division 293 income": "258000.00",
-        "Income over the threshold": "8000.00",
-        "Amount taxed": "8000.00",
-        "Division 293 tax": "1200.00",
+        "Division 293 income": "258001.00",
+        "Income over the threshold": "8001.00",
+        "Amount taxed": "8001.00",
+        "Division 293 tax": "1200.15",
     }
-    assert (alex["liability"], alex["applies"]) == ("1200.00", True)
+    assert (alex["liability"], alex["applies"]) == ("1200.15", True)
 
 
 def test_every_input_names_its_source(sample: TestClient) -> None:
     alex = member(estimate(sample), ALEX)
     by_label = {i["label"]: i for i in alex["inputs"]}
-    assert by_label["Taxable income"]["amount"] == "234600.00"
+    assert by_label["Taxable income"]["amount"] == "234601.00"
     assert by_label["Reportable fringe benefits"]["amount"] == "9000.00"
     assert by_label["Division 293 threshold"]["amount"] == "250000.00"
     assert by_label["Concessional contributions cap"]["amount"] == "30000.00"
@@ -257,8 +257,8 @@ def test_over_the_cap_warns_and_the_excess_leaves_the_low_tax_contributions(
     assert steps(alex) == {
         "Excess concessional contributions": "3000.00",
         "Low tax contributions": "30000.00",
-        "Division 293 income": "273600.00",
-        "Income over the threshold": "23600.00",
-        "Amount taxed": "23600.00",
-        "Division 293 tax": "3540.00",
+        "Division 293 income": "273601.00",
+        "Income over the threshold": "23601.00",
+        "Amount taxed": "23601.00",
+        "Division 293 tax": "3540.15",
     }

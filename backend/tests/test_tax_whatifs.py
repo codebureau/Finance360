@@ -440,7 +440,9 @@ def test_an_estimate_from_an_older_engine_shows_as_computed_by_it_and_a_rerun_sa
             tax_input_version=row.tax_input_version,
             rule_pack_version=row.rule_pack_version,
             input_json=row.input_json,
-            result_json=row.result_json.replace('"engine_version":2', '"engine_version":1'),
+            result_json=row.result_json.replace(
+                f'"engine_version":{engine.TAX_ENGINE_VERSION}', '"engine_version":1'
+            ),
             provenance_json=row.provenance_json,
             incomplete=row.incomplete,
             has_provisional=row.has_provisional,

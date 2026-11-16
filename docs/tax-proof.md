@@ -62,13 +62,19 @@ want; the test uses the **highest year** (the most recently lodged return). To k
   levy and surcharge tests need both).
 * `labels`: the Return label totals for that member, by label key (see `labels.py`, or
   `GET /api/tax/setup`). Amounts are decimal strings with at most two places, days are whole
-  numbers, flags are `true` or `false`. A label left out is zero. Enter a label the engine does not
+  numbers, flags are `true` or `false`. Thousands separators (`"90,000.00"`) are accepted and ignored,
+  in `labels` and `expected` alike. A label left out is zero. Enter a label the engine does not
   model (for example `government_allowances`) and the test reports it, because the estimate would be
   incomplete.
 * `expected`: the assessed outcome per member, by result key. The keys the engine can match are
   `taxable_income`, `tax_on_taxable_income`, `offsets`, `medicare_levy`, `medicare_levy_surcharge`,
   `help_repayment`, `total_tax`, `credits` and `net_outcome` (credits less total tax: a refund is
   positive, an amount payable negative). Any other key is reported as having no engine value.
+  When `credits`, `net_outcome` and either `total_tax` or all of `tax_on_taxable_income`, `offsets`,
+  `medicare_levy`, `medicare_levy_surcharge` and `help_repayment` are given, the file is refused
+  unless `net_outcome` equals credits less total tax to within 5 cents (the tax office rounds small
+  amounts). The message names the member and suggests checking the sign, and shows no figure.
+  The check is skipped for a member with any `other` items, whose assessed lines also move the net outcome.
 * `other` (optional): names of assessed lines the engine has no key for. Each is reported by name.
 
 ## Reading the result

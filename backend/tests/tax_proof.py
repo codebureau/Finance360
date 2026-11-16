@@ -172,15 +172,58 @@ def load_case(path: Path) -> Case:
         other = body.get("other", [])
         if not isinstance(other, list) or not all(isinstance(n, str) for n in other):  # pyright: ignore[reportUnknownVariableType]
             raise CaseError(f"{where}: other must list names")
-        members.append(
-            MemberCase(
-                born,
-                {k: v for k, v in entered.items()},
-                {k: str(v) for k, v in expected.items()},
-                tuple(cast("list[str]", other)),
-            )
+        member = MemberCase(
+            born,
+            {k: v for k, v in entered.items()},
+            {k: str(v) for k, v in expected.items()},
+            tuple(cast("list[str]", other)),
         )
+        _check_net_outcome(member, where)
+        members.append(member)
     return Case(year, dependants, tuple(members))
+
+
+#: The tax office rounds small amounts on the final result, so the lodged net outcome can sit a
+#: few cents from credits less total tax.
+NET_OUTCOME_TOLERANCE = Money(5, "AUD")
+
+_TAX_COMPONENTS = (
+    "tax_on_taxable_income",
+    "offsets",
+    "medicare_levy",
+    "medicare_levy_surcharge",
+    "help_repayment",
+)
+
+
+def _check_net_outcome(member: MemberCase, where: str) -> None:
+    """The lodged ``net_outcome`` must be credits less total tax, within a few cents. A refund is
+    positive and an amount payable negative; a flipped sign is the usual mistake. The message names
+    the member and never echoes a figure."""
+    exp = member.expected
+    if member.other or "credits" not in exp or "net_outcome" not in exp:
+        return  # other assessed lines (an offset, say) legitimately move net_outcome
+    if "total_tax" in exp:
+        total = _amount(exp["total_tax"], f"{where}: expected total_tax")
+    elif all(k in exp for k in _TAX_COMPONENTS):
+        parts = {k: _amount(exp[k], f"{where}: expected {k}") for k in _TAX_COMPONENTS}
+        total = (
+            parts["tax_on_taxable_income"]
+            - parts["offsets"]
+            + parts["medicare_levy"]
+            + parts["medicare_levy_surcharge"]
+            + parts["help_repayment"]
+        )
+    else:
+        return
+    credits = _amount(exp["credits"], f"{where}: expected credits")
+    net = _amount(exp["net_outcome"], f"{where}: expected net_outcome")
+    gap = abs((credits - total).amount_minor - net.amount_minor)
+    if gap > NET_OUTCOME_TOLERANCE.amount_minor:
+        raise CaseError(
+            f"{where}: net_outcome does not equal credits less total tax; check its sign "
+            "(a refund is positive, an amount payable negative) and the other expected figures"
+        )
 
 
 # --- building and comparing --------------------------------------------------------------------

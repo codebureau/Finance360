@@ -462,7 +462,7 @@ def test_the_shipped_pack_counts_the_camera_against_the_business_in_the_estimate
     # 120,000.00 salary + 412.37 interest
     # + (6,000.00 business income - 495.89 camera - 1,037.40 home office: 1,482.00 hours at 0.70
     #    - 849.55 car: 965.4 km at 0.88)
-    assert alex["total_income"] == "235650.53"
+    assert alex["total_income"] == "235651.00"
     assert not any("Business loss" in n for n in alex["notes"])
 
 

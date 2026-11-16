@@ -40,9 +40,6 @@ Scenario, with reproducible saved runs.
   - **Definition of Done:** a projection year's take-home pay comes from the tax engine with saved
     runs still reproducible; Division 293 is predicted with its one-year lag and a stated payer; the
     regular-deduction-from-super mechanism is decided by its ADR (ADR-0028).
-- **M1 Household position**: its sub-issues are done. It closes when its Definition of Done is met: a
-  real household's data entered and matching its inventory, the restore exercise, and the review-slot
-  confirmation.
 
 **Earlier phases:**
 - Bootstrap: done 2026-10-16.
@@ -52,13 +49,15 @@ Scenario, with reproducible saved runs.
 - Lean dev cycle (2026-10-21): tiered tests, opt-in Tester passes, thin slices.
 - M2 Investment platform import (ADR-0013): closed 2026-10-24. G1–G6 were released as
   `v0.2.0`. Fixes from real exports followed in `v0.2.1`–`v0.2.4`.
+- M1 Household position (epic #2): closed 2026-11-17. `v0.9.0` is deployed, the restore was
+  exercised from the off-site copy, and the maintainer confirmed a representative position.
 
 ## Committed sequence
 
 | # | Milestone | Observable outcome |
 |---|---|---|
 | M0 | Financial inventory | Private inventory of every item in today's position, plus a seeded Category/Account type catalogue and a ranked Importer backlog in the repo |
-| M1 | Household position (walking skeleton) ([#2](https://github.com/codebureau/Finance360/issues/2)) | Real Accounts entered in a deployment show the true household net position by Member and Category, in AUD, today and over time. Includes the review slot, backup and a tested restore |
+| M1 | Household position (walking skeleton; closed 2026-11-17) ([#2](https://github.com/codebureau/Finance360/issues/2)) | Real Accounts entered in a deployment show the true household net position by Member and Category, in AUD, today and over time. Includes the review slot, backup and a tested restore |
 | UX | UX foundation (inserted 2026-10-20; done) | URL routing, sidebar shell, list and detail pages, anchored editing, confirmed destructive actions and semantic theming. New screens follow one pattern (ADR-0014) |
 | M2 | Investment platform import | The platform's exports derive an investment Account's value and history automatically, kept current by daily prices |
 | M3 | First projection ([#4](https://github.com/codebureau/Finance360/issues/4)) | "Are we on track for retirement?" is roughly answerable per Scenario, with reproducible saved runs |
