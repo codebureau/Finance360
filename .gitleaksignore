@@ -1,0 +1,3 @@
+# Reviewed false positives (gitleaks fingerprints). Each must be a synthetic test value, never a real secret.
+# Synthetic owner password for the real-server backup regression test (#33).
+d0f5486146dec010c39b1a65c68646c6e6a8457a:backend/tests/test_backup.py:generic-api-key:447

@@ -1,0 +1,59 @@
+name: Platform
+
+# Tier 3 (AGENTS.md "Test tiers"): backup and restore against real restic and rclone, on Linux.
+# Runs on PRs that change backup or restore code, on release tags, and on demand. Migration and
+# model changes are covered at the release tag (run it on demand before tagging if in doubt).
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "backend/finance360/backup/**"
+      - "backend/finance360/core/backup.py"
+      - "backend/tests/test_backup.py"
+      - "backend/tests/test_restore.py"
+      - "Dockerfile"
+      - ".github/workflows/platform.yml"
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: platform-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  UV_PYTHON: "3.14"
+
+# A draft PR runs nothing here (as in ci.yml); security.yml still runs on drafts.
+jobs:
+  backup-restore:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Install restic and rclone (the platform tests drive the real tools)
+        # Same releases and checksums as the Dockerfile's backup-tools stage: bump them together.
+        run: |
+          set -eu
+          cd "$RUNNER_TEMP"
+          restic=restic_0.19.1_linux_amd64.bz2
+          rclone_dir=rclone-v1.75.2-linux-amd64
+          curl -fsSLO "https://github.com/restic/restic/releases/download/v0.19.1/${restic}"
+          echo "f415415624dcc452f2a02b8c33641791a8c6d6d3b65bbb3543fcf9a25151585c  ${restic}" | sha256sum -c -
+          bunzip2 -c "${restic}" | sudo tee /usr/local/bin/restic > /dev/null
+          curl -fsSLO "https://github.com/rclone/rclone/releases/download/v1.75.2/${rclone_dir}.zip"
+          echo "349ac8fba6ff65d6247043f1750cdcb518ec5d500ef91463a10d37c0ccdf3702  ${rclone_dir}.zip" | sha256sum -c -
+          unzip -j "${rclone_dir}.zip" "${rclone_dir}/rclone" -d "$RUNNER_TEMP/rclone-bin"
+          sudo install -m 0755 "$RUNNER_TEMP/rclone-bin/rclone" /usr/local/bin/rclone
+          sudo chmod 0755 /usr/local/bin/restic
+          restic version
+          rclone version
+      - name: Platform tests
+        run: uv run pytest -m platform

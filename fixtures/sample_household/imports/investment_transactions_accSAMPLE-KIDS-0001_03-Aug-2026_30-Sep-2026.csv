@@ -1,0 +1,6 @@
+Account number,Investment,Product ID,Product Type,Trade Date,Type,Unit Price,Quantity,Value,Brokerage
+SAMPLE-KIDS-0001,Sample Kids Growth Fund,SKGF,Managed Fund,30-Sep-2026,DRP,1.2000,10.5,12.60,
+SAMPLE-KIDS-0001,Sample Kids Growth Fund,SKGF,Managed Fund,15-Sep-2026,Managed Fund Transaction,1.1900,420,499.80,
+SAMPLE-KIDS-0001,Sample Kids Growth Fund,SKGF,Managed Fund,31-Aug-2026,Managed Fund Transaction,1.1800,200,236.00,
+SAMPLE-KIDS-0001,Sample Kids Growth Fund,SKGF,Managed Fund,15-Aug-2026,DRP,1.1700,8,9.36,
+SAMPLE-KIDS-0001,Sample Kids Growth Fund,SKGF,Managed Fund,03-Aug-2026,Managed Fund Transaction,1.1500,100,115.00,

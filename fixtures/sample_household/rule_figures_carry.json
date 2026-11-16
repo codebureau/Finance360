@@ -1,0 +1,11 @@
+{
+  "fy": 2028,
+  "confirm": [
+    "tax.lito.max",
+    "tax.lito.taper1_from",
+    "tax.lito.taper1_rate",
+    "tax.lito.taper2_from",
+    "tax.lito.taper2_rate",
+    "tax.medicare.levy_rate"
+  ]
+}

@@ -1,0 +1,565 @@
+{
+  "household": { "name": "The Sample Household", "time_zone": "Australia/Melbourne", "effort_level": "steady" },
+  "members": [
+    { "name": "Alex Sample", "date_of_birth": "1984-03-12" },
+    { "name": "Jordan Sample", "date_of_birth": "1986-09-30" }
+  ],
+  "accounts": [
+    {
+      "name": "Everyday account (Sample Bank)",
+      "category": "cash",
+      "account_type": "transaction_account",
+      "owners": [
+        "Alex Sample"
+      ],
+      "opened_on": "2015-06-01",
+      "tags": [
+        "everyday"
+      ],
+      "valuations": [
+        { "as_at": "2024-10-31", "amount": "2404.45", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2024-11-30", "amount": "4729.26", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2024-12-31", "amount": "2120.86", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2025-03-31", "amount": "3172.29", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2025-04-30", "amount": "2498.23", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2025-05-31", "amount": "4522.50", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2025-06-30", "amount": "4326.62", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2025-07-31", "amount": "4490.92", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2025-08-31", "amount": "4050.27", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2025-09-30", "amount": "3205.76", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2025-10-31", "amount": "2642.09", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2025-11-30", "amount": "4752.77", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2026-01-31", "amount": "2388.62", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2026-02-28", "amount": "4328.72", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2026-03-31", "amount": "4598.94", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2026-04-30", "amount": "2386.04", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2026-05-31", "amount": "4755.11", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2026-06-30", "amount": "3861.33", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2026-07-31", "amount": "3709.37", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2026-08-31", "amount": "3090.96", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2026-09-30", "amount": "4264.24", "source": "statement", "note": "Invented Sample Bank monthly statement" }
+      ]
+    },
+    {
+      "name": "Sample Term Deposit (Sample Bank)",
+      "category": "cash",
+      "account_type": "savings_account",
+      "owners": [
+        "Jordan Sample"
+      ],
+      "opened_on": "2025-01-01",
+      "notes": "Invented. Opened in January 2025 but first valued in March, so the earlier month-ends are incomplete.",
+      "valuations": [
+        { "as_at": "2025-03-15", "amount": "10000.00", "source": "statement", "note": "Invented first statement" },
+        { "as_at": "2025-09-30", "amount": "10150.00", "source": "statement", "note": "Invented statement" },
+        { "as_at": "2026-09-30", "amount": "10620.50", "source": "statement", "note": "Invented statement" }
+      ]
+    },
+    {
+      "name": "Joint savings (Sample Bank)",
+      "category": "cash",
+      "account_type": "savings_account",
+      "owners": [
+        "Alex Sample",
+        "Jordan Sample"
+      ],
+      "opened_on": "2018-02-14",
+      "notes": "Shared emergency buffer.",
+      "tags": [
+        "emergency fund"
+      ],
+      "valuations": [
+        { "as_at": "2024-10-31", "amount": "20265.64", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2024-11-30", "amount": "20581.43", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2024-12-31", "amount": "20387.06", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2025-01-31", "amount": "20735.02", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2025-02-28", "amount": "21055.62", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2025-03-31", "amount": "21561.62", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2025-04-30", "amount": "22197.55", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2025-07-31", "amount": "22085.81", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2025-08-31", "amount": "22782.32", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2025-09-30", "amount": "23155.16", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2025-10-31", "amount": "23388.91", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2025-11-30", "amount": "23834.56", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2025-12-31", "amount": "23801.94", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2026-01-31", "amount": "24089.87", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2026-02-28", "amount": "24647.11", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2026-03-31", "amount": "24714.07", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2026-04-30", "amount": "25297.67", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2026-06-30", "amount": "25248.41", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2026-07-31", "amount": "25930.89", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2026-08-31", "amount": "26321.46", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at": "2026-09-30", "amount": "26303.79", "source": "statement", "note": "Invented Sample Bank monthly statement" }
+      ]
+    },
+    {
+      "name": "Sample Brokerage account",
+      "category": "investments",
+      "account_type": "brokerage_account",
+      "owners": [
+        "Alex Sample"
+      ],
+      "tags": [
+        "growth"
+      ],
+      "identifiers": [
+        { "kind": "vendor_account_id", "value": "SAMPLE-PI-0001", "institution": "Vanguard PI" }
+      ],
+      "valuations": [
+        { "as_at": "2024-10-18", "amount": "39659.02", "source": "manual", "note": "Read from the invented broker app" },
+        { "as_at": "2024-12-15", "amount": "38025.18", "source": "manual", "note": "Read from the invented broker app" },
+        { "as_at": "2025-01-23", "amount": "41725.19", "source": "manual", "note": "Read from the invented broker app" },
+        { "as_at": "2025-02-07", "amount": "45057.13", "source": "manual", "note": "Read from the invented broker app" },
+        { "as_at": "2025-05-10", "amount": "47536.40", "source": "manual", "note": "Read from the invented broker app" },
+        { "as_at": "2025-06-23", "amount": "46564.37", "source": "manual", "note": "Read from the invented broker app" },
+        { "as_at": "2025-07-07", "amount": "48176.73", "source": "manual", "note": "Read from the invented broker app" },
+        { "as_at": "2025-09-19", "amount": "49041.49", "source": "manual", "note": "Read from the invented broker app" },
+        { "as_at": "2025-10-15", "amount": "52149.33", "source": "manual", "note": "Read from the invented broker app" },
+        { "as_at": "2025-11-26", "amount": "51962.18", "source": "manual", "note": "Read from the invented broker app" },
+        { "as_at": "2026-01-03", "amount": "49906.65", "source": "manual", "note": "Read from the invented broker app" },
+        { "as_at": "2026-03-24", "amount": "53532.75", "source": "manual", "note": "Read from the invented broker app" },
+        { "as_at": "2026-04-05", "amount": "51921.88", "source": "manual", "note": "Read from the invented broker app" },
+        { "as_at": "2026-06-08", "amount": "52476.29", "source": "manual", "note": "Read from the invented broker app" },
+        { "as_at": "2026-08-21", "amount": "54725.73", "source": "manual", "note": "Read from the invented broker app" },
+        { "as_at": "2026-09-04", "amount": "59689.22", "source": "manual", "note": "Read from the invented broker app" }
+      ]
+    },
+    {
+      "name": "Sample Super Fund",
+      "category": "superannuation",
+      "account_type": "super_fund_account",
+      "owners": [
+        "Alex Sample"
+      ],
+      "tags": [
+        "retirement"
+      ],
+      "valuations": [
+        { "as_at": "2024-10-31", "amount": "178737.57", "source": "statement", "note": "Invented Sample Super Fund member statement" },
+        { "as_at": "2025-01-31", "amount": "181034.59", "source": "statement", "note": "Invented Sample Super Fund member statement" },
+        { "as_at": "2025-02-28", "amount": "181929.76", "source": "statement", "note": "Invented Sample Super Fund member statement" },
+        { "as_at": "2025-03-31", "amount": "187114.58", "source": "statement", "note": "Invented Sample Super Fund member statement" },
+        { "as_at": "2025-04-30", "amount": "187354.25", "source": "statement", "note": "Invented Sample Super Fund member statement" },
+        { "as_at": "2025-05-31", "amount": "189732.92", "source": "statement", "note": "Invented Sample Super Fund member statement" },
+        { "as_at": "2025-06-30", "amount": "189979.16", "source": "statement", "note": "Invented Sample Super Fund member statement" },
+        { "as_at": "2025-07-31", "amount": "191583.49", "source": "statement", "note": "Invented Sample Super Fund member statement" },
+        { "as_at": "2025-08-31", "amount": "193404.28", "source": "statement", "note": "Invented Sample Super Fund member statement" },
+        { "as_at": "2025-11-30", "amount": "195103.89", "source": "statement", "note": "Invented Sample Super Fund member statement" },
+        { "as_at": "2025-12-31", "amount": "199049.93", "source": "statement", "note": "Invented Sample Super Fund member statement" },
+        { "as_at": "2026-01-31", "amount": "201769.32", "source": "statement", "note": "Invented Sample Super Fund member statement" },
+        { "as_at": "2026-02-28", "amount": "205646.05", "source": "statement", "note": "Invented Sample Super Fund member statement" },
+        { "as_at": "2026-03-31", "amount": "204294.93", "source": "statement", "note": "Invented Sample Super Fund member statement" },
+        { "as_at": "2026-04-30", "amount": "208918.89", "source": "statement", "note": "Invented Sample Super Fund member statement" },
+        { "as_at": "2026-05-31", "amount": "210678.31", "source": "statement", "note": "Invented Sample Super Fund member statement" },
+        { "as_at": "2026-07-31", "amount": "208919.63", "source": "statement", "note": "Invented Sample Super Fund member statement" },
+        { "as_at": "2026-08-31", "amount": "211719.09", "source": "statement", "note": "Invented Sample Super Fund member statement" },
+        { "as_at": "2026-09-30", "amount": "215228.07", "source": "statement", "note": "Invented Sample Super Fund member statement" }
+      ]
+    },
+    {
+      "name": "Sample UK Pension",
+      "category": "overseas_pensions",
+      "account_type": "overseas_dc_pension",
+      "owners": [
+        "Jordan Sample"
+      ],
+      "currency": "GBP",
+      "notes": "Invented overseas workplace pension.",
+      "tags": [
+        "retirement"
+      ],
+      "valuations": [
+        { "as_at": "2024-10-10", "amount": "61797.34", "source": "statement", "note": "Invented pension provider statement" },
+        { "as_at": "2024-11-15", "amount": "62428.13", "source": "statement", "note": "Invented pension provider statement" },
+        { "as_at": "2024-12-20", "amount": "61065.48", "source": "statement", "note": "Invented pension provider statement" },
+        { "as_at": "2025-03-06", "amount": "61779.15", "source": "statement", "note": "Invented pension provider statement" },
+        { "as_at": "2025-05-21", "amount": "63573.69", "source": "statement", "note": "Invented pension provider statement" },
+        { "as_at": "2025-06-10", "amount": "64110.91", "source": "statement", "note": "Invented pension provider statement" },
+        { "as_at": "2025-09-03", "amount": "64196.87", "source": "statement", "note": "Invented pension provider statement" },
+        { "as_at": "2025-12-26", "amount": "63901.36", "source": "statement", "note": "Invented pension provider statement" },
+        { "as_at": "2026-01-09", "amount": "64454.35", "source": "statement", "note": "Invented pension provider statement" },
+        { "as_at": "2026-02-16", "amount": "64650.80", "source": "statement", "note": "Invented pension provider statement" },
+        { "as_at": "2026-03-11", "amount": "67468.94", "source": "statement", "note": "Invented pension provider statement" },
+        { "as_at": "2026-05-08", "amount": "65736.99", "source": "statement", "note": "Invented pension provider statement" },
+        { "as_at": "2026-06-15", "amount": "66810.60", "source": "statement", "note": "Invented pension provider statement" },
+        { "as_at": "2026-09-08", "amount": "68827.92", "source": "statement", "note": "Invented pension provider statement" }
+      ]
+    },
+    {
+      "name": "Family Home",
+      "category": "property",
+      "account_type": "principal_residence",
+      "owners": [
+        "Jordan Sample"
+      ],
+      "opened_on": "2019-08-20",
+      "valuations": [
+        { "as_at": "2024-10-18", "amount": "779136.76", "source": "estimate", "note": "Invented online property estimate" },
+        { "as_at": "2024-11-09", "amount": "775862.22", "source": "estimate", "note": "Invented online property estimate" },
+        { "as_at": "2024-12-26", "amount": "794146.51", "source": "estimate", "note": "Invented online property estimate" },
+        { "as_at": "2025-02-16", "amount": "794575.32", "source": "estimate", "note": "Invented online property estimate" },
+        { "as_at": "2025-03-20", "amount": "788573.00", "source": "estimate", "note": "Invented online property estimate" },
+        { "as_at": "2025-06-20", "amount": "804022.60", "source": "estimate", "note": "Invented online property estimate" },
+        { "as_at": "2025-09-24", "amount": "810194.33", "source": "estimate", "note": "Invented online property estimate" },
+        { "as_at": "2025-09-24", "amount": "825194.33", "source": "manual", "note": "Invented bank valuation for a refinance check" },
+        { "as_at": "2025-10-06", "amount": "807672.83", "source": "estimate", "note": "Invented online property estimate" },
+        { "as_at": "2026-01-09", "amount": "820006.89", "source": "estimate", "note": "Invented online property estimate" },
+        { "as_at": "2026-03-21", "amount": "809433.43", "source": "estimate", "note": "Invented online property estimate" },
+        { "as_at": "2026-04-20", "amount": "817936.23", "source": "estimate", "note": "Invented online property estimate" },
+        { "as_at": "2026-07-25", "amount": "826046.45", "source": "estimate", "note": "Invented online property estimate" },
+        { "as_at": "2026-09-26", "amount": "822091.58", "source": "estimate", "note": "Invented online property estimate" }
+      ]
+    },
+    {
+      "name": "Family Car",
+      "category": "vehicles",
+      "account_type": "vehicle",
+      "owners": [
+        "Jordan Sample"
+      ],
+      "valuations": [
+        { "as_at": "2024-10-05", "amount": "32164.14", "source": "estimate", "note": "Invented trade-in estimate" },
+        { "as_at": "2024-11-16", "amount": "31058.00", "source": "estimate", "note": "Invented trade-in estimate" },
+        { "as_at": "2024-12-16", "amount": "31310.26", "source": "estimate", "note": "Invented trade-in estimate" },
+        { "as_at": "2025-01-05", "amount": "30898.24", "source": "estimate", "note": "Invented trade-in estimate" },
+        { "as_at": "2025-02-10", "amount": "30227.62", "source": "estimate", "note": "Invented trade-in estimate" },
+        { "as_at": "2025-06-05", "amount": "29349.60", "source": "estimate", "note": "Invented trade-in estimate" },
+        { "as_at": "2025-07-20", "amount": "29151.30", "source": "estimate", "note": "Invented trade-in estimate" },
+        { "as_at": "2025-08-16", "amount": "28499.51", "source": "estimate", "note": "Invented trade-in estimate" },
+        { "as_at": "2025-09-04", "amount": "28745.01", "source": "estimate", "note": "Invented trade-in estimate" },
+        { "as_at": "2025-10-21", "amount": "28717.51", "source": "estimate", "note": "Invented trade-in estimate" },
+        { "as_at": "2025-11-06", "amount": "27343.78", "source": "estimate", "note": "Invented trade-in estimate" },
+        { "as_at": "2026-02-10", "amount": "27125.74", "source": "estimate", "note": "Invented trade-in estimate" },
+        { "as_at": "2026-03-23", "amount": "26872.44", "source": "estimate", "note": "Invented trade-in estimate" },
+        { "as_at": "2026-06-23", "amount": "26089.07", "source": "estimate", "note": "Invented trade-in estimate" }
+      ]
+    },
+    {
+      "name": "Sample Home Loan",
+      "category": "loans_credit",
+      "account_type": "home_loan",
+      "owners": [
+        "Alex Sample"
+      ],
+      "opened_on": "2019-08-20",
+      "valuations": [
+        { "as_at": "2024-10-31", "amount": "520000.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2024-11-30", "amount": "518850.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2024-12-31", "amount": "517700.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2025-01-31", "amount": "516550.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2025-02-28", "amount": "515400.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2025-05-31", "amount": "514250.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2025-06-30", "amount": "513100.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2025-07-31", "amount": "511950.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2025-08-31", "amount": "510800.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2025-09-30", "amount": "509650.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2025-10-31", "amount": "508500.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2025-11-30", "amount": "507350.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2025-12-31", "amount": "506200.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2026-01-31", "amount": "505050.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2026-02-28", "amount": "503900.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2026-04-30", "amount": "502750.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2026-05-31", "amount": "501600.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2026-06-30", "amount": "500450.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2026-07-31", "amount": "499300.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2026-08-31", "amount": "498150.00", "source": "statement", "note": "Invented lender statement, amount owed" },
+        { "as_at": "2026-09-30", "amount": "497000.00", "source": "statement", "note": "Invented lender statement, amount owed" }
+      ]
+    },
+    {
+      "name": "Dormant savings (Sample Bank)",
+      "category": "cash",
+      "account_type": "savings_account",
+      "owners": [
+        "Alex Sample"
+      ],
+      "valuations": [
+        { "as_at": "2024-10-01", "amount": "0.00", "source": "statement", "note": "Invented Sample Bank statement; nothing entered since" }
+      ]
+    },
+    {
+      "name": "Dormant super fund (Sample Super)",
+      "category": "superannuation",
+      "account_type": "super_fund_account",
+      "owners": [
+        "Jordan Sample"
+      ],
+      "valuations": [
+        { "as_at": "2024-10-01", "amount": "0.00", "source": "statement", "note": "Invented Sample Super statement; nothing entered since" }
+      ]
+    },
+    {
+      "name": "Old trailer (Sample)",
+      "category": "vehicles",
+      "account_type": "vehicle",
+      "owners": [
+        "Jordan Sample"
+      ],
+      "valuations": [
+        { "as_at": "2024-10-01", "amount": "0.00", "source": "estimate", "note": "Invented estimate; nothing entered since" }
+      ]
+    }
+  ],
+  "super_statements": [
+    {
+      "account": "Sample Super Fund",
+      "financial_year": 2026,
+      "opening": "189979.16",
+      "contributions_in": "17400.00",
+      "investment_returns": "7528.34",
+      "withdrawals": "3407.50",
+      "closing": "211500.00",
+      "contributions_tax": "2160.00",
+      "fees_before_rebate": "1030.00",
+      "rebate": "154.50",
+      "fees_inside_investment": "640.00",
+      "division_293_released": "0.00",
+      "insurance_premiums": "372.00",
+      "concessional_received": "14400.00",
+      "non_concessional_received": "3000.00",
+      "options": [
+        { "name": "Growth", "units": "20000.000000", "unit_price": "3.412500", "value": "68250.00" },
+        { "name": "Balanced", "units": "40000.000000", "unit_price": "2.250000", "value": "90000.00" },
+        { "name": "High Growth", "units": "10000.001900", "unit_price": "5.325000", "value": "53250.01" }
+      ]
+    },
+    {
+      "account": "Dormant super fund (Sample Super)",
+      "financial_year": 2025,
+      "opening": "70190.00",
+      "contributions_in": "2350.00",
+      "investment_returns": "410.00",
+      "withdrawals": "72950.00",
+      "closing": "0.00"
+    }
+  ],
+  "fx_rates": [
+    { "from_ccy": "GBP", "as_at": "2024-10-01", "rate": "1.9712", "note": "Invented manual rate, start of the period" },
+    { "from_ccy": "GBP", "as_at": "2025-02-03", "rate": "2.0143", "note": "Invented manual rate" },
+    { "from_ccy": "GBP", "as_at": "2025-07-01", "rate": "2.03885", "note": "Invented manual rate" },
+    { "from_ccy": "GBP", "as_at": "2025-12-01", "rate": "2.0561", "note": "Invented manual rate" },
+    { "from_ccy": "GBP", "as_at": "2026-04-01", "rate": "2.0204", "note": "Invented manual rate" },
+    { "from_ccy": "GBP", "as_at": "2026-08-03", "rate": "2.0497", "note": "Invented manual rate" }
+  ],
+  "instruments": [
+    {
+      "name": "Sample Broad Market ETF",
+      "kind": "etf",
+      "currency": "AUD",
+      "notes": "Invented exchange-traded fund.",
+      "identifiers": [
+        { "scheme": "ticker", "value": "SBME" },
+        { "scheme": "yahoo", "value": "SBME.AX" },
+        { "scheme": "isin", "value": "AU0000SMPL01" },
+        { "scheme": "name", "value": "Sample Broad Market Index ETF" }
+      ],
+      "prices": [
+        { "as_at": "2026-08-03", "value": "98.8957", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-08-04", "value": "98.6661", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-08-05", "value": "99.1594", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-08-06", "value": "98.6659", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-08-07", "value": "98.3192", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-08-10", "value": "97.9003", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-08-11", "value": "98.3758", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-08-12", "value": "97.8784", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-08-13", "value": "98.2573", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-08-14", "value": "97.7451", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-08-24", "value": "97.8586", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-08-25", "value": "97.8370", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-08-26", "value": "98.4201", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-08-27", "value": "98.0083", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-08-28", "value": "97.8494", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-08-31", "value": "97.4961", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-01", "value": "97.9399", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-02", "value": "98.2391", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-03", "value": "98.4170", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-07", "value": "98.5771", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-08", "value": "98.4952", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-09", "value": "98.2611", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-10", "value": "98.4061", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-11", "value": "97.9994", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-14", "value": "98.0509", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-15", "value": "97.8634", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-16", "value": "97.6642", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-17", "value": "97.2655", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-18", "value": "97.4382", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-21", "value": "96.9793", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-23", "value": "96.4443", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-24", "value": "96.0707", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-25", "value": "95.9256", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-28", "value": "96.2754", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-29", "value": "95.9213", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
+        { "as_at": "2026-09-30", "value": "96.1075", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" }
+      ]
+    },
+    {
+      "name": "Sample Mining Ltd",
+      "kind": "share",
+      "currency": "AUD",
+      "notes": "Invented listed company.",
+      "identifiers": [
+        { "scheme": "ticker", "value": "SMPM" },
+        { "scheme": "yahoo", "value": "SMPM.AX" },
+        { "scheme": "isin", "value": "AU0000SMPM09" },
+        { "scheme": "name", "value": "Sample Mining Limited" }
+      ],
+      "prices": [
+        { "as_at": "2026-09-01", "value": "6.2682", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
+        { "as_at": "2026-09-02", "value": "6.2156", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
+        { "as_at": "2026-09-03", "value": "6.1397", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
+        { "as_at": "2026-09-04", "value": "6.1377", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
+        { "as_at": "2026-09-07", "value": "6.1890", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
+        { "as_at": "2026-09-08", "value": "6.2059", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
+        { "as_at": "2026-09-09", "value": "6.2497", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
+        { "as_at": "2026-09-10", "value": "6.3040", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
+        { "as_at": "2026-09-11", "value": "6.3032", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
+        { "as_at": "2026-09-17", "value": "6.4357", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
+        { "as_at": "2026-09-18", "value": "6.4677", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
+        { "as_at": "2026-09-21", "value": "6.3986", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
+        { "as_at": "2026-09-22", "value": "6.3083", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
+        { "as_at": "2026-09-23", "value": "6.2927", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
+        { "as_at": "2026-09-24", "value": "6.2175", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
+        { "as_at": "2026-09-25", "value": "6.2763", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
+        { "as_at": "2026-09-28", "value": "6.3443", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
+        { "as_at": "2026-09-29", "value": "6.3184", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
+        { "as_at": "2026-09-30", "value": "6.3304", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" }
+      ]
+    },
+    {
+      "name": "Sample Balanced Growth Fund",
+      "kind": "fund",
+      "currency": "AUD",
+      "notes": "Invented unlisted managed fund: no ticker, no provider Prices.",
+      "identifiers": [
+        { "scheme": "vendor_id", "value": "SBGF-0001" },
+        { "scheme": "isin", "value": "AU0000SMPF03" },
+        { "scheme": "name", "value": "Sample Balanced Growth (unlisted)" }
+      ],
+      "prices": [
+        { "as_at": "2026-03-31", "value": "1.8412", "source": "manual", "note": "Invented unit price from a sample statement" },
+        { "as_at": "2026-06-30", "value": "1.8977", "source": "manual", "note": "Invented unit price from a sample statement" },
+        { "as_at": "2026-09-30", "value": "1.9340", "source": "manual", "note": "Invented unit price from a sample statement" }
+      ]
+    }
+  ],
+  "income_streams": [
+    {
+      "name": "Alex salary (Sample Employer)",
+      "type_key": "salary",
+      "owner": "Alex Sample",
+      "gross_annual": "120000.00",
+      "take_home_annual": "91000.00",
+      "notes": "Invented. Ends at Alex's retirement."
+    },
+    {
+      "name": "Jordan salary (Sample Employer)",
+      "type_key": "salary",
+      "owner": "Jordan Sample",
+      "gross_annual": "85000.00",
+      "take_home_annual": "66000.00",
+      "notes": "Invented. Ends at Jordan's retirement."
+    }
+  ],
+  "tax_records": [
+    { "member": "Alex Sample", "record_type": "income_statement", "from_on": "2025-07-01", "to_on": "2026-06-30", "description": "Income statement, Sample Employer", "notes": "Invented. 200.00 of the package is unreconciled. The bonus is up and more is salary sacrificed than last year.", "statement": { "employer": "Sample Employer", "gross_amount": "108000.00", "bonuses_commissions": "12000.00", "salary_sacrifice_type": "Novated lease", "salary_sacrifice_amount": "5000.00", "gross_payments": "120000.00", "tax_withheld": "28500.00", "employer_super": "14400.00", "net_pay": "84100.00", "reportable_fringe_benefits": "9000.00", "novated_lease_post_tax": "6000.00", "other_deductions": "1200.00", "super_insurance_premiums": "600.00" } },
+    { "member": "Alex Sample", "record_type": "line", "label": "interest", "from_on": "2025-07-01", "to_on": "2026-06-30", "description": "Interest, Sample Savings Account", "amount": "412.37" },
+    { "member": "Alex Sample", "record_type": "line", "label": "work_other", "from_on": "2025-09-12", "description": "Home internet, work-use share", "notes": "Invented. 40% of the year's bill is for work.", "amount": "1200.00", "work_use_percent": "40" },
+    { "member": "Alex Sample", "record_type": "line", "label": "other_income", "from_on": "2025-07-01", "to_on": "2026-06-30", "description": "Consulting income, Sample Advisory", "notes": "Invented. Lifts Alex above the Division 293 threshold for FY 2025-26: with the income statement, the fringe benefits and the super contributions, Division 293 income is 258000.00, which is 8000.00 over, less than the contributions, so the tax is 15% of the 8000.00.", "amount": "111621.00" },
+    { "member": "Alex Sample", "record_type": "line", "label": "gifts_donations", "from_on": "2025-12-15", "description": "Donation to Sample Charity", "amount": "250.00" },
+    { "member": "Alex Sample", "record_type": "line", "label": "tax_affairs", "from_on": "2026-05-20", "description": "Tax agent fee, Sample Tax Agents (joint, half each)", "notes": "Invented. A joint cost of 640.00, entered as each Member's share.", "amount": "320.00" },
+    { "member": "Alex Sample", "record_type": "fact", "label": "help_debt", "from_on": "2025-07-01", "to_on": "2026-06-30", "description": "Study loan balance outstanding", "value": true },
+    { "member": "Jordan Sample", "record_type": "income_statement", "from_on": "2023-07-01", "to_on": "2024-06-30", "description": "Income statement, Sample Employer (FY 2023-24)", "notes": "Invented. An earlier year's statement: it is what makes What's due ask for a newer one if the FY 2025-26 statement is deleted.", "statement": { "gross_payments": "80000.00", "tax_withheld": "18000.00", "employer_super": "9600.00", "net_pay": "62000.00" } },
+    { "member": "Jordan Sample", "record_type": "income_statement", "from_on": "2025-07-01", "to_on": "2026-06-30", "description": "Income statement, Sample Employer", "notes": "Invented. The slices add up to 400.00 more than the package, so Unreconciled is negative. It has no Super statement, so Division 293 counts its employer super plus reportable employer super (12,000.00).", "statement": { "employer": "Sample Employer", "gross_payments": "85000.00", "tax_withheld": "19400.00", "employer_super": "10200.00", "reportable_employer_super": "1800.00", "net_pay": "66000.00" } },
+    { "member": "Jordan Sample", "record_type": "line", "label": "dividends_franked", "from_on": "2025-07-01", "to_on": "2026-06-30", "description": "Franked dividends, Sample Shares", "amount": "1050.00" },
+    { "member": "Jordan Sample", "record_type": "line", "label": "franking_credits", "from_on": "2025-07-01", "to_on": "2026-06-30", "description": "Franking credits, Sample Shares", "amount": "450.00" },
+    { "member": "Jordan Sample", "record_type": "line", "label": "tax_affairs", "from_on": "2026-05-20", "description": "Tax agent fee, Sample Tax Agents (joint, half each)", "notes": "Invented. A joint cost of 640.00, entered as each Member's share.", "amount": "320.00" },
+    { "member": "Jordan Sample", "record_type": "line", "label": "work_other", "from_on": "2024-10-03", "description": "Work laptop, bought in an earlier year", "notes": "Invented. Dated FY 2024-25, so it is outside FY 2025-26.", "amount": "1800.00", "work_use_percent": "60" },
+    { "member": "Alex Sample", "record_type": "depreciating_asset", "label": "business_expenses", "from_on": "2026-01-01", "description": "Sample camera, diminishing value", "notes": "Invented. Started part-way through FY 2025-26 (181 of 365 days) and still used, so it also counts in FY 2026-27 and later. Worked out with the Rule pack's diminishing value percent for FY 2025-26, kept for its life.", "amount": "2000.00", "effective_life_years": "4" },
+    { "member": "Jordan Sample", "record_type": "depreciating_asset", "label": "work_other", "from_on": "2025-08-20", "description": "Sample standing desk, claimed in full", "notes": "Invented. Half its use is for work, and it is claimed in full in the year it started. Check an asset is eligible before claiming it in full.", "amount": "800.00", "effective_life_years": "10", "work_use_percent": "50", "claim_in_full": true },
+    { "member": "Alex Sample", "record_type": "line", "label": "business_income", "from_on": "2025-07-01", "to_on": "2026-06-30", "description": "Sole trader income, Sample Photography", "notes": "Invented. Gives the camera's deduction a business to reduce: without business income it would be a business loss, deferred.", "amount": "6000.00" },
+    { "member": "Alex Sample", "record_type": "home_office_hours", "label": "business_expenses", "from_on": "2025-07-01", "to_on": "2026-06-30", "description": "Sample home office hours, FY 2025-26", "notes": "Invented. Regular: Mon, Tue, Thu and Fri at home, Wednesday in the office. Each month is the calendar prefill (weekdays, Wednesdays) except August and December (leave typed over it) and April (an extra office day). The deduction is the total hours at the Rule pack rate for FY 2025-26.", "arrangement": "regular", "home_weekdays": ["mon", "tue", "thu", "fri"], "hours_per_day": "7.60", "months": [
+      { "month": "2025-07", "working_days": "23", "leave_days": "0", "office_days": "5" },
+      { "month": "2025-08", "working_days": "21", "leave_days": "5", "office_days": "4" },
+      { "month": "2025-09", "working_days": "22", "leave_days": "0", "office_days": "4" },
+      { "month": "2025-10", "working_days": "23", "leave_days": "0", "office_days": "5" },
+      { "month": "2025-11", "working_days": "20", "leave_days": "0", "office_days": "4" },
+      { "month": "2025-12", "working_days": "23", "leave_days": "8", "office_days": "5" },
+      { "month": "2026-01", "working_days": "22", "leave_days": "0", "office_days": "4" },
+      { "month": "2026-02", "working_days": "20", "leave_days": "0", "office_days": "4" },
+      { "month": "2026-03", "working_days": "22", "leave_days": "0", "office_days": "4" },
+      { "month": "2026-04", "working_days": "22", "leave_days": "0", "office_days": "6" },
+      { "month": "2026-05", "working_days": "21", "leave_days": "0", "office_days": "4" },
+      { "month": "2026-06", "working_days": "22", "leave_days": "0", "office_days": "4" }
+    ] },
+    { "member": "Jordan Sample", "record_type": "home_office_hours", "label": "work_other", "from_on": "2025-09-01", "to_on": "2025-12-31", "description": "Sample casual home office hours, Sep to Dec 2025", "notes": "Invented. A casual arrangement: no pattern, just the hours actually worked from home each month. Four months, so the total is four months of hours.", "arrangement": "casual", "months": [
+      { "month": "2025-09", "hours": "18.5" },
+      { "month": "2025-10", "hours": "22" },
+      { "month": "2025-11", "hours": "15.25" },
+      { "month": "2025-12", "hours": "9.75" }
+    ] },
+    { "member": "Alex Sample", "record_type": "car_kilometres", "label": "business_expenses", "from_on": "2025-07-01", "to_on": "2026-06-30", "description": "Sample business car kilometres, FY 2025-26", "notes": "Invented. Five rows of work trips, each the kilometres of one trip and how many times it was made: 504.0 + 148.0 + 124.0 + 93.0 + 96.4 = 965.4 km, below the Rule pack's limit per car, so every kilometre counts. The deduction is those kilometres at the Rule pack's rate per kilometre for FY 2025-26.", "trips": [
+      { "description": "Client site, Sample Pty Ltd, return", "km": "42.0", "times": "12" },
+      { "description": "Supplier pickup, Sample Supplies, return", "km": "18.5", "times": "8" },
+      { "description": "Bank and post office, business errands", "km": "6.2", "times": "20" },
+      { "description": "Photo shoot, Sample Park, return", "km": "31.0", "times": "3", "on": "2025-10-18" },
+      { "description": "Trade fair, Sample Expo Centre, return", "km": "96.4", "times": "1", "on": "2026-03-07" }
+    ] },
+    { "member": "Jordan Sample", "record_type": "car_kilometres", "label": "work_car", "from_on": "2025-07-01", "to_on": "2026-06-30", "description": "Sample work car kilometres, FY 2025-26", "notes": "Invented. Three rows: 275.0 + 384.0 + 112.8 = 771.8 km feeding work-related car expenses (item D1), below the Rule pack's limit per car.", "trips": [
+      { "description": "Training day, Sample Corp head office, return", "km": "27.5", "times": "10" },
+      { "description": "Site visit, Sample Works depot, return", "km": "64.0", "times": "6" },
+      { "description": "Conference, Sample Convention Centre, return", "km": "112.8", "times": "1", "on": "2025-11-12" }
+    ] },
+    { "member": "Jordan Sample", "record_type": "car_kilometres", "label": "work_car", "from_on": "2026-07-01", "to_on": "2027-06-30", "description": "Sample work car kilometres, FY 2026-27", "notes": "Invented. One row of 40.0 km x 5 = 200.0 km so far this year. The release holds no car figures for FY 2026-27, and the household has captured only the rate, so the record waits for the kilometre limit and What's due says it is not captured.", "trips": [
+      { "description": "Training day, Sample Corp head office, return", "km": "40.0", "times": "5" }
+    ] },
+    { "member": "Alex Sample", "record_type": "income_statement", "from_on": "2024-07-01", "to_on": "2025-06-30", "description": "Income statement, Sample Employer, previous year", "notes": "Invented. Last year's statement for the same employer: it is what the FY 2025-26 statement is compared with. A smaller bonus and less salary sacrificed.", "statement": { "employer": "Sample Employer", "gross_amount": "104000.00", "bonuses_commissions": "8000.00", "salary_sacrifice_type": "Novated lease", "salary_sacrifice_amount": "3000.00", "gross_payments": "112000.00", "tax_withheld": "25800.00", "employer_super": "13440.00", "reportable_fringe_benefits": "8000.00", "net_pay": "80200.00", "novated_lease_post_tax": "5000.00", "other_deductions": "1000.00" } }
+  ],
+  "library_documents": [
+    { "file": "documents/sample_savings_statement.txt", "media_type": "text/plain" }
+  ],
+  "document_profiles": [
+    { "file": "documents/ato_income_statement_variant_profile.json", "test_document": "documents/ato_income_statement_sample.pdf", "media_type": "application/pdf" }
+  ],
+  "tax_evidence": [
+    { "member": "Alex Sample", "record": "Donation to Sample Charity", "file": "evidence/sample_donation_receipt.txt", "media_type": "text/plain" }
+  ],
+  "rule_figures": [
+    { "key": "tax.car.rate_per_km", "fy": 2027, "value": "0.95", "quote": "INVENTED for the sample household, not the official rate: the cents per kilometre rate is 95 cents.", "page_url": "https://example.com/invented-car-rate", "retrieved_on": "2026-10-01" }
+  ],
+  "assumptions": {
+    "defaults": [
+      { "key": "annual_saving", "scope_type": "household", "value": "20000.00" },
+      { "key": "retirement_age", "scope_type": "member", "scope_ref": "Alex Sample", "value": "60" },
+      { "key": "retirement_age", "scope_type": "member", "scope_ref": "Jordan Sample", "value": "62" }
+    ],
+    "spending_phases": [
+      { "anchor": "start", "offset_years": 0, "annual_amount": "100000.00" },
+      { "anchor": "last_retirement", "offset_years": 0, "annual_amount": "70000.00" },
+      { "anchor": "last_retirement", "offset_years": 10, "annual_amount": "55000.00" }
+    ],
+    "scenarios": [
+      {
+        "name": "Retire early, spend more",
+        "notes": "Invented: Alex stops work at 55, spending is higher and investments earn a little less.",
+        "drawdown_order": ["investments", "cash", "superannuation", "overseas_pensions"],
+        "overrides": [
+          { "key": "retirement_age", "scope_type": "member", "scope_ref": "Alex Sample", "value": "55" },
+          { "key": "return_rate", "scope_type": "category", "scope_ref": "investments", "value": "6.5" }
+        ],
+        "spending_phases": [
+          { "anchor": "start", "offset_years": 0, "annual_amount": "110000.00" },
+          { "anchor": "last_retirement", "offset_years": 0, "annual_amount": "85000.00" }
+        ]
+      },
+      {
+        "name": "Tax on, Alex's pay climbs",
+        "notes": "Invented: take-home pay is estimated by the tax engine, and Alex's pay grows 6% a year above inflation until Division 293 applies, which is paid from Alex's own super a year later.",
+        "overrides": [
+          { "key": "tax_in_projection", "scope_type": "household", "value": "on" },
+          { "key": "real_wage_growth", "scope_type": "member", "scope_ref": "Alex Sample", "value": "6" },
+          { "key": "div293_payer", "scope_type": "member", "scope_ref": "Alex Sample", "value": "super" }
+        ]
+      }
+    ]
+  }
+}

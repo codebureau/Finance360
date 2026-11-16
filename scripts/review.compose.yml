@@ -1,0 +1,26 @@
+# Compose override used only by scripts/review.py: bind-mount the review slot's persistent data
+# directory instead of the default named volume (ADR-0006). Merged by target path (/data).
+services:
+  finance360:
+    volumes:
+      - type: bind
+        source: ${FINANCE360_REVIEW_DATA}
+        target: /data
+    environment:
+      # Seeds the one Login from the fixture's synthetic password, only if none exists (ADR-0010).
+      FINANCE360_OWNER_PASSWORD_FILE: /data/owner-password
+      # Prices and FX rates are fetched from an invented offline source here (the real provider
+      # code runs; only its network seam is replaced), so "Fetch now" works with no network and a
+      # review can never reach a real service. See fixtures/sample_household/README.md.
+      FINANCE360_PRICE_PROVIDER: yfinance
+      FINANCE360_FX_PROVIDER: rba
+      FINANCE360_PROVIDER_TRANSPORT: sample
+      # No AI provider is set here, on purpose: the slot runs the real default, Search only. Ask
+      # searches the Guide and "Read the page for me" matches words, with no key and no network
+      # (ADR-0023). The compose file passes FINANCE360_AI_PROVIDER through empty unless set.
+    restart: "no"
+    # The review slot is reached directly on its own port, over plain http (ADR-0012).
+    ports:
+      - "${FINANCE360_PORT:-8000}:${FINANCE360_PORT:-8000}"
+  proxy:
+    profiles: ["https"]

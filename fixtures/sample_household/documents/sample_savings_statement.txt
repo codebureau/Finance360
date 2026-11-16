@@ -1,0 +1,6 @@
+SAMPLE SAVINGS STATEMENT (invented, not a real document)
+Sample Bank, statement of account for a made-up savings account
+Period: 1 July 2026 to 30 September 2026
+Opening balance: 12,000.00 AUD
+Interest paid: 45.50 AUD
+Closing balance: 12,045.50 AUD

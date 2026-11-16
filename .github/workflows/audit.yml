@@ -1,0 +1,56 @@
+name: Audit
+
+# Known-vulnerable dependencies (pip-audit, npm audit). Runs only when a dependency input changes,
+# plus weekly (a new advisory against an unchanged lockfile) and on demand. Secret and path scans
+# stay in security.yml, which runs on every PR including docs-only ones.
+# No run on push to main (the PR run is the gate).
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - pyproject.toml
+      - uv.lock
+      - frontend/package.json
+      - frontend/package-lock.json
+  schedule:
+    - cron: "0 18 * * 0" # weekly, Monday 04:00/05:00 Australian Eastern
+  workflow_dispatch:
+
+concurrency:
+  group: audit-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  UV_PYTHON: "3.14"
+
+# A draft PR runs nothing here (as in ci.yml); security.yml still runs on drafts.
+jobs:
+  python-deps:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    name: pip-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - name: Audit locked Python dependencies
+        run: |
+          uv export --frozen --no-emit-project --no-hashes -o "$RUNNER_TEMP/requirements.txt"
+          uvx pip-audit --requirement "$RUNNER_TEMP/requirements.txt" --no-deps --disable-pip
+
+  npm-deps:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    name: npm audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 25
+      - name: Audit locked npm dependencies
+        run: npm audit --audit-level=high

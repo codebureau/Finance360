@@ -1,0 +1,14 @@
+Date,Type,Product Type,Product Name,Product ID,Units,Total
+30-Sep-2026,Interest,Cash account,Interest on cash,CASH,,4.17
+30-Sep-2026,Fees and Charges,Cash account,Brokerage SBME,CASH,,-9.50
+30-Sep-2026,Buy,ETF,Sample Broad Market Index ETF,SBME,20,-1922.15
+15-Sep-2026,Fees and Charges,Cash account,Brokerage SMPM,CASH,,-9.50
+15-Sep-2026,Sell,Share,Sample Mining Limited,SMPM,40,256.00
+10-Sep-2026,Distribution,Share,Sample Broad Market Index ETF,,,86.40
+31-Aug-2026,Interest,Cash account,Interest on cash,CASH,,3.88
+25-Aug-2026,Distribution,Share,Sample Mining Limited,,,31.50
+12-Aug-2026,Fees and Charges,Cash account,Brokerage SMPM,CASH,,-9.50
+12-Aug-2026,Buy,Share,Sample Mining Limited,SMPM,100,-620.00
+03-Aug-2026,Fees and Charges,Cash account,Brokerage SBME,CASH,,-9.50
+03-Aug-2026,Buy,ETF,Sample Broad Market Index ETF,SBME,30,-2966.87
+02-Jul-2026,Deposit,Cash account,Deposit from linked bank,CASH,,5000.00

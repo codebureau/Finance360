@@ -1,0 +1,128 @@
+{
+  "key": "ato-income-statement",
+  "version": 3,
+  "title": "ATO income statement (browser print of the ATO page)",
+  "target": "tax.income_statement",
+  "claim": [
+    "Tax withheld or foreign tax paid",
+    "Lump sum amounts",
+    "Employer reported super"
+  ],
+  "sections": [
+    {
+      "key": "tax_withheld",
+      "start": "Tax withheld or foreign tax paid",
+      "end": "Lump sum amounts"
+    },
+    { "key": "allowances", "start": "Allowances", "end": "Deductions" },
+    { "key": "deductions", "start": "Deductions", "end": "Employer reported super" }
+  ],
+  "fields": [
+    { "key": "period", "type": "fy", "labels": ["Period"], "pair": "same_row" },
+    { "key": "gross_amount", "type": "money", "labels": ["Gross amount"], "pair": "same_row" },
+    {
+      "key": "bonuses_commissions",
+      "type": "money",
+      "labels": ["Bonuses and commissions"],
+      "pair": "same_row",
+      "zero_in_sums": true
+    },
+    {
+      "key": "leave_payment_type",
+      "type": "text",
+      "labels": ["Leave payment type"],
+      "pair": "same_row",
+      "repeats": true
+    },
+    {
+      "key": "paid_leave_amount",
+      "type": "money",
+      "labels": ["Paid leave amount"],
+      "pair": "same_row",
+      "repeats": true,
+      "zero_in_sums": true
+    },
+    {
+      "key": "salary_sacrifice_type",
+      "type": "text",
+      "labels": ["Salary sacrifice type"],
+      "pair": "same_row"
+    },
+    {
+      "key": "salary_sacrifice_amount",
+      "type": "money",
+      "labels": ["Salary sacrifice amount"],
+      "pair": "same_row",
+      "negative_ok": true,
+      "zero_in_sums": true
+    },
+    {
+      "key": "gross_payments",
+      "type": "money",
+      "labels": ["Total gross amount"],
+      "pair": "same_row",
+      "required": true
+    },
+    {
+      "key": "tax_withheld",
+      "type": "money",
+      "labels": ["PAYGW amount"],
+      "section": "tax_withheld",
+      "pair": "same_row",
+      "required": true
+    },
+    { "key": "lump_sum_a", "type": "money", "labels": ["Lump sum payment A"], "pair": "same_row" },
+    { "key": "lump_sum_b", "type": "money", "labels": ["Lump sum payment B"], "pair": "same_row" },
+    { "key": "lump_sum_d", "type": "money", "labels": ["Lump sum payment D"], "pair": "same_row" },
+    { "key": "lump_sum_e", "type": "money", "labels": ["Lump sum payment E"], "pair": "same_row" },
+    { "key": "lump_sum_w", "type": "money", "labels": ["Lump sum payment W"], "pair": "same_row" },
+    {
+      "key": "allowances",
+      "type": "money",
+      "labels": ["Total"],
+      "section": "allowances",
+      "absent_means_zero": true,
+      "pair": "same_row"
+    },
+    {
+      "key": "deductions_total",
+      "type": "money",
+      "labels": ["Total"],
+      "section": "deductions",
+      "pair": "same_row"
+    },
+    {
+      "key": "employer_super",
+      "type": "money",
+      "labels": [
+        "Employer superannuation contribution liability",
+        "Employer superannuation contribution"
+      ],
+      "pair": "same_row"
+    },
+    {
+      "key": "reportable_fringe_benefits_taxable",
+      "type": "money",
+      "labels": ["Reportable fringe benefits - Taxable employer"],
+      "pair": "same_row"
+    },
+    {
+      "key": "reportable_employer_super",
+      "type": "money",
+      "labels": ["Reportable Employer Super Contribution"],
+      "pair": "same_row"
+    },
+    {
+      "key": "reportable_fringe_benefits",
+      "type": "money",
+      "labels": ["Reportable fringe benefits - total"],
+      "pair": "same_row"
+    }
+  ],
+  "sums": [
+    {
+      "total": "gross_payments",
+      "plus": ["gross_amount", "bonuses_commissions", "paid_leave_amount", "salary_sacrifice_amount"]
+    }
+  ]
+}

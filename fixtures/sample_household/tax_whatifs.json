@@ -1,0 +1,36 @@
+{
+  "what_ifs": [
+    {
+      "name": "Alex buys a work laptop",
+      "financial_year": 2026,
+      "notes": "Invented. A hypothetical depreciating asset (cost 2,400.00, 3 year life, 80% for work) joins Alex's records for the year. Nothing is added to the register.",
+      "overrides": [
+        {
+          "op": "add_record",
+          "member": "Alex Sample",
+          "record": {
+            "record_type": "depreciating_asset",
+            "label": "work_other",
+            "from_on": "2025-11-10",
+            "description": "Sample work laptop",
+            "amount": "2400.00",
+            "effective_life_years": "3",
+            "work_use_percent": "80"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Jordan earns more, no donation",
+      "financial_year": 2026,
+      "notes": "Invented. Jordan's salary total is stated as 95,000.00 (absolute, not a rise of some amount), and Alex's donation record is left out.",
+      "overrides": [
+        { "op": "set", "member": "Jordan Sample", "label": "salary", "amount": "95000.00" },
+        { "op": "exclude_record", "member": "Alex Sample", "record": "Donation to Sample Charity" }
+      ]
+    }
+  ],
+  "estimates": [
+    { "label": "Base, as the records stand", "financial_year": 2026, "dependants": 0, "what_if": null }
+  ]
+}

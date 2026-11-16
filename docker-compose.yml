@@ -1,0 +1,120 @@
+# The deploy-host shape (ADR-0012): the app is reachable only through the HTTPS proxy. For dev, or a
+# second instance side by side, add docker-compose.direct.yml and use another project name and port:
+#   FINANCE360_PORT=8123 docker compose -p finance360-b -f docker-compose.yml -f docker-compose.direct.yml up --build
+# Each project name gets its own data volume, so instances never share a database (ADR-0006).
+services:
+  finance360:
+    build:
+      context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-dev}
+    environment:
+      FINANCE360_PORT: ${FINANCE360_PORT:-8000}
+      # Authentication (ADR-0010). Placeholders only; see .env.example. Empty means "not set".
+      FINANCE360_OWNER_PASSWORD_FILE: ${FINANCE360_OWNER_PASSWORD_FILE:-}
+      FINANCE360_OWNER_PASSWORD: ${FINANCE360_OWNER_PASSWORD:-}
+      FINANCE360_AUTH_PROVIDERS: ${FINANCE360_AUTH_PROVIDERS:-password}
+      FINANCE360_COOKIE_SECURE: ${FINANCE360_COOKIE_SECURE:-true}
+      # Names the app answers for, host[:port]; others get 421 (ADR-0012). The proxy builds its
+      # certificates from the same list.
+      FINANCE360_ALLOWED_HOSTS: ${FINANCE360_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      # Backups (ADR-0011). Set on the host: the path of the Backup key file, which is mounted
+      # read-only below. Left unset, FINANCE360_BACKUP_KEY_FILE stays empty inside and the app
+      # shows "Backups are not set up".
+      FINANCE360_BACKUP_KEY_FILE: ${FINANCE360_BACKUP_KEY_FILE:+/run/secrets/finance360_backup_key}
+      FINANCE360_BACKUP_TIME: ${FINANCE360_BACKUP_TIME:-02:00}
+      FINANCE360_BACKUP_RCLONE_REMOTE: ${FINANCE360_BACKUP_RCLONE_REMOTE:-}
+      # Daily fetch of Prices and FX rates (ADR-0013). Off unless a provider key is set; see
+      # .env.example. Empty means "not set".
+      FINANCE360_PRICE_PROVIDER: ${FINANCE360_PRICE_PROVIDER:-}
+      FINANCE360_FX_PROVIDER: ${FINANCE360_FX_PROVIDER:-}
+      FINANCE360_FETCH_TIME: ${FINANCE360_FETCH_TIME:-18:30}
+      FINANCE360_PRICE_STALE_DAYS: ${FINANCE360_PRICE_STALE_DAYS:-7}
+      FINANCE360_PROVIDER_TRANSPORT: ${FINANCE360_PROVIDER_TRANSPORT:-live}
+      # AI (ADR-0021). Off unless a provider is set; see .env.example. Empty means "not set". The
+      # key is read from a host file mounted read-only below, never from the repo.
+      FINANCE360_AI_PROVIDER: ${FINANCE360_AI_PROVIDER:-}
+      FINANCE360_AI_API_KEY_FILE: ${FINANCE360_AI_API_KEY_FILE:+/run/secrets/finance360_ai_api_key}
+      FINANCE360_AI_MODEL: ${FINANCE360_AI_MODEL:-}
+      FINANCE360_AI_MODEL_ASK: ${FINANCE360_AI_MODEL_ASK:-}
+      FINANCE360_AI_MODEL_RULE_CAPTURE: ${FINANCE360_AI_MODEL_RULE_CAPTURE:-}
+      FINANCE360_AI_MONTHLY_CAP_USD: ${FINANCE360_AI_MONTHLY_CAP_USD:-}
+      FINANCE360_AI_DAILY_QUESTIONS: ${FINANCE360_AI_DAILY_QUESTIONS:-}
+      FINANCE360_AI_LOG_DAYS: ${FINANCE360_AI_LOG_DAYS:-}
+    # Python is PID 1; a tiny init reaps the restic and rclone children it spawns.
+    init: true
+    # Not published: the only way in is the proxy, so the proxy is the app's only peer (ADR-0012).
+    # Dev and the review slot add a direct publish (docker-compose.direct.yml).
+    expose:
+      - "${FINANCE360_PORT:-8000}"
+    volumes:
+      - data:/data
+      # The Backup key: a host file, read-only. Falls back to an empty file when unset.
+      - type: bind
+        source: ${FINANCE360_BACKUP_KEY_FILE:-/dev/null}
+        target: /run/secrets/finance360_backup_key
+        read_only: true
+      # The AI key (ADR-0021): a host file, read-only. Falls back to an empty file when unset.
+      - type: bind
+        source: ${FINANCE360_AI_API_KEY_FILE:-/dev/null}
+        target: /run/secrets/finance360_ai_api_key
+        read_only: true
+      # rclone's config (made once with `rclone config`, docs/backup-setup.md). WRITABLE on
+      # purpose: rclone rewrites the OAuth token on refresh. This is the one writable mount besides
+      # the data volume (ADR-0011, an exception to ADR-0007). Falls back to an empty volume.
+      - ${FINANCE360_RCLONE_CONFIG_DIR:-rclone-config}:/config/rclone
+    restart: unless-stopped
+    # Hardening (ADR-0007): non-root user (Dockerfile), a read-only root filesystem whose only
+    # writable places are the data volume, the rclone config mount and a tmpfs, and no extra
+    # privileges.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import os,urllib.request;urllib.request.urlopen('http://localhost:%s/health' % os.environ['FINANCE360_PORT'])"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # HTTPS for the LAN (ADR-0012): terminates TLS with Caddy's own local CA and forwards to the app.
+  # The overlay VPN's HTTPS serve (deploy setup --tailscale) also points here. Trust the CA once per device (docs/deploy.md).
+  proxy:
+    image: caddy:2.11.7-alpine
+    environment:
+      FINANCE360_ALLOWED_HOSTS: ${FINANCE360_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      FINANCE360_PORT: ${FINANCE360_PORT:-8000}
+    entrypoint: ["sh", "/entrypoint.sh"]
+    ports:
+      - "${FINANCE360_HTTPS_PORT:-8843}:443"
+    volumes:
+      - ./deploy/proxy/entrypoint.sh:/entrypoint.sh:ro
+      # The local CA and certificates. Not in the Backup set: losing it only means reinstalling the
+      # root certificate on devices (ADR-0012).
+      - caddy-data:/data
+    depends_on:
+      finance360:
+        condition: service_healthy
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /config
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  data:
+  caddy-data:
+  rclone-config:

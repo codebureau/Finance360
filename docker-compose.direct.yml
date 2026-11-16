@@ -1,0 +1,10 @@
+# Override for dev and extra instances (and, duplicated, scripts/review.compose.yml): publish the
+# app's own port directly and leave the HTTPS proxy off (ADR-0012). The deploy host does not use it.
+#   docker compose -f docker-compose.yml -f docker-compose.direct.yml up --build
+#   FINANCE360_PORT=8123 docker compose -p finance360-b -f docker-compose.yml -f docker-compose.direct.yml up --build
+services:
+  finance360:
+    ports:
+      - "${FINANCE360_PORT:-8000}:${FINANCE360_PORT:-8000}"
+  proxy:
+    profiles: ["https"]

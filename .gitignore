@@ -1,0 +1,57 @@
+# ── Real financial data: NEVER commit (docs/requirements.md §3, §5d) ────────────────────────────
+# Private inventory, sample documents and anything personal live here, locally only.
+private/
+# Instance data directories (SQLite DB, imported source documents, review-slot data).
+data/
+.data/
+*.sqlite
+*.sqlite3
+*.db
+*.db-wal
+*.db-shm
+# Known export file patterns from real providers (belt-and-braces; pre-commit guard also blocks).
+*_transactions_*.csv
+*transactions*acc[0-9]*.csv
+# The invented sample exports are named like real ones on purpose (the file name carries the account
+# number and period) but always for the account "SAMPLE-PI-...", never digits.
+!fixtures/sample_household/imports/*_transactions_accSAMPLE-*.csv
+*.ofx
+*.qif
+# Backups (always encrypted, but still never in git).
+backups/
+*.restic
+*.age
+
+# ── Secrets & per-machine config ────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+secrets/
+deploy/target.local.env
+
+# ── Claude Code ────────────────────────────────────────────────────────────────────────────────
+.claude/worktrees/
+.claude/settings.local.json
+
+# ── Python ─────────────────────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.hypothesis/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# ── Node / frontend ────────────────────────────────────────────────────────────────────────────
+node_modules/
+dist/
+coverage/
+*.log
+*.tsbuildinfo
+
+# ── OS / editor ────────────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

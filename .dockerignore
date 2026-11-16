@@ -1,0 +1,14 @@
+.git
+.claude
+.env
+.env.*
+!.env.example
+private/
+data/
+.venv/
+**/node_modules/
+**/dist/
+**/__pycache__/
+.pytest_cache/
+.ruff_cache/
+.hypothesis/

@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Semantic tokens (ADR-0014). Each surface token has a paired -foreground. Components use these
+   only: no raw palette classes, hex values or hard-coded black/white. */
+:root {
+  /* Native controls (the date picker's calendar button, scrollbars) follow the theme. */
+  color-scheme: light;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.96 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.5 0 0);
+  --accent: oklch(0.94 0.01 250);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.52 0.22 27);
+  --destructive-foreground: oklch(0.985 0 0);
+  --warning: oklch(0.55 0.13 70);
+  --warning-foreground: oklch(0.985 0 0);
+  --success: oklch(0.5 0.14 150);
+  --success-foreground: oklch(0.985 0 0);
+  --info: oklch(0.5 0.14 245);
+  --info-foreground: oklch(0.985 0 0);
+  /* The logo (Open ring): the tile is the same blue in both themes; --brand-text is the "360". */
+  --brand: oklch(0.5 0.16 255);
+  --brand-foreground: oklch(1 0 0);
+  --brand-text: oklch(0.5 0.16 255);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.88 0 0);
+  --ring: oklch(0.6 0.1 250);
+  --money-negative: oklch(0.5 0.2 27);
+  --scrim: oklch(0 0 0 / 50%);
+  /* Categorical chart colours (ADR-0019 section 9): a small set for the slices of a chart, in
+     drawing order. Hues are well apart and each reads against --card in this theme. */
+  --chart-1: oklch(0.5 0.16 255);
+  --chart-2: oklch(0.55 0.15 150);
+  --chart-3: oklch(0.6 0.15 65);
+  --chart-4: oklch(0.52 0.17 320);
+  --chart-5: oklch(0.55 0.12 200);
+  --chart-6: oklch(0.55 0.2 27);
+
+  --row-h: 2.75rem;
+  --cell-px: 0.75rem;
+  --cell-py: 0.625rem;
+  --control-h: 2.25rem;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.22 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.27 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.27 0 0);
+  --muted-foreground: oklch(0.72 0 0);
+  --accent: oklch(0.3 0.02 250);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.65 0.2 25);
+  --destructive-foreground: oklch(0.145 0 0);
+  --warning: oklch(0.78 0.14 75);
+  --warning-foreground: oklch(0.145 0 0);
+  --success: oklch(0.72 0.17 150);
+  --success-foreground: oklch(0.145 0 0);
+  --info: oklch(0.8 0.11 245);
+  --info-foreground: oklch(0.145 0 0);
+  --brand-text: oklch(0.75 0.12 255);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 18%);
+  --ring: oklch(0.7 0.1 250);
+  --money-negative: oklch(0.72 0.18 25);
+  --scrim: oklch(0 0 0 / 60%);
+  --chart-1: oklch(0.7 0.14 255);
+  --chart-2: oklch(0.74 0.15 150);
+  --chart-3: oklch(0.8 0.14 75);
+  --chart-4: oklch(0.72 0.15 320);
+  --chart-5: oklch(0.75 0.11 200);
+  --chart-6: oklch(0.7 0.18 27);
+}
+
+/* Density: tables and form controls read these, never hard-coded sizes. Default is normal. */
+[data-density="compact"] {
+  --row-h: 2rem;
+  --cell-px: 0.5rem;
+  --cell-py: 0.25rem;
+  --control-h: 1.875rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-money-negative: var(--money-negative);
+  --color-scrim: var(--scrim);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-text: var(--brand-text);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: system-ui, sans-serif;
+}

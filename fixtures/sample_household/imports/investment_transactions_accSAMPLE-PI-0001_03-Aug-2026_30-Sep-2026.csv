@@ -1,0 +1,6 @@
+Account number,Investment,Product ID,Product Type,Trade Date,Type,Unit Price,Quantity,Value,Brokerage
+SAMPLE-PI-0001,Sample Broad Market Index ETF,SBME,ETF,30-Sep-2026,Buy Trade,96.1075,20,1922.15,9.50
+SAMPLE-PI-0001,Sample Mining Limited,SMPM,Share,15-Sep-2026,Sell Trade,6.4000,40,256.00,9.50
+SAMPLE-PI-0001,Sample New Horizons ETF,SNHX,ETF,01-Sep-2026,Buy Trade,12.3456,50,617.28,9.50
+SAMPLE-PI-0001,Sample Mining Limited,SMPM,Share,12-Aug-2026,Buy Trade,6.2000,100,620.00,9.50
+SAMPLE-PI-0001,Sample Broad Market Index ETF,SBME,ETF,03-Aug-2026,Buy Trade,98.8957,30,2966.87,9.50

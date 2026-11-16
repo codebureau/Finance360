@@ -1,0 +1,670 @@
+[project]
+name = "finance360"
+version = "0.0.0"
+license = "AGPL-3.0-or-later"
+description = "Personal-first household wealth-planning platform"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.13",
+    "anthropic==2.6.0",
+    "argon2-cffi>=25.1.0",
+    "fastapi>=0.115",
+    "jsonschema>=4.26.0",
+    "pdfminer.six==20260107",
+    "pyotp>=2.10.0",
+    "sqlalchemy>=2.0",
+    "tzdata>=2024.2",
+    "uvicorn[standard]>=0.30",
+    "yfinance==1.7.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.27",
+    "hypothesis>=6.170.0",
+    "import-linter>=2.15",
+    "playwright>=1.64.0",
+    "pyright>=1.1.380",
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["backend/finance360"]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+# Test tiers (AGENTS.md): a bare `pytest` runs tier 1. CI runs `-m "not platform"` (tiers 1 and 2);
+# platform.yml runs `-m platform` (tier 3). A later -m on the command line replaces this one.
+addopts = '-m "not slow and not platform"'
+markers = [
+    "slow: tier 2, real-server, concurrency and populated-upgrade tests (CI on every PR)",
+    "platform: tier 3, backup and restore with real restic and rclone (platform.yml, Linux)",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["backend"]
+# ruff also formats code fences in Markdown; ADR snippets are illustrative prose, not code.
+extend-exclude = ["docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "S"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["finance360", "support"]  # backend/tests/support.py
+
+[tool.ruff.lint.per-file-ignores]
+# S105/S106: test passwords are invented placeholders by rule (AGENTS.md rule 1).
+"backend/tests/**" = ["S101", "S105", "S106"]
+# S603/S607: the guard shells out to git (fixed argv, no shell); its tests do the same to a temp repo.
+"scripts/guard_denylist.py" = ["S603", "S607"]
+"backend/tests/test_guard_denylist.py" = ["S101", "S105", "S106", "S603", "S607"]
+"backend/tests/test_guard_paths.py" = ["S101", "S105", "S106", "S603", "S607"]
+# Written by scripts/rulepack_update.py: a provisional note is one string on one line.
+"backend/finance360/rulepacks/au/tax_figures.py" = ["E501"]
+
+[tool.pyright]
+include = ["backend", "scripts", "deploy"]
+strict = ["backend/finance360"]
+extraPaths = ["backend", "backend/tests"]
+
+# Architecture boundaries (ADR-0004, ADR-0009 section 7). Run: uv run lint-imports
+[tool.importlinter]
+root_package = "finance360"
+include_external_packages = false
+
+[[tool.importlinter.contracts]]
+name = "Dependency direction: entry points > plugins > capabilities > core"
+type = "layers"
+containers = ["finance360"]
+layers = ["api | mcp | jobs", "plugins", "capabilities", "core"]
+
+[[tool.importlinter.contracts]]
+name = "API, MCP and jobs reach domain logic only through the service layer"
+type = "forbidden"
+source_modules = ["finance360.api", "finance360.mcp", "finance360.jobs"]
+forbidden_modules = ["finance360.plugins", "finance360.behaviours", "finance360.rulepacks"]
+
+[[tool.importlinter.contracts]]
+name = "Entry points do not depend on each other"
+type = "independence"
+modules = ["finance360.api", "finance360.mcp", "finance360.jobs"]
+
+[[tool.importlinter.contracts]]
+name = "Capabilities: projection > tax > position > library > documents > household (never the reverse; ADR-0015 section 1, ADR-0019 section 1, ADR-0026 section 3)"
+type = "layers"
+containers = ["finance360.capabilities"]
+layers = ["projection", "tax", "position", "library", "documents", "household"]
+
+[[tool.importlinter.contracts]]
+name = "The projection engine and its input are pure: no database, audit, service or other Capability (ADR-0015 section 1)"
+type = "forbidden"
+source_modules = [
+    "finance360.capabilities.projection.engine",
+    "finance360.capabilities.projection.input",
+    "finance360.capabilities.projection.sustainable",
+    "finance360.capabilities.projection.result_json",
+    "finance360.capabilities.projection.assumptions",
+    "finance360.capabilities.projection.life_events",
+    "finance360.capabilities.projection.spending",
+    "finance360.capabilities.projection.income",
+]
+forbidden_modules = [
+    "finance360.core.db",
+    "finance360.core.models",
+    "finance360.core.audit",
+    "finance360.capabilities.projection.service",
+    "finance360.capabilities.position",
+    "finance360.capabilities.household",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.auth",
+    "finance360.capabilities.tax",
+]
+
+[[tool.importlinter.contracts]]
+name = "The tax engine and its pure modules: no database, audit, service or other Capability (ADR-0019 section 1)"
+type = "forbidden"
+source_modules = [
+    "finance360.capabilities.tax.engine",
+    "finance360.capabilities.tax.input",
+    "finance360.capabilities.tax.rules",
+    "finance360.capabilities.tax.labels",
+    "finance360.capabilities.tax.pack_rules",
+    "finance360.capabilities.tax.result_json",
+    "finance360.capabilities.tax.record_types",
+    "finance360.capabilities.tax.reconcile",
+    "finance360.capabilities.tax.div293",
+    "finance360.capabilities.tax.whatif",
+    "finance360.capabilities.tax.compare",
+    "finance360.capabilities.tax.prefill",
+]
+forbidden_modules = [
+    "finance360.core.db",
+    "finance360.core.models",
+    "finance360.core.audit",
+    "finance360.capabilities.tax.service",
+    "finance360.capabilities.tax.saved",
+    "finance360.capabilities.tax.evidence",
+    "finance360.capabilities.projection",
+    "finance360.capabilities.position",
+    "finance360.capabilities.household",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.auth",
+]
+
+[[tool.importlinter.contracts]]
+name = "The tax engine and its input never read a Rule pack (ADR-0019 section 1, ADR-0018 section 4)"
+type = "forbidden"
+source_modules = [
+    "finance360.capabilities.tax.engine",
+    "finance360.capabilities.tax.input",
+    "finance360.capabilities.tax.div293",
+]
+forbidden_modules = ["finance360.core.rulepack", "finance360.rulepacks"]
+
+[[tool.importlinter.contracts]]
+name = "Tax uses core, household and position only: not imports, reference or auth (ADR-0019 section 1)"
+type = "forbidden"
+source_modules = ["finance360.capabilities.tax"]
+forbidden_modules = [
+    "finance360.capabilities.imports",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.auth",
+]
+
+[[tool.importlinter.contracts]]
+name = "The projection engine and its input never read a Rule pack (ADR-0015 section 1, ADR-0018 section 4)"
+type = "forbidden"
+source_modules = [
+    "finance360.capabilities.projection.engine",
+    "finance360.capabilities.projection.input",
+]
+forbidden_modules = ["finance360.core.rulepack", "finance360.rulepacks"]
+
+[[tool.importlinter.contracts]]
+name = "Capabilities and the API never import a Rule pack: they look it up in the registry (ADR-0018 section 1)"
+type = "forbidden"
+source_modules = ["finance360.capabilities", "finance360.api"]
+forbidden_modules = ["finance360.rulepacks"]
+
+[[tool.importlinter.contracts]]
+name = "A Rule pack imports core only: no Capability, plug-in, entry point, database or models (ADR-0018 section 1)"
+type = "forbidden"
+source_modules = ["finance360.rulepacks"]
+forbidden_modules = [
+    "finance360.capabilities",
+    "finance360.plugins",
+    "finance360.behaviours",
+    "finance360.api",
+    "finance360.mcp",
+    "finance360.jobs",
+    "finance360.core.db",
+    "finance360.core.models",
+    "finance360.core.audit",
+]
+
+[[tool.importlinter.contracts]]
+name = "Reference Capability depends on core only (ADR-0009 section 7)"
+type = "forbidden"
+source_modules = ["finance360.capabilities.reference"]
+forbidden_modules = [
+    "finance360.capabilities.position",
+    "finance360.capabilities.household",
+    "finance360.capabilities.tax",
+]
+
+[[tool.importlinter.contracts]]
+name = "Capabilities: imports > reference (never the reverse; ADR-0013 section 5)"
+type = "layers"
+containers = ["finance360.capabilities"]
+layers = ["imports", "reference"]
+
+[[tool.importlinter.contracts]]
+name = "Imports Capability uses reference and core only, not position or household"
+type = "forbidden"
+source_modules = ["finance360.capabilities.imports"]
+forbidden_modules = [
+    "finance360.capabilities.position",
+    "finance360.capabilities.household",
+    "finance360.capabilities.tax",
+]
+
+[[tool.importlinter.contracts]]
+name = "Position and household never import the Imports Capability"
+type = "forbidden"
+source_modules = ["finance360.capabilities.position", "finance360.capabilities.household"]
+forbidden_modules = ["finance360.capabilities.imports"]
+
+[[tool.importlinter.contracts]]
+name = "Importers are pure: no database, session, audit or service access (ADR-0013 section 5)"
+type = "forbidden"
+source_modules = ["finance360.plugins.importers"]
+forbidden_modules = [
+    "finance360.core.db",
+    "finance360.core.models",
+    "finance360.core.audit",
+    "finance360.capabilities.imports.service",
+    "finance360.capabilities.imports.registry",
+    "finance360.capabilities.imports.account_identifiers",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.position",
+    "finance360.capabilities.household",
+    "finance360.capabilities.auth",
+]
+
+[[tool.importlinter.contracts]]
+name = "Providers only map an outside source to canonical candidates: no database, audit or service access (ADR-0013 section 6)"
+type = "forbidden"
+source_modules = ["finance360.plugins.providers"]
+forbidden_modules = [
+    "finance360.core.db",
+    "finance360.core.models",
+    "finance360.core.audit",
+    "finance360.capabilities.reference.fetch",
+    "finance360.capabilities.reference.prices",
+    "finance360.capabilities.reference.fx_rates",
+    "finance360.capabilities.reference.instruments",
+    "finance360.capabilities.reference.trade_dates",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.position",
+    "finance360.capabilities.household",
+    "finance360.capabilities.auth",
+]
+
+[[tool.importlinter.contracts]]
+name = "Auth Capability stands apart from the data Capabilities (ADR-0010)"
+type = "forbidden"
+source_modules = ["finance360.capabilities.auth"]
+forbidden_modules = [
+    "finance360.capabilities.position",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.household",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.tax",
+    "finance360.capabilities.due",
+    "finance360.capabilities.ai",
+    "finance360.capabilities.ask",
+    "finance360.capabilities.rulecapture",
+    "finance360.capabilities.documents",
+    "finance360.capabilities.library",
+]
+
+[[tool.importlinter.contracts]]
+name = "Data Capabilities never depend on the auth Capability (ADR-0010)"
+type = "forbidden"
+source_modules = [
+    "finance360.capabilities.position",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.household",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.tax",
+    "finance360.capabilities.due",
+    "finance360.capabilities.ai",
+    "finance360.capabilities.ask",
+    "finance360.capabilities.rulecapture",
+    "finance360.capabilities.documents",
+    "finance360.capabilities.library",
+]
+forbidden_modules = ["finance360.capabilities.auth"]
+
+[[tool.importlinter.contracts]]
+name = "What's due reads core only: its rules live with their owners (ADR-0020 section 6)"
+type = "forbidden"
+source_modules = ["finance360.capabilities.due"]
+forbidden_modules = [
+    "finance360.capabilities.position",
+    "finance360.capabilities.tax",
+    "finance360.capabilities.projection",
+    "finance360.capabilities.household",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.auth",
+]
+
+[[tool.importlinter.contracts]]
+name = "No data Capability imports the due Capability (ADR-0020 section 6)"
+type = "forbidden"
+source_modules = [
+    "finance360.capabilities.position",
+    "finance360.capabilities.tax",
+    "finance360.capabilities.projection",
+    "finance360.capabilities.household",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.auth",
+]
+forbidden_modules = ["finance360.capabilities.due"]
+
+[[tool.importlinter.contracts]]
+name = "Due types are pure: no Capability and no database model (ADR-0020 section 6)"
+type = "forbidden"
+source_modules = ["finance360.core.due"]
+forbidden_modules = [
+    "finance360.capabilities",
+    "finance360.core.models",
+    "finance360.core.db",
+    "finance360.core.audit",
+]
+
+[[tool.importlinter.contracts]]
+name = "The AI gateway imports core only: no other Capability (ADR-0021 section 2)"
+type = "forbidden"
+source_modules = ["finance360.capabilities.ai"]
+forbidden_modules = [
+    "finance360.capabilities.position",
+    "finance360.capabilities.tax",
+    "finance360.capabilities.projection",
+    "finance360.capabilities.household",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.auth",
+    "finance360.capabilities.due",
+    "finance360.capabilities.ask",
+    "finance360.capabilities.rulecapture",
+]
+
+[[tool.importlinter.contracts]]
+name = "Ask imports the AI gateway, What's due and core only (ADR-0021 section 2)"
+type = "forbidden"
+source_modules = ["finance360.capabilities.ask"]
+forbidden_modules = [
+    "finance360.capabilities.position",
+    "finance360.capabilities.tax",
+    "finance360.capabilities.projection",
+    "finance360.capabilities.household",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.auth",
+    "finance360.capabilities.rulecapture",
+]
+
+[[tool.importlinter.contracts]]
+name = "Nothing imports Ask but the API, through its service (ADR-0021 section 2)"
+type = "forbidden"
+source_modules = [
+    "finance360.capabilities.position",
+    "finance360.capabilities.tax",
+    "finance360.capabilities.projection",
+    "finance360.capabilities.household",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.auth",
+    "finance360.capabilities.due",
+    "finance360.capabilities.ai",
+    "finance360.capabilities.rulecapture",
+    "finance360.plugins",
+    "finance360.jobs",
+    "finance360.mcp",
+]
+forbidden_modules = ["finance360.capabilities.ask"]
+
+[[tool.importlinter.contracts]]
+name = "Rule figure capture imports the AI gateway and core only (ADR-0022 section 5, ADR-0021 section 2)"
+type = "forbidden"
+source_modules = ["finance360.capabilities.rulecapture"]
+forbidden_modules = [
+    "finance360.capabilities.position",
+    "finance360.capabilities.tax",
+    "finance360.capabilities.projection",
+    "finance360.capabilities.household",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.auth",
+    "finance360.capabilities.due",
+    "finance360.capabilities.ask",
+]
+
+[[tool.importlinter.contracts]]
+name = "Nothing imports Rule figure capture but the API, through its service (ADR-0022 section 5)"
+type = "forbidden"
+source_modules = [
+    "finance360.capabilities.position",
+    "finance360.capabilities.tax",
+    "finance360.capabilities.projection",
+    "finance360.capabilities.household",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.auth",
+    "finance360.capabilities.due",
+    "finance360.capabilities.ai",
+    "finance360.capabilities.ask",
+    "finance360.plugins",
+    "finance360.jobs",
+    "finance360.mcp",
+]
+forbidden_modules = ["finance360.capabilities.rulecapture"]
+
+[[tool.importlinter.contracts]]
+name = "Redaction and pricing are pure: no database, SDK, provider or Capability (ADR-0021 section 2)"
+type = "forbidden"
+source_modules = ["finance360.capabilities.ai.redact", "finance360.capabilities.ai.pricing"]
+forbidden_modules = [
+    "finance360.core.db",
+    "finance360.core.models",
+    "finance360.core.audit",
+    "finance360.capabilities.ai.gateway",
+    "finance360.capabilities.ai.vocabulary",
+    "finance360.capabilities.ai.providers",
+    "finance360.capabilities.ai.log",
+    "finance360.capabilities.ai.caps",
+    "finance360.capabilities.ai.service",
+    "finance360.plugins",
+    "finance360.capabilities.position",
+    "finance360.capabilities.tax",
+    "finance360.capabilities.projection",
+    "finance360.capabilities.household",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.auth",
+    "finance360.capabilities.due",
+    "finance360.capabilities.ask",
+]
+
+[[tool.importlinter.contracts]]
+name = "AI providers see only a redacted request: ai.providers and the SDK, no database, gateway or Capability (ADR-0021 section 2)"
+type = "forbidden"
+source_modules = ["finance360.plugins.ai_providers"]
+forbidden_modules = [
+    "finance360.core.db",
+    "finance360.core.models",
+    "finance360.core.audit",
+    "finance360.capabilities.ai.gateway",
+    "finance360.capabilities.ai.vocabulary",
+    "finance360.capabilities.ai.log",
+    "finance360.capabilities.ai.caps",
+    "finance360.capabilities.ai.service",
+    "finance360.capabilities.ai.redact",
+    "finance360.capabilities.ask",
+    "finance360.capabilities.due",
+    "finance360.capabilities.position",
+    "finance360.capabilities.tax",
+    "finance360.capabilities.projection",
+    "finance360.capabilities.household",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.auth",
+]
+
+[[tool.importlinter.contracts]]
+name = "The API reaches the AI gateway only through its service and errors (ADR-0021 section 2)"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["finance360.api"]
+forbidden_modules = [
+    "finance360.capabilities.ai.gateway",
+    "finance360.capabilities.ai.vocabulary",
+    "finance360.capabilities.ai.log",
+    "finance360.capabilities.ai.caps",
+    "finance360.capabilities.ai.redact",
+    "finance360.capabilities.ai.providers",
+    "finance360.capabilities.ask.guide",
+    "finance360.capabilities.ask.prompt",
+]
+
+[[tool.importlinter.contracts]]
+name = "Document intake imports core only: no other Capability, no plug-in (ADR-0024 section 7)"
+type = "forbidden"
+source_modules = ["finance360.capabilities.documents"]
+forbidden_modules = [
+    "finance360.capabilities.position",
+    "finance360.capabilities.tax",
+    "finance360.capabilities.projection",
+    "finance360.capabilities.household",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.auth",
+    "finance360.capabilities.due",
+    "finance360.capabilities.ai",
+    "finance360.capabilities.ask",
+    "finance360.capabilities.rulecapture",
+    "finance360.plugins",
+]
+
+[[tool.importlinter.contracts]]
+name = "Nothing imports Document intake but the API (through its service) and the plug-ins that supply profiles (ADR-0024 section 7)"
+type = "forbidden"
+source_modules = [
+    "finance360.capabilities.position",
+    "finance360.capabilities.tax",
+    "finance360.capabilities.projection",
+    "finance360.capabilities.household",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.auth",
+    "finance360.capabilities.due",
+    "finance360.capabilities.ai",
+    "finance360.capabilities.ask",
+    "finance360.capabilities.rulecapture",
+    "finance360.jobs",
+    "finance360.mcp",
+]
+forbidden_modules = ["finance360.capabilities.documents"]
+# The Library sits above Document intake and reads its loaders for text extraction (ADR-0026 section 3);
+# tax and position reach them only through the Library, which is the one import allowed here.
+ignore_imports = [
+    "finance360.capabilities.library.extract -> finance360.capabilities.documents.loader",
+    "finance360.capabilities.library.extract -> finance360.capabilities.documents.model",
+]
+
+[[tool.importlinter.contracts]]
+name = "Document matching, checks and profiles are pure: no database, audit, service, loader or registry (ADR-0024 section 1)"
+type = "forbidden"
+source_modules = [
+    "finance360.capabilities.documents.model",
+    "finance360.capabilities.documents.text",
+    "finance360.capabilities.documents.profile",
+    "finance360.capabilities.documents.matcher",
+    "finance360.capabilities.documents.checks",
+    "finance360.capabilities.documents.reading",
+]
+forbidden_modules = [
+    "finance360.core.db",
+    "finance360.core.models",
+    "finance360.core.audit",
+    "finance360.capabilities.documents.service",
+    "finance360.capabilities.documents.loader",
+    "finance360.capabilities.documents.registry",
+]
+
+[[tool.importlinter.contracts]]
+name = "The API reaches Document intake only through its service (ADR-0024 section 7)"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["finance360.api"]
+forbidden_modules = [
+    "finance360.capabilities.documents.model",
+    "finance360.capabilities.documents.text",
+    "finance360.capabilities.documents.profile",
+    "finance360.capabilities.documents.matcher",
+    "finance360.capabilities.documents.checks",
+    "finance360.capabilities.documents.loader",
+    "finance360.capabilities.documents.registry",
+]
+
+[[tool.importlinter.contracts]]
+name = "Document profiles are data: a plug-in imports the profile schema only (ADR-0024 section 7)"
+type = "forbidden"
+source_modules = ["finance360.plugins.documents"]
+forbidden_modules = [
+    "finance360.core.db",
+    "finance360.core.models",
+    "finance360.core.audit",
+    "finance360.capabilities.documents.service",
+    "finance360.capabilities.documents.loader",
+    "finance360.capabilities.documents.matcher",
+    "finance360.capabilities.documents.checks",
+    "finance360.capabilities.documents.registry",
+    "finance360.capabilities.position",
+    "finance360.capabilities.tax",
+    "finance360.capabilities.projection",
+    "finance360.capabilities.household",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.auth",
+]
+
+[[tool.importlinter.contracts]]
+name = "The Library imports core and the Document intake loaders only: no record-owning Capability, no plug-in (ADR-0026 section 3)"
+type = "forbidden"
+source_modules = ["finance360.capabilities.library"]
+forbidden_modules = [
+    "finance360.capabilities.position",
+    "finance360.capabilities.tax",
+    "finance360.capabilities.projection",
+    "finance360.capabilities.household",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.auth",
+    "finance360.capabilities.due",
+    "finance360.capabilities.ai",
+    "finance360.capabilities.ask",
+    "finance360.capabilities.rulecapture",
+    "finance360.plugins",
+]
+
+[[tool.importlinter.contracts]]
+name = "Library files, kinds and text extraction are plain: no database, audit or service (ADR-0026 section 3)"
+type = "forbidden"
+allow_indirect_imports = true  # files reads one constant from core.models, which imports core.db
+source_modules = [
+    "finance360.capabilities.library.files",
+    "finance360.capabilities.library.registry",
+    "finance360.capabilities.library.extract",
+]
+forbidden_modules = [
+    "finance360.core.db",
+    "finance360.core.audit",
+    "finance360.capabilities.library.service",
+]
+
+[[tool.importlinter.contracts]]
+name = "The API reaches the Library only through its service (ADR-0026 section 3)"
+type = "forbidden"
+allow_indirect_imports = true
+source_modules = ["finance360.api"]
+forbidden_modules = [
+    "finance360.capabilities.library.files",
+    "finance360.capabilities.library.registry",
+    "finance360.capabilities.library.extract",
+]
+
+[[tool.importlinter.contracts]]
+name = "Core imports nothing above it, notably not behaviours or rulepacks"
+type = "forbidden"
+source_modules = ["finance360.core"]
+forbidden_modules = [
+    "finance360.behaviours",
+    "finance360.rulepacks",
+    "finance360.plugins",
+    "finance360.capabilities",
+    "finance360.api",
+    "finance360.mcp",
+    "finance360.jobs",
+]
