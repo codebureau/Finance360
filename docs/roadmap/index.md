@@ -6,7 +6,7 @@ it when a milestone starts or completes. Full milestone definitions are in
 [`docs/requirements.md` §5b](../requirements.md#5b-roadmap-session-2-agreed-2026-10-16).
 
 **Milestones are sequential, demonstrable checkpoints**: one closes when its observable outcome is
-real.
+real. Every epic hangs off the backlog index, [#1](https://github.com/codebureau/Finance360/issues/1).
 
 ## Current milestone
 
@@ -58,15 +58,15 @@ Scenario, with reproducible saved runs.
 | # | Milestone | Observable outcome |
 |---|---|---|
 | M0 | Financial inventory | Private inventory of every item in today's position, plus a seeded Category/Account type catalogue and a ranked Importer backlog in the repo |
-| M1 | Household position (walking skeleton) | Real Accounts entered in a deployment show the true household net position by Member and Category, in AUD, today and over time. Includes the review slot, backup and a tested restore |
+| M1 | Household position (walking skeleton) ([#2](https://github.com/codebureau/Finance360/issues/2)) | Real Accounts entered in a deployment show the true household net position by Member and Category, in AUD, today and over time. Includes the review slot, backup and a tested restore |
 | UX | UX foundation (inserted 2026-10-20; done) | URL routing, sidebar shell, list and detail pages, anchored editing, confirmed destructive actions and semantic theming. New screens follow one pattern (ADR-0014) |
 | M2 | Investment platform import | The platform's exports derive an investment Account's value and history automatically, kept current by daily prices |
-| M3 | First projection | "Are we on track for retirement?" is roughly answerable per Scenario, with reproducible saved runs |
+| M3 | First projection ([#4](https://github.com/codebureau/Finance360/issues/4)) | "Are we on track for retirement?" is roughly answerable per Scenario, with reproducible saved runs |
 | O | Orientation (inserted 2026-11-03, ahead of the rest of T1; complete 2026-11-03) | Someone can open Finance360 cold and know why they are here, what it answers, where each answer lives, what is out of date and what to provide next |
-| T1 | Tax planning (alongside M3) | Records for a financial year produce a Tax estimate that matches a lodged return to the cent; Tax what-ifs can be saved, compared and break-even searched |
+| T1 | Tax planning (alongside M3) ([#11](https://github.com/codebureau/Finance360/issues/11)) | Records for a financial year produce a Tax estimate that matches a lodged return to the cent; Tax what-ifs can be saved, compared and break-even searched |
 | T2 | Tax in the plan (alongside M3) | The tax engine supplies take-home pay to the projection, and Division 293 is predicted with its lag |
-| M4 | Look-through analytics | Exposure of investment-platform and super Accounts by asset class, region, sector and currency, with fund-of-funds resolved |
-| M5 | Super import | Super fund statements and exports replace manual super Valuations and option mix |
+| M4 | Look-through analytics ([#5](https://github.com/codebureau/Finance360/issues/5)) | Exposure of investment-platform and super Accounts by asset class, region, sector and currency, with fund-of-funds resolved |
+| M5 | Super import ([#7](https://github.com/codebureau/Finance360/issues/7)) | Super fund statements and exports replace manual super Valuations and option mix |
 
 ## Candidate milestones (unordered)
 

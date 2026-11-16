@@ -290,7 +290,7 @@ function UnmappedTypeRow({ imp, type }: { imp: ImportDetail; type: UnmappedType 
             value={kind}
             onChange={(e) => setKind(e.target.value)}
           >
-            <option value="">Choose…</option>
+            <option value="">Chooseâ€¦</option>
             {type.choices.map((c) => (
               <option key={c} value={c}>
                 {c === "ignore" ? "Ignore" : rowKindLabel(c)}
