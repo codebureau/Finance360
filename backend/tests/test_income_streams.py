@@ -458,7 +458,7 @@ def test_a_saved_run_keeps_the_stream_amounts_and_rates_it_used(sample: TestClie
         "sg_rate": "12",
         "contributions_tax_rate": "15",
     }
-    assert before["run"]["rule_pack_version"] == "au/2026-27/r7+1:5be77e"  # +1: fixture capture
+    assert before["run"]["rule_pack_version"] == "au/2026-27/r8+1:5be77e"  # +1: fixture capture
 
     # Edit one stream, delete the other, and change the growth: the saved run does not move.
     streams = streams_of(sample)

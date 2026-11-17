@@ -54,7 +54,7 @@ def test_no_captures_reads_exactly_the_shipped_pack(session_factory: sessionmake
     with session_factory() as s:
         pack = effective(s)
     assert pack is PACK
-    assert pack.version_label == "au/2026-27/r7"
+    assert pack.version_label == "au/2026-27/r8"
 
 
 def test_a_capture_supplies_a_year_the_release_lacks_and_a_withdraw_takes_it_back(
@@ -67,14 +67,14 @@ def test_a_capture_supplies_a_year_the_release_lacks_and_a_withdraw_takes_it_bac
     with session_factory() as s:
         pack = effective(s)
         assert pack.years[2027][RATE_KEY] == Money(90, "AUD")
-        assert pack.version_label.startswith("au/2026-27/r7+1:")
+        assert pack.version_label.startswith("au/2026-27/r8+1:")
         assert pack.capture_of(2027, RATE_KEY).id == row.id  # type: ignore[union-attr]
     with session_factory.begin() as s:
         rulepack_store.withdraw_figure(s, CTX, row.id)
     with session_factory() as s:
         pack = effective(s)
         assert RATE_KEY not in pack.years.get(2027, {})
-        assert pack is PACK and pack.version_label == "au/2026-27/r7"
+        assert pack is PACK and pack.version_label == "au/2026-27/r8"
 
 
 def test_correcting_supersedes_and_a_withdraw_restores_the_release_figure_not_the_old_capture(
@@ -261,7 +261,7 @@ def test_a_capture_that_no_longer_fits_is_ignored_listed_and_never_fatal(
     assert LIMIT_KEY not in pack.years[2027]
     assert [c.key for c, _ in problems] == [LIMIT_KEY, "tax.removed.in_a_release"]
     assert all(reason for _, reason in problems) and good not in {c.id for c, _ in problems}
-    assert pack.version_label.startswith("au/2026-27/r7+1:")  # only the one that applied counts
+    assert pack.version_label.startswith("au/2026-27/r8+1:")  # only the one that applied counts
 
 
 def test_the_year_listing_says_who_supplies_each_figure(
@@ -342,10 +342,10 @@ def test_a_saved_run_records_the_effective_label_and_its_capture_id_resolves_aft
         captured_id = runs.save_run(s, CTX, likely_id).id
     with sample_factory() as s:
         plain, captured = runs.get_run(s, plain_id), runs.get_run(s, captured_id)
-    assert plain.header.rule_pack_version == "au/2026-27/r7"
+    assert plain.header.rule_pack_version == "au/2026-27/r8"
     assert plain.run.prepared.rules.captured == ()  # type: ignore[union-attr]
     label = captured.header.rule_pack_version or ""
-    assert label.startswith("au/2029-30/r7+1:")
+    assert label.startswith("au/2029-30/r8+1:")
     (used,) = captured.run.prepared.rules.captured  # type: ignore[union-attr]
     assert (used.key, used.fy, used.capture_id) == ("sg_rate", 2030, capture_id)
     with sample_factory.begin() as s:
@@ -358,4 +358,4 @@ def test_a_saved_run_records_the_effective_label_and_its_capture_id_resolves_aft
         assert still.capture_id == capture_id
         assert row is not None and row.quote == "An invented sentence."  # and it still resolves
         assert row.ended_kind == "withdrawn"
-        assert effective(s).version_label == "au/2026-27/r7"
+        assert effective(s).version_label == "au/2026-27/r8"

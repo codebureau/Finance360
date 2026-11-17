@@ -14,6 +14,7 @@ FIGURES: dict[int, dict[str, str]] = {
         "tax.depreciation.dv_percent": "200",
         "tax.div293.rate": "15%",
         "tax.div293.threshold": "250000.00",
+        "tax.foreign_offset.cap": "1000.00",
         "tax.help.r1": "15%",
         "tax.help.r2": "17%",
         "tax.help.t1": "67000.00",
@@ -53,6 +54,7 @@ PROVISIONAL: dict[int, dict[str, str]] = {
     2026: {
         "tax.div293.rate": "Entered by the developer from the ATO's published figure without opening the page; confirm it on Rule figures.",
         "tax.div293.threshold": "Entered by the developer from the ATO's published figure without opening the page; confirm it on Rule figures.",
+        "tax.foreign_offset.cap": "Entered by the developer from the ATO's published figure without opening the page; confirm it on Rule figures.",
         "tax.medicare.low_income.family_lower": "Reflects the 2026-27 Budget announcement, not yet law when retrieved; check against the ATO table.",
         "tax.medicare.low_income.family_per_child": "Reflects the 2026-27 Budget announcement, not yet law when retrieved; check against the ATO table.",
         "tax.medicare.low_income.single_lower": "Reflects the 2026-27 Budget announcement, not yet law when retrieved; check against the ATO table.",
@@ -68,6 +70,7 @@ RETRIEVED: dict[int, dict[str, str]] = {
         "tax.depreciation.dv_percent": "2026-11-04",
         "tax.div293.rate": "2026-11-08",
         "tax.div293.threshold": "2026-11-08",
+        "tax.foreign_offset.cap": "2026-11-17",
         "tax.help.r1": "2026-10-27",
         "tax.help.r2": "2026-10-27",
         "tax.help.t1": "2026-10-27",

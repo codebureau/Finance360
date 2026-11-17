@@ -125,6 +125,7 @@ const GROUPS: { title: string; prefixes: string[] }[] = [
       "tax.resident_brackets",
       "tax.lito.",
       "tax.sbito.",
+      "tax.foreign_offset.",
       "tax.cgt.",
       "tax.standard_work_deduction",
     ],

@@ -6,6 +6,7 @@ Rules are invented (see ``tax_support``); nothing here states an official figure
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import date
 
 import pytest
@@ -150,6 +151,16 @@ def test_the_rules_block_round_trips_with_its_provisional_markers() -> None:
     none = invented_rules(instant=None)
     assert none.standard_work_deduction is None
     assert rules.from_payload(rules.to_payload(none)) == none
+
+
+def test_rules_stored_before_the_foreign_offset_cap_still_read_as_without_one() -> None:
+    old = rules.to_payload(invented_rules())
+    del old["values"]["foreign_offset_cap"]
+    assert rules.from_payload(old) == replace(invented_rules(), foreign_offset_cap=None)
+    # a missing figure that was always there is still refused
+    del old["values"]["lito_max"]
+    with pytest.raises(rules.RulesError):
+        rules.from_payload(old)
 
 
 def test_a_malformed_rules_block_is_refused() -> None:

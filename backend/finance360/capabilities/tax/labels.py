@@ -277,6 +277,25 @@ _LABELS: tuple[Label, ...] = (
         "other_income",
         "Other assessable amounts not entered elsewhere.",
     ),
+    _money(
+        "foreign_source_income",
+        "20E/20M",
+        "Foreign source income (assessable)",
+        INCOME,
+        "other_income",
+        "Assessable foreign income, including foreign income from a managed fund (20E and 20M "
+        "on its tax statement). Enter the tax paid on it as the foreign income tax offset.",
+    ),
+    _money(
+        "foreign_tax_offset",
+        "20O",
+        "Foreign income tax offset",
+        OFFSET,
+        "other_income",
+        "Tax paid overseas on that income (20O on a managed fund tax statement). It reduces your "
+        "tax and can't take it below zero. Claimed up to the simple cap in the Rule figures; "
+        "above it the full limit is not worked out, so the estimate is marked incomplete.",
+    ),
     # Deductions
     _money(
         "work_car",
@@ -424,7 +443,6 @@ _LABELS: tuple[Label, ...] = (
             ("deferred_business_losses", "16", "Deferred non-commercial business losses", INCOME),
             ("farm_management_deposits", "17", "Net farm management deposits", INCOME),
             ("foreign_entities", "19", "Foreign entities", INCOME),
-            ("foreign_source_income", "20", "Foreign source income and assets", INCOME),
             ("life_insurance_bonuses", "22", "Bonuses from life insurance companies", INCOME),
             (
                 "first_home_super_released",

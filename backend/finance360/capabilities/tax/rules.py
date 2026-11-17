@@ -73,6 +73,9 @@ class TaxRules:
     cgt_discount_rate: Rate
     #: The instant work-related expenses deduction; ``None`` for a year without one.
     standard_work_deduction: Money | None = None
+    #: The most foreign income tax offset the estimate claims without working out the full limit
+    #: (the simple cap); ``None`` for a year whose pack does not hold it.
+    foreign_offset_cap: Money | None = None
     #: ``(pack key, note)`` for each figure of the year that is not yet law, in key order.
     provisional: tuple[tuple[str, str], ...] = field(default=())
 
@@ -139,7 +142,11 @@ KINDS: dict[str, str] = {
     "sbito_cap": MONEY,
     "cgt_discount_rate": RATE,
     "standard_work_deduction": MONEY_OR_NONE,
+    "foreign_offset_cap": MONEY_OR_NONE,
 }
+
+#: Attributes added after the first stored inputs: a payload without one reads as ``None``.
+ADDED_LATER: frozenset[str] = frozenset({"foreign_offset_cap"})
 
 # --- canonical JSON ------------------------------------------------------------------------
 
@@ -219,12 +226,16 @@ def from_payload(payload: object) -> TaxRules:
     if not isinstance(year, int) or isinstance(year, bool):
         raise RulesError("financial_year must be a whole number.")
     values = _obj(body.get("values"), "values")
-    if set(values) != set(KINDS):
+    if not set(KINDS) - ADDED_LATER <= set(values) <= set(KINDS):
         raise RulesError("The rules values do not match the rules block.")
     notes = body.get("provisional")
     if not isinstance(notes, list):
         raise RulesError("provisional must be a list.")
-    decoded = {name: _decode(kind, values[name], name) for name, kind in KINDS.items()}
+    decoded = {
+        name: _decode(kind, values.get(name), name)
+        for name, kind in KINDS.items()
+        if name in values
+    }
     provisional = tuple(
         (
             str(_obj(n, "a provisional note").get("key")),

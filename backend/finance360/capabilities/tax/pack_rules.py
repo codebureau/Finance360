@@ -80,6 +80,9 @@ REQUIRED: dict[str, str] = {
 }
 #: Held only by a year that has one.
 OPTIONAL_KEY = "tax.standard_work_deduction"
+#: The simple cap on the foreign income tax offset. Optional so a year captured before it existed
+#: still estimates; without it a foreign income tax offset is reported as not modelled.
+FOREIGN_OFFSET_CAP_KEY = "tax.foreign_offset.cap"
 #: Whole-number figures the Record types read through ``RecordRules`` (a money figure as cents).
 #: Each is needed only by a record that uses it, so an absent one never blocks an estimate that has
 #: no such record.
@@ -294,16 +297,17 @@ def build_rules(pack: RulePack, fy: int) -> TaxRules:
     return TaxRules(
         financial_year=fy,
         standard_work_deduction=_money_or_none(held.get(OPTIONAL_KEY)),
+        foreign_offset_cap=_money_or_none(held.get(FOREIGN_OFFSET_CAP_KEY), FOREIGN_OFFSET_CAP_KEY),
         provisional=provisional_notes(pack, fy),
         **values,  # type: ignore[arg-type]
     )
 
 
-def _money_or_none(value: Value | None) -> Money | None:
+def _money_or_none(value: Value | None, key: str = OPTIONAL_KEY) -> Money | None:
     if value is None:
         return None
     if not isinstance(value, Money):
-        raise TaxRulesError(f"{OPTIONAL_KEY} is not an amount.")
+        raise TaxRulesError(f"{key} is not an amount.")
     return value
 
 

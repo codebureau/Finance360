@@ -83,6 +83,7 @@ def invented_rules(
         sbito_cap=aud("900"),
         cgt_discount_rate=pct("40"),
         standard_work_deduction=aud(instant) if instant is not None else None,
+        foreign_offset_cap=aud("75"),
         provisional=provisional,
     )
 
@@ -109,7 +110,11 @@ def invented_pack(
 
     ``drop`` removes pack keys from that year (a partly captured year); ``provisional`` marks keys.
     """
-    from finance360.capabilities.tax.pack_rules import OPTIONAL_KEY, REQUIRED
+    from finance360.capabilities.tax.pack_rules import (
+        FOREIGN_OFFSET_CAP_KEY,
+        OPTIONAL_KEY,
+        REQUIRED,
+    )
     from finance360.core.rulepack import TAX_PREFIX, Bracket, Value
     from finance360.rulepacks.au import PACK
     from finance360.rulepacks.au.tax_specs import SPECS
@@ -123,6 +128,8 @@ def invented_pack(
         )
     if rules.standard_work_deduction is not None:
         values[OPTIONAL_KEY] = rules.standard_work_deduction
+    if rules.foreign_offset_cap is not None:
+        values[FOREIGN_OFFSET_CAP_KEY] = rules.foreign_offset_cap
     for key in drop:
         del values[key]
     years = {

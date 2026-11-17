@@ -479,7 +479,7 @@ def test_the_estimate_screen_reads_the_registers_totals(sample: TestClient) -> N
     alex, jordan = res.json()["members"]
     # Alex: salary and interest, plus 6,000.00 of business income less the camera's 495.89 and the
     # home office's 1,037.40 and the car's 849.55 (965.4 km at 0.88)
-    assert (alex["total_income"], jordan["total_income"]) == ("235651.00", "86500.00")
+    assert (alex["total_income"], jordan["total_income"]) == ("235651.00", "86550.00")
     assert res.json()["incomplete"] is False
     # Alex: 480.00 of internet, 250.00 donated, 320.00 of agent fee
     assert alex["total_deductions"] == "1050.00"
