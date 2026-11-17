@@ -895,7 +895,7 @@ def test_upgrading_a_populated_database_changes_no_existing_row(tmp_path: Path) 
     )
     assert len(final.tables["document_link"].rows) == 2
     assert len(final.tables["income_stream"].rows) == 2, "the income stream step's seeder ran"
-    assert len(final.tables["tax_record"].rows) == 22, "the Tax record step's seeder ran"
+    assert len(final.tables["tax_record"].rows) == 24, "the Tax record step's seeder ran"
     assert len(final.tables["due_snooze"].rows) == 1, "the What's due step's seeder ran"
     assert len(final.tables["rule_capture"].rows) == 3, (
         "the Rule capture step's seeder ran, and so did the matched and carried method steps'"
