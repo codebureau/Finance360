@@ -86,6 +86,18 @@ def test_a_difference_of_one_cent_is_reported_by_item_name_with_its_difference(
     assert report.matched == 8 and not report.clean
 
 
+def test_net_outcome_is_compared_within_five_cents_and_every_other_item_to_the_cent(
+    tmp_path: Path,
+) -> None:
+    case = json.loads(json.dumps(GOOD))
+    case["members"][0]["expected"]["net_outcome"] = "989.95"  # engine 990.00: 5 cents out
+    assert run(case, tmp_path).clean
+    case["members"][0]["labels"]["tax_withheld"] = "14000.06"  # engine net 990.06: 11 cents out
+    lines = [f.line() for f in run(case, tmp_path).findings]
+    assert "member 1: net_outcome differs by 0.11" in lines
+    assert "member 1: credits differs by 0.06" in lines  # every other item stays to the cent
+
+
 def test_a_lodged_line_with_no_engine_key_is_reported_unmatched_by_name(tmp_path: Path) -> None:
     case = json.loads(json.dumps(GOOD))
     case["members"][0]["expected"]["private_health_rebate"] = "100.00"

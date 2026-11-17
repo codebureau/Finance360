@@ -211,6 +211,17 @@ ADR-0017 (Income stream type registry), ADR-0018 (Rule pack, `brackets` reserved
   `private/` is absent, like the Importer real-export check. It reports unmatched return items; it
   never passes over them. Synthetic golden tests cover everything in the repo. Each year checked needs
   that year's rules in the pack.
+- **Amended 2026-11-17 (#61).** The proof found two conventions:
+  - **A half cent goes to the even cent.** It applies at every step that keeps cents: bracket tax,
+    the Medicare levy and surcharge, HELP, Division 293, offsets, and ratio shares. One named step in
+    `core.money` does it. A fixed direction does not fit: on one lodged return, two surcharge amounts
+    on an exact half cent at the same rate settled in opposite directions. The low income tax offset
+    is worked out as one fraction and rounded once.
+  - **The net outcome is compared within 5 cents.** The notice rounds the final result by a few cents,
+    and the labels cannot reproduce that step. Every other item is still compared to the cent, and the
+    engine itself stays exact.
+
+  The evidence is one return. A later notice that disagrees reopens the rounding convention.
 
 ### 9. Income reconciliation (first release, a view with no table)
 
