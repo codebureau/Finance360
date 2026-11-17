@@ -252,30 +252,35 @@ def scale(money: Money, numerator: int, denominator: int) -> Money:
 # --- named ATO rounding steps (ADR-0019 section 3) ----------------------------------------------
 #
 # The Australian tax calculation rounds differently from the rest of the product: a rate applied to
-# an amount, and an apportionment, round to the nearest cent with a half going away from zero (not
-# half to even), and taxable income drops its cents. Each convention is a named step here, the only
-# place tax rounds, so the proof against assessments can find and correct one in one place.
-
-
-def round_half_away(numerator: int, denominator: int) -> int:
-    """``numerator / denominator`` rounded to the nearest integer, a half away from zero."""
-    if denominator == 0:
-        raise ZeroDivisionError("round_half_away by zero")
-    if denominator < 0:
-        numerator, denominator = -numerator, -denominator
-    quotient, remainder = divmod(abs(numerator), denominator)
-    if 2 * remainder >= denominator:
-        quotient += 1
-    return -quotient if numerator < 0 else quotient
+# an amount, an apportionment and a tapering offset each round once, to the nearest cent, and
+# taxable income drops its cents. A figure on an exact half cent goes to the even cent, as the
+# notice of assessment does (issue #61: two Members on the same surcharge rate, one half cent
+# settled up and the other down, both to the even cent). Each convention is a named step here, the
+# only place tax rounds, so the proof against assessments can find and correct one in one place.
 
 
 def ato_scale(money: Money, numerator: int, denominator: int) -> Money:
-    """ATO step "rate or ratio of an amount": ``money * numerator / denominator`` to the nearest
-    cent, a half away from zero. Used for a rate in parts per million and for apportioning."""
+    """ATO step "rate or ratio of an amount": ``money * numerator / denominator`` rounded once to
+    the nearest cent, an exact half going to the even cent. Used for a rate in parts per million
+    and for apportioning."""
     if _check_int(denominator, "Scale denominator") <= 0:
         raise MoneyError(f"Scale denominator must be positive: {denominator}")
     _check_int(numerator, "Scale numerator")
-    return Money(round_half_away(money.amount_minor * numerator, denominator), money.currency)
+    return Money(round_div(money.amount_minor * numerator, denominator), money.currency)
+
+
+def ato_offset_reduced(
+    maximum: Money, reductions: tuple[tuple[Money, int], ...], denominator: int
+) -> Money:
+    """ATO step "tapering offset": ``maximum`` less each ``(amount, numerator)`` reduction over
+    ``denominator``, worked exactly and rounded once, a half going to the even cent. Rounding the
+    result once, not each reduction, is what the notice does for the low income tax offset."""
+    if _check_int(denominator, "Scale denominator") <= 0:
+        raise MoneyError(f"Scale denominator must be positive: {denominator}")
+    total = maximum.amount_minor * denominator
+    for amount, numerator in reductions:
+        total -= amount.amount_minor * _check_int(numerator, "Scale numerator")
+    return Money(round_div(total, denominator), maximum.currency)
 
 
 def ato_whole_dollars(money: Money) -> Money:

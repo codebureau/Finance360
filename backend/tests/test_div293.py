@@ -104,12 +104,26 @@ def test_the_working_ends_at_the_liability() -> None:
 
 
 def test_rate_rounds_by_the_ato_step() -> None:
-    # 15% of 0.05 = 0.0075, which rounds to 0.01 (half away from zero).
+    # 15% of 0.05 = 0.0075, which rounds to 0.01 (nearest cent).
     rules = div293.Div293Rules(aud(0), Rate.from_percent("15"), aud(30_000))
     result = div293.calculate(
         div293.Div293Input(1, 2026, aud(0), aud(0), aud(0), Money(5, BASE_CURRENCY), rules)
     )
     assert result.liability == Money(1, BASE_CURRENCY)
+
+
+@pytest.mark.parametrize(("taxed_cents", "tax_cents"), [(10, 2), (30, 4)])
+def test_a_half_cent_of_division_293_tax_goes_to_the_even_cent(
+    taxed_cents: int, tax_cents: int
+) -> None:
+    # 15% of 0.10 is 0.015 (up to 0.02); 15% of 0.30 is 0.045 (down to 0.04): both even.
+    rules = div293.Div293Rules(aud(0), Rate.from_percent("15"), aud(30_000))
+    result = div293.calculate(
+        div293.Div293Input(
+            1, 2026, aud(0), aud(0), aud(0), Money(taxed_cents, BASE_CURRENCY), rules
+        )
+    )
+    assert result.liability == Money(tax_cents, BASE_CURRENCY)
 
 
 @pytest.mark.parametrize(

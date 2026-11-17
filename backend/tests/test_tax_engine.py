@@ -25,11 +25,12 @@ from finance360.capabilities.tax.engine import (
     net_capital_gain,
 )
 from finance360.capabilities.tax.input import TAX_INPUT_VERSION, MemberInput, days_in_fy
+from finance360.capabilities.tax.rules import Band
 from finance360.core.money import Money
 
 #: Bump together with ``TAX_ENGINE_VERSION`` whenever the engine returns something different for the
 #: same input (ADR-0015 s3). The goldens below were worked out with this version.
-GOLDEN_ENGINE_VERSION = 4
+GOLDEN_ENGINE_VERSION = 5
 
 
 def test_golden_answers_were_computed_with_this_engine_version() -> None:
@@ -627,3 +628,46 @@ def test_the_input_is_not_changed_by_estimating() -> None:
 def test_a_pure_engine_cannot_be_given_a_float() -> None:
     with pytest.raises(TypeError):
         Money(1.5, "AUD")  # type: ignore[arg-type]
+
+
+# --- a half cent goes to the even cent, step by step (issue #61) ---------------------------------
+#
+# Each figure below is INVENTED so that the exact answer lands on a half cent: one case settles up
+# and one settles down, so a rule of "always up" or "always down" fails one of the pair.
+
+
+def cents(money: Money) -> int:
+    return money.amount_minor
+
+
+def test_half_cent_low_income_offset_goes_to_the_even_cent() -> None:
+    rules = replace(invented_rules(), lito_taper2_rate=pct("1.5"))
+    # 450 - 3% of 8,000 (240) - 1.5% of 1 (0.015) = 209.985 -> 209.98
+    assert cents(low_income_offset(aud("38001"), rules)) == 20998
+    # ... - 1.5% of 3 (0.045) = 209.955 -> 209.96
+    assert cents(low_income_offset(aud("38003"), rules)) == 20996
+
+
+def test_half_cent_medicare_levy_goes_to_the_even_cent() -> None:
+    rules = replace(invented_rules(), medicare_levy_rate=pct("2.5"))
+    assert cents(medicare_levy(aud("30001"), None, 0, rules)) == 75002  # 750.025
+    assert cents(medicare_levy(aud("30003"), None, 0, rules)) == 75008  # 750.075
+
+
+def test_half_cent_surcharge_goes_to_the_even_cent() -> None:
+    rules = replace(invented_rules(), mls_rate_tier1=pct("0.75"))
+    for salary, expected in (("90002", 67502), ("90006", 67504)):  # 675.015 and 675.045
+        member_result = estimate(tax_input(member(1, salary=salary), rules=rules)).members[0]
+        assert cents(member_result.medicare_levy_surcharge) == expected
+
+
+def test_half_cent_help_repayment_goes_to_the_even_cent() -> None:
+    rules = replace(invented_rules(), help_r1=pct("0.5"))
+    assert cents(help_repayment(aud("50001"), rules)) == 0  # 0.005
+    assert cents(help_repayment(aud("50003"), rules)) == 2  # 0.015
+
+
+def test_half_cent_bracket_tax_goes_to_the_even_cent() -> None:
+    bands = (Band(aud("0"), pct("0.5")),)
+    assert cents(bracket_tax(aud("1"), bands)) == 0  # 0.005
+    assert cents(bracket_tax(aud("3"), bands)) == 2  # 0.015

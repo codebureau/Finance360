@@ -18,13 +18,13 @@ from finance360.core.money import (
     Money,
     MoneyError,
     allocate,
+    ato_offset_reduced,
     ato_scale,
     ato_whole_dollars,
     convert,
     exponent,
     parse_amount,
     round_div,
-    round_half_away,
     scale,
 )
 
@@ -438,22 +438,24 @@ def test_scale_overflow_raises_and_never_wraps() -> None:
 # ---- named ATO rounding steps (ADR-0019 section 3) -----------------------------------------------
 
 
-@pytest.mark.parametrize(
-    ("numerator", "denominator", "expected"),
-    [(1, 2, 1), (-1, 2, -1), (3, 2, 2), (-3, 2, -2), (5, 2, 3), (1, 3, 0), (2, 3, 1), (-2, 3, -1)],
-)
-def test_round_half_away_sends_a_half_away_from_zero_unlike_half_to_even(
-    numerator: int, denominator: int, expected: int
-) -> None:
-    assert round_half_away(numerator, denominator) == expected
-    assert round_half_away(numerator, -denominator) == -expected
-    assert round_half_away(0, 7) == 0
+def test_the_ato_step_sends_a_half_cent_to_the_even_cent_both_ways() -> None:
+    # Invented amounts landing exactly on a half cent: the notice goes up on one, down on another.
+    assert ato_scale(Money(1, "AUD"), 5, 2).amount_minor == 2  # 2.5 -> 2
+    assert ato_scale(Money(1, "AUD"), 7, 2).amount_minor == 4  # 3.5 -> 4
+    assert ato_scale(Money(-1, "AUD"), 5, 2).amount_minor == -2
+    assert ato_scale(Money(-1, "AUD"), 7, 2).amount_minor == -4
+    assert ato_scale(Money(1, "AUD"), 1, 3).amount_minor == 0  # not a half: nearest
 
 
-def test_the_ato_step_differs_from_the_half_even_step_on_a_half() -> None:
-    assert scale(Money(1, "AUD"), 5, 2).amount_minor == 2  # 2.5 -> 2 (half to even)
-    assert ato_scale(Money(1, "AUD"), 5, 2).amount_minor == 3  # 2.5 -> 3 (half away)
-    assert ato_scale(Money(-1, "AUD"), 5, 2).amount_minor == -3
+def test_a_tapering_offset_rounds_the_whole_formula_once_to_the_even_cent() -> None:
+    # 700.00 less 5% of 4,246.90 is 700.00 - 212.345 = 487.655: up to 487.66 (even).
+    # 700.00 less 5% of 4,246.70 is 700.00 - 212.335 = 487.665: down to 487.66 (even).
+    def lito(excess_cents: int) -> int:
+        reduction = ((Money(excess_cents, "AUD"), 50_000),)
+        return ato_offset_reduced(Money(70_000, "AUD"), reduction, 1_000_000).amount_minor
+
+    assert lito(424_690) == 48_766
+    assert lito(424_670) == 48_766
 
 
 def test_ato_whole_dollars_drops_the_cents_toward_zero() -> None:
@@ -482,7 +484,7 @@ def test_ato_scale_is_the_exact_ratio_rounded_to_the_nearest_cent(
     exact = Fraction(amount * numerator, denominator)
     assert abs(Fraction(got) - exact) <= Fraction(1, 2)
     if abs(Fraction(got) - exact) == Fraction(1, 2):
-        assert abs(got) > abs(exact)  # a half goes away from zero
+        assert got % 2 == 0  # a half goes to the even cent
 
 
 @given(st.integers(-(10**12), 10**12))

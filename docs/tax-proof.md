@@ -79,7 +79,12 @@ want; the test uses the **highest year** (the most recently lodged return). To k
 
 ## Reading the result
 
-* Passing means every `expected` item matched to the cent and nothing was left unmatched.
+* Passing means every `expected` item matched to the cent and nothing was left unmatched. The one
+  exception is `net_outcome`, which is compared **within 5 cents** (the same allowance as the sign
+  check above): the notice of assessment rounds the final result by a few cents, which the engine
+  cannot reproduce from the labels. The engine's own `net_outcome` stays exact. A half cent in any
+  other figure goes to the even cent, as the notice does; the engine's rounding steps are in
+  `core.money`.
 * A failure names, per member: `<item> differs by <engine minus lodged>`; `<item> has no engine value
   to compare`; or `<label> has a figure and is not modelled by the engine`. The first points at a
   rounding step or a rule; the others are the list of unmatched return items to put in the PR.

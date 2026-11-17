@@ -7,8 +7,8 @@ and a golden test pins it (ADR-0015 s3).
 
 Per Member first, then the family tests that need both Members (the Medicare levy reduction and the
 Medicare levy surcharge). Two Members are assessed as a couple. Every rate applies through the named
-ATO steps in ``core.money`` (the only place tax rounds); taxable income is truncated to whole
-dollars. All figures are integer minor units of AUD.
+ATO steps in ``core.money`` (the only place tax rounds; a half cent goes to the even cent);
+taxable income is truncated to whole dollars. All figures are integer minor units of AUD.
 
 **Unmodelled items are reported, never ignored.** Every Return label with a non-zero total that the
 registry marks as not modelled is listed in the result, and the estimate is marked ``incomplete``.
@@ -22,10 +22,17 @@ from dataclasses import dataclass
 from finance360.capabilities.tax import labels
 from finance360.capabilities.tax.input import MemberInput, TaxInput, days_in_fy
 from finance360.capabilities.tax.rules import Band, TaxRules
-from finance360.core.money import BASE_CURRENCY, Money, ato_scale, ato_whole_dollars, format_amount
+from finance360.core.money import (
+    BASE_CURRENCY,
+    Money,
+    ato_offset_reduced,
+    ato_scale,
+    ato_whole_dollars,
+    format_amount,
+)
 from finance360.core.rate import PPM, Rate
 
-TAX_ENGINE_VERSION = 4
+TAX_ENGINE_VERSION = 5
 
 ZERO = Money(0, BASE_CURRENCY)
 
@@ -143,8 +150,14 @@ def bracket_tax(income: Money, bands: tuple[Band, ...]) -> Money:
 def low_income_offset(taxable: Money, rules: TaxRules) -> Money:
     """The low income tax offset: the maximum, reduced at two rates as income rises."""
     first_to = taxable if taxable < rules.lito_taper2_from else rules.lito_taper2_from
-    value = rules.lito_max - _rate(_pos(first_to - rules.lito_taper1_from), rules.lito_taper1_rate)
-    value = value - _rate(_pos(taxable - rules.lito_taper2_from), rules.lito_taper2_rate)
+    value = ato_offset_reduced(
+        rules.lito_max,
+        (
+            (_pos(first_to - rules.lito_taper1_from), rules.lito_taper1_rate.ppm),
+            (_pos(taxable - rules.lito_taper2_from), rules.lito_taper2_rate.ppm),
+        ),
+        PPM,
+    )
     return _pos(value)
 
 

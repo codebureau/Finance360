@@ -273,6 +273,8 @@ def compare(case: Case, result: engine.TaxResult) -> Report:
                 continue
             lodged = _amount(text, f"member {position}: expected {key}")
             difference = getattr(got, attribute).amount_minor - lodged.amount_minor
+            if key == "net_outcome" and abs(difference) <= NET_OUTCOME_TOLERANCE.amount_minor:
+                difference = 0  # the notice rounds the final result by a few cents (issue #61)
             if difference == 0:
                 report.matched += 1
             else:
