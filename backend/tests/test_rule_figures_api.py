@@ -27,7 +27,7 @@ REPO = Path(__file__).resolve().parents[2]
 RATE = "tax.car.rate_per_km"
 LIMIT = "tax.car.max_km"
 LEVY = "tax.medicare.levy_rate"
-BASE = "au/2026-27/r7"
+BASE = "au/2026-27/r8"
 
 
 def _client(

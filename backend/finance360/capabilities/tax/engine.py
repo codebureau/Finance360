@@ -25,7 +25,7 @@ from finance360.capabilities.tax.rules import Band, TaxRules
 from finance360.core.money import BASE_CURRENCY, Money, ato_scale, ato_whole_dollars, format_amount
 from finance360.core.rate import PPM, Rate
 
-TAX_ENGINE_VERSION = 3
+TAX_ENGINE_VERSION = 4
 
 ZERO = Money(0, BASE_CURRENCY)
 
@@ -146,6 +146,28 @@ def low_income_offset(taxable: Money, rules: TaxRules) -> Money:
     value = rules.lito_max - _rate(_pos(first_to - rules.lito_taper1_from), rules.lito_taper1_rate)
     value = value - _rate(_pos(taxable - rules.lito_taper2_from), rules.lito_taper2_rate)
     return _pos(value)
+
+
+@dataclass(frozen=True)
+class ForeignOffset:
+    claimed: Money
+    #: True when the entered amount is more than the estimate can claim: above the simple cap, or
+    #: the year has no cap figure. The full limit calculation is not modelled.
+    limited: bool
+
+
+def foreign_offset_claim(entered: Money, rules: TaxRules) -> ForeignOffset:
+    """The foreign income tax offset claimed: what was entered up to the simple cap. Above the cap
+    the full limit is not worked out, so the cap is claimed and the excess is reported as not
+    modelled. A year without a cap figure claims nothing. Cents are kept."""
+    if entered.amount_minor <= 0:
+        return ForeignOffset(ZERO, False)
+    cap = rules.foreign_offset_cap
+    if cap is None:
+        return ForeignOffset(ZERO, True)
+    if entered > cap:
+        return ForeignOffset(cap, True)
+    return ForeignOffset(entered, False)
 
 
 def help_repayment(income: Money, rules: TaxRules) -> Money:
@@ -279,6 +301,7 @@ def _assess(member: MemberInput, inp: TaxInput) -> _Stage:
             gain.net,
             net_rent,
             net_business,
+            w("foreign_source_income"),
             w("other_income"),
         ]
     )
@@ -326,7 +349,13 @@ def _assess(member: MemberInput, inp: TaxInput) -> _Stage:
         share = ato_scale(basic_tax, business.amount_minor, taxable.amount_minor)
         capped = _rate(share, rules.sbito_rate)
         sbito = capped if capped < rules.sbito_cap else rules.sbito_cap
-    wanted = lito + sbito
+    foreign = foreign_offset_claim(m("foreign_tax_offset"), rules)
+    if foreign.limited:
+        notes.append(
+            f"Foreign income tax offset of {format_amount(m('foreign_tax_offset'))} entered; "
+            f"{format_amount(foreign.claimed)} claimed. The full limit is not worked out."
+        )
+    wanted = lito + sbito + foreign.claimed
     offsets = basic_tax if basic_tax < wanted else wanted
 
     return _Stage(
@@ -362,6 +391,9 @@ def _unmodelled(inp: TaxInput) -> tuple[Unmodelled, ...]:
                 continue
             if isinstance(value, Money) and value.amount_minor != 0:
                 found.append(Unmodelled(member.member_id, key, value))
+        entered = member.money("foreign_tax_offset")
+        if foreign_offset_claim(entered, inp.rules).limited:
+            found.append(Unmodelled(member.member_id, "foreign_tax_offset", entered))
     return tuple(found)
 
 

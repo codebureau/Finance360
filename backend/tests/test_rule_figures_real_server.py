@@ -23,7 +23,7 @@ def test_capture_correct_and_withdraw_work_over_a_real_server_and_are_read_back_
     # untouched and the label starts at "+1" (that capture).
     year = {"financial_year": 2028}
     before = http.get("/api/rule-figures", params=year).json()["rule_pack_version"]
-    assert before == "au/2026-27/r7+1:5be77e"
+    assert before == "au/2026-27/r8+1:5be77e"
 
     made = http.post(
         "/api/rule-figures",
@@ -35,7 +35,7 @@ def test_capture_correct_and_withdraw_work_over_a_real_server_and_are_read_back_
     listed = http.get("/api/rule-figures", params=year).json()
     rate = next(f for f in listed["figures"] if f["key"] == RATE)
     assert (rate["state"], rate["value"]) == ("captured", "0.90")
-    assert listed["rule_pack_version"].startswith("au/2027-28/r7+2:")  # last year moves
+    assert listed["rule_pack_version"].startswith("au/2027-28/r8+2:")  # last year moves
 
     fixed = http.put(f"/api/rule-figures/{capture_id}", json={"value": "0.92"})
     assert fixed.status_code == 200, fixed.text

@@ -20,6 +20,7 @@ from finance360.capabilities.tax import labels, pack_rules
 from finance360.config import Settings
 from finance360.core import rulepack
 from finance360.core.models.audit import AuditEvent
+from finance360.core.money import Money
 from finance360.main import create_app
 from finance360.rulepacks.au import PACK
 from support import TestClient, owner_client, without_depreciating_assets
@@ -119,6 +120,12 @@ def test_the_year_may_have_no_instant_deduction() -> None:
     assert rules.standard_work_deduction is None and rules == invented_rules(instant=None)
 
 
+def test_the_year_may_have_no_foreign_offset_cap() -> None:
+    rules = pack_rules.build_rules(invented_pack(drop=(pack_rules.FOREIGN_OFFSET_CAP_KEY,)), FY)
+    assert rules.foreign_offset_cap is None
+    assert pack_rules.build_rules(invented_pack(), FY).foreign_offset_cap == aud("75")
+
+
 def test_provisional_markers_come_from_the_pack() -> None:
     pack = invented_pack(provisional={"tax.help.t1": "announced, not yet law"})
     rules = pack_rules.build_rules(pack, FY)
@@ -135,7 +142,9 @@ def test_the_shipped_pack_can_estimate_exactly_the_captured_years() -> None:
         "tax.medicare.low_income.family_lower",
         "tax.medicare.low_income.family_per_child",
         *DIV293_KEYS,  # provisional until confirmed on Rule figures
+        pack_rules.FOREIGN_OFFSET_CAP_KEY,
     }
+    assert rules.foreign_offset_cap == Money(100_000, "AUD")
     with pytest.raises(pack_rules.TaxRulesError):
         pack_rules.build_rules(PACK, 2025)
 
@@ -146,7 +155,7 @@ def test_every_figure_an_estimate_needs_is_declared_for_capture() -> None:
     declared = {s.key for s in SPECS}
     needed = (
         set(pack_rules.REQUIRED.values())
-        | {pack_rules.OPTIONAL_KEY}
+        | {pack_rules.OPTIONAL_KEY, pack_rules.FOREIGN_OFFSET_CAP_KEY}
         | set(pack_rules.RECORD_KEYS)  # a Record type reads it; only a record using it needs it
         | set(DIV293_KEYS)  # the Division 293 working reads them; an estimate does not
     )
@@ -169,7 +178,11 @@ def test_the_setup_lists_every_label_modelled_or_not(sample: TestClient) -> None
 
 
 def test_with_no_captured_year_the_setup_says_so(sample: TestClient) -> None:
-    swap_pack(invented_pack(drop=tuple(pack_rules.REQUIRED.values()), instant=None))
+    swap_pack(
+        invented_pack(
+            drop=(*pack_rules.REQUIRED.values(), pack_rules.FOREIGN_OFFSET_CAP_KEY), instant=None
+        )
+    )
     try:
         data = sample.get("/api/tax/setup").json()
     finally:
@@ -218,7 +231,7 @@ def test_an_estimate_for_the_synthetic_household(sample: TestClient) -> None:
     assert res.status_code == 200, res.text
     data = res.json()
     assert (data["financial_year"], data["financial_year_label"]) == (FY, rulepack.fy_label(FY))
-    assert data["engine_version"] == 3
+    assert data["engine_version"] == 4
     assert data["rule_pack_version"] == f"au/2096-97/r{PACK.revision}"
     assert data["incomplete"] is False and data["unmodelled"] == []
     alex, jordan = data["members"]

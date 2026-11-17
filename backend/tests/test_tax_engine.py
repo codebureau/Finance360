@@ -6,6 +6,7 @@ those invented rules. Nothing here asserts an official rate, threshold or cap.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date
 
 import pytest
@@ -28,7 +29,7 @@ from finance360.core.money import Money
 
 #: Bump together with ``TAX_ENGINE_VERSION`` whenever the engine returns something different for the
 #: same input (ADR-0015 s3). The goldens below were worked out with this version.
-GOLDEN_ENGINE_VERSION = 3
+GOLDEN_ENGINE_VERSION = 4
 
 
 def test_golden_answers_were_computed_with_this_engine_version() -> None:
@@ -402,6 +403,87 @@ def test_the_low_income_offset_tapers_at_two_rates() -> None:
     assert low_income_offset(aud("48000"), rules) == aud("110")  # then 1% of 10,000
     assert low_income_offset(aud("59000"), rules) == aud("0")
     assert low_income_offset(aud("90000"), rules) == aud("0")
+
+
+# --- foreign income and the foreign income tax offset (#54) ------------------------------------
+# The invented rules cap the offset at 75.00.
+
+
+def test_foreign_source_income_is_added_to_income() -> None:
+    base = estimate(tax_input(member(1, salary="30000"))).members[0]
+    foreign = estimate(tax_input(member(1, salary="30000", foreign_source_income="50.00"))).members[
+        0
+    ]
+    assert foreign.total_income == base.total_income + aud("50.00")
+    assert foreign.taxable_income == base.taxable_income + aud("50")
+    # whole dollars per income label, like the others
+    cents = estimate(tax_input(member(1, salary="30000", foreign_source_income="50.90"))).members[0]
+    assert cents.total_income == base.total_income + aud("50")
+
+
+def test_a_foreign_income_tax_offset_reduces_tax_by_exactly_that_amount() -> None:
+    base = estimate(tax_input(member(1, salary="60000"))).members[0]
+    got = estimate(tax_input(member(1, salary="60000", foreign_tax_offset="6.00"))).members[0]
+    assert got.offsets == base.offsets + aud("6.00")
+    assert got.total_tax == base.total_tax - aud("6.00")
+    assert got.net_outcome == base.net_outcome + aud("6.00")
+    assert got.low_income_offset == base.low_income_offset  # its own figure is untouched
+
+
+def test_the_foreign_offset_keeps_its_cents() -> None:
+    base = estimate(tax_input(member(1, salary="60000"))).members[0]
+    got = estimate(tax_input(member(1, salary="60000", foreign_tax_offset="6.07"))).members[0]
+    assert got.total_tax == base.total_tax - aud("6.07")
+
+
+def test_an_offset_within_the_cap_is_complete_and_one_above_is_limited_and_reported() -> None:
+    at_cap = estimate(tax_input(member(1, salary="60000", foreign_tax_offset="75.00")))
+    assert not at_cap.incomplete and at_cap.unmodelled == ()
+    base = estimate(tax_input(member(1, salary="60000"))).members[0]
+
+    above = estimate(tax_input(member(1, salary="60000", foreign_tax_offset="80.00")))
+    assert above.members[0].offsets == base.offsets + aud("75.00")  # the cap, not 80
+    assert above.incomplete
+    assert [(u.member_id, u.label_key, u.value) for u in above.unmodelled] == [
+        (1, "foreign_tax_offset", aud("80.00"))
+    ]
+    assert any("claimed" in n and "full limit" in n for n in above.members[0].notes)
+
+
+def test_a_year_without_a_cap_figure_claims_nothing_and_reports_the_offset() -> None:
+    rules = replace(invented_rules(), foreign_offset_cap=None)
+    base = estimate(tax_input(member(1, salary="60000"), rules=rules)).members[0]
+    result = estimate(tax_input(member(1, salary="60000", foreign_tax_offset="6.00"), rules=rules))
+    assert result.members[0].offsets == base.offsets
+    assert result.incomplete and [u.label_key for u in result.unmodelled] == ["foreign_tax_offset"]
+
+
+def test_the_foreign_offset_is_non_refundable() -> None:
+    # Tax on 18,800 is 476.00; the low income offset (450.00) takes most, leaving 26.00. A 40.00
+    # foreign offset can only reduce what is left.
+    got = estimate(tax_input(member(1, salary="18800", foreign_tax_offset="40.00"))).members[0]
+    assert got.tax_on_taxable_income == aud("476.00")
+    assert got.offsets == aud("476.00")  # not 490.00
+    # and where the tax is nil, nothing is refunded
+    low = estimate(tax_input(member(1, salary="5000", foreign_tax_offset="40.00"))).members[0]
+    assert low.offsets == low.tax_on_taxable_income == aud("0")
+    assert low.total_tax >= aud("0")
+
+
+@settings(max_examples=60, deadline=None)
+@given(st.integers(0, 200_000_00), st.integers(0, 30_000_00))
+def test_the_foreign_offset_never_exceeds_the_cap_or_the_tax(salary: int, offset: int) -> None:
+    def text(minor: int) -> str:
+        return f"{minor // 100}.{minor % 100:02d}"
+
+    base = estimate(tax_input(member(1, salary=text(salary)))).members[0]
+    got = estimate(
+        tax_input(member(1, salary=text(salary), foreign_tax_offset=text(offset)))
+    ).members[0]
+    extra = got.offsets.amount_minor - base.offsets.amount_minor
+    assert 0 <= extra <= min(offset, 75_00)
+    assert got.offsets <= got.tax_on_taxable_income
+    assert got.total_tax.amount_minor == base.total_tax.amount_minor - extra
 
 
 # --- unmodelled labels and provisional markers -------------------------------------------

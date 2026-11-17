@@ -157,8 +157,8 @@ def test_the_shipped_tax_figures_load_and_every_held_key_is_declared() -> None:
 #: without recording it: bump ``rulepacks.au.REVISION``, then update both numbers here. A change to
 #: an age function's result has no hash; the golden tests above fail for it, and it needs a bump
 #: too.
-PINNED_REVISION = 7
-PINNED_HASH = "d4061154cb06ebb63769530f145cbee6b6fc04f4be1cfaa47af4cf404efeab36"
+PINNED_REVISION = 8
+PINNED_HASH = "8c3a0f41389d78db6676360d9350cfa3206a9fe4ff6fea18b280e2b945227767"
 
 
 def test_the_revision_and_content_hash_are_pinned() -> None:
@@ -168,4 +168,4 @@ def test_the_revision_and_content_hash_are_pinned() -> None:
 
 
 def test_the_version_label_is_what_a_saved_run_records() -> None:
-    assert PACK.version_label == "au/2026-27/r7"
+    assert PACK.version_label == "au/2026-27/r8"

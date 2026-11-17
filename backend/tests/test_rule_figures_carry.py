@@ -31,7 +31,7 @@ from finance360.rulepacks.au.tax_specs import SPECS
 from support import TestClient
 
 CTX = AuditContext("owner", "login:1", "api")
-TODAY = date(2026, 11, 14)  # FY 2026-27, so FY 2027 and FY 2028 can be captured
+TODAY = date(2026, 11, 17)  # FY 2026-27, so FY 2027 and FY 2028 can be captured
 LITO_PAGE = (
     "https://www.ato.gov.au/individuals-and-families/income-deductions-offsets-and-records/"
     "tax-offsets/low-income-tax-offset"
@@ -124,7 +124,7 @@ def test_the_preview_proposes_each_missing_key_from_last_year_and_writes_nothing
     # nothing was written: still missing, the version label unmoved, no capture row, no audit
     figures = by_key(sample, 2027)
     assert {f["state"] for f in figures.values()} == {"missing"}
-    assert year(sample, 2027)["rule_pack_version"] == "au/2026-27/r7"
+    assert year(sample, 2027)["rule_pack_version"] == "au/2026-27/r8"
     assert sample.get("/api/audit", params={"entity_type": "rule_capture"}).json()["items"] == []
     offer = year(sample, 2027)["carry_offer"]
     assert offer == {

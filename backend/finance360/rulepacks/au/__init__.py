@@ -33,7 +33,7 @@ _YEARS: dict[int, dict[str, Value]] = {
 for _fy, _values in _TAX_YEARS.items():
     _YEARS.setdefault(_fy, {}).update(_values)
 
-REVISION = 7
+REVISION = 8
 
 PACK = RulePack(
     pack_id="au",

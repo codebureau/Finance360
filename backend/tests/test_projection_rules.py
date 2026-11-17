@@ -26,8 +26,8 @@ from support import TestClient, owner_client, without_income_streams
 REPO = Path(__file__).resolve().parents[2]
 AS_AT = "2026-10-25"
 # The sample household carries one invented captured figure (FY 2026-27 car rate), so its label
-# reads r7+1:<digest> (ADR-0022 section 3); the digest pins exactly that capture.
-LABEL = "au/2026-27/r7+1:5be77e"
+# reads r8+1:<digest> (ADR-0022 section 3); the digest pins exactly that capture.
+LABEL = "au/2026-27/r8+1:5be77e"
 
 
 @pytest.fixture

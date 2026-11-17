@@ -174,6 +174,12 @@ A managed fund's tax statement lists its amounts against return items. Enter the
 - **Managed fund and trust distributions (not capital gains)**: item **13U** (unfranked distribution) plus item **13C** (franked distribution). The franked distribution already includes its franking credit, so do not add the credit to it.
 - **Managed fund franking credits**: item **13Q**. This counts only as a credit against the tax, never as income a second time.
 
+Foreign income on the statement goes on two more labels, under Other income:
+- **Foreign source income (assessable)**: items **20E** and **20M**, added to your income like any other income label (whole dollars, cents dropped).
+- **Foreign income tax offset**: item **20O**, the tax paid overseas. It is a non-refundable offset: it reduces the tax on your taxable income, but never below zero, and it shows in the **offsets** line of the result.
+
+**The offset is capped, not worked out in full.** The estimate claims what you enter up to the simple cap, a figure on [Rule figures](/rule-figures) for the year (*Foreign income tax offset: simple cap*), the amount a person may claim without working out the full limit. If you enter more than the cap, the estimate claims only the cap, lists the offset as **Incomplete** and says so in the Member's notes, because the full limit calculation is not done. A year whose Rule figures do not hold the cap claims nothing and lists the offset the same way. Foreign entities (item 19), controlled foreign companies and foreign pensions are not modelled either.
+
 Capital gains on the statement go under the capital gains labels (the discountable gain grossed up). Dividends you hold directly are different: there the franked amount leaves out the credit, so you enter it under **Dividends: franking credits** as well and the estimate adds it to income.
 
 ## A tax year, step by step

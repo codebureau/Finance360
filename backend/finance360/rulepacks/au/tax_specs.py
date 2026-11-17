@@ -59,6 +59,11 @@ _SBITO_PAGE = (
     + "income-and-deductions-for-business/concessions-offsets-and-rebates/"
     + "small-business-income-tax-offset"
 )
+_FOREIGN_OFFSET_PAGE = (
+    _ATO
+    + "individuals-and-families/income-deductions-offsets-and-records/tax-offsets/"
+    + "foreign-income-tax-offset"
+)
 _CGT_PAGE = _ATO + "individuals-and-families/investments-and-assets/capital-gains-tax/cgt-discount"
 _WORK_PAGE = (
     _ATO
@@ -105,6 +110,7 @@ _MLS = "ATO, Medicare levy surcharge income, thresholds and rates"
 _HELP = "ATO, Study and training support loans: repayment thresholds and rates"
 _SBITO = "ATO, Small business income tax offset"
 _WORK = "ATO, Work-related expenses: instant deduction"
+_FOREIGN_OFFSET = "ATO, Foreign income tax offset"
 _CGT = "ATO, Capital gains tax discount"
 _DEPRECIATION = "ATO, Uniform capital allowance system: calculate decline in value"
 _HOME_OFFICE = "ATO, Working from home expenses: fixed rate method"
@@ -345,6 +351,15 @@ SPECS: tuple[FigureSpec, ...] = (
         _SBITO,
         _SBITO_PAGE,
         "The most the offset can be for the year.",
+        10_000,
+    ),
+    _money(
+        "tax.foreign_offset.cap",
+        "Foreign income tax offset: simple cap",
+        _FOREIGN_OFFSET,
+        _FOREIGN_OFFSET_PAGE,
+        "The most foreign income tax offset that can be claimed without working out the full "
+        "limit (the amount below which no calculation is needed).",
         10_000,
     ),
     _rate(
