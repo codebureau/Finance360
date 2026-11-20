@@ -138,6 +138,24 @@ const whatif = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+const probe = (amount: string, net: string, meets: boolean) => ({ amount, net_outcome: net, meets_target: meets });
+// Invented figures.
+const breakEven = (over: Record<string, unknown> = {}) => ({
+  status: "found",
+  target: "600.00",
+  lower: "0.00",
+  upper: "10000000.00",
+  direction: "largest",
+  amount: "91234.56",
+  below: probe("91234.55", "600.00", true),
+  at: probe("91234.56", "600.00", true),
+  above: probe("91234.57", "599.99", false),
+  verified: true,
+  non_monotone: false,
+  reasons: [],
+  ...over,
+});
+
 type Call = { method: string; path: string; search: string; body?: Record<string, unknown> };
 
 function fakeBackend(
@@ -146,6 +164,7 @@ function fakeBackend(
     estimates?: ReturnType<typeof header>[];
     saved?: Record<string, unknown>;
     putError?: unknown;
+    breakEven?: Record<string, unknown>;
   } = {},
 ) {
   const calls: Call[] = [];
@@ -163,6 +182,7 @@ function fakeBackend(
       if (path === "/api/tax/records") {
         return json([{ id: 9, description: "Donation to Sample Charity", member_name: "Alex Sample" }]);
       }
+      if (path === "/api/tax/whatifs/break-even") return json(options.breakEven ?? breakEven());
       if (path === "/api/tax/whatifs" && request.method === "POST") {
         return json(whatif({ id: 6, name: body?.name, overrides: [] }), 201);
       }
@@ -542,4 +562,76 @@ test("the sidebar's tax group links to the what-ifs and the saved estimates", as
   await renderAppAt("/tax/estimates");
   expect(screen.getAllByRole("link", { name: "Tax what-ifs" })[0]).toHaveAttribute("href", "/tax/whatifs");
   expect(screen.getAllByRole("link", { name: "Saved estimates" })[0]).toHaveAttribute("href", "/tax/estimates");
+});
+
+async function findBreakEven() {
+  await screen.findByRole("heading", { name: "Break-even" });
+  fireEvent.change(await screen.findByLabelText("Member"), { target: { value: "2" } });
+  fireEvent.change(screen.getByLabelText("Return label"), { target: { value: "salary" } });
+  fireEvent.click(screen.getByRole("button", { name: "Find break-even" }));
+}
+
+test("Break-even asks for one Member and label, shows the found amount with the check one cent either side, and stores nothing", async () => {
+  const calls = fakeBackend();
+  await renderAppAt("/tax/whatifs/5");
+  // the label choices are the amount labels only
+  await screen.findByRole("heading", { name: "Break-even" });
+  const choices = within(await screen.findByLabelText("Return label")).getAllByRole("option");
+  expect(choices.map((o) => o.textContent)).toEqual(["Choose a label", "Salary and wages (gross)", "Other work-related expenses"]);
+  expect(screen.getByRole("button", { name: "Find break-even" })).toBeDisabled();
+
+  await findBreakEven();
+  expect(await screen.findByTestId("break-even-found")).toHaveTextContent(/Up to 91,234\.56 of Jordan's Salary and wages/);
+  const table = screen.getByRole("table", { name: "Verification" });
+  expect(within(table).getAllByRole("row").map((r) => r.textContent)).toEqual([
+    "CheckSalary and wages (gross)Net outcomeBase case met",
+    expect.stringMatching(/^One cent below91,234\.55.*Yes$/),
+    expect.stringMatching(/^The amount91,234\.56.*Yes$/),
+    expect.stringMatching(/^One cent above91,234\.57.*No$/),
+  ]);
+  expect(screen.getByTestId("break-even-verified")).toHaveTextContent(/Checked again/);
+  expect(screen.queryByTestId("break-even-warning")).toBeNull();
+
+  const asked = calls.find((c) => c.path === "/api/tax/whatifs/break-even");
+  expect(asked?.body).toMatchObject({ financial_year: 2026, member_ids: [1, 2], member_id: 2, label: "salary", whatif_id: 5 });
+  // asking is not saving
+  expect(calls.filter((c) => c.method === "POST" && c.path === "/api/tax/whatifs")).toEqual([]);
+  expect(calls.filter((c) => c.method === "PUT")).toEqual([]);
+});
+
+test("a non-monotone range is flagged with its reasons", async () => {
+  fakeBackend({ breakEven: breakEven({ non_monotone: true, reasons: ["cliff", "many_crossings"] }) });
+  await renderAppAt("/tax/whatifs/5");
+  await findBreakEven();
+  const warning = await screen.findByTestId("break-even-warning");
+  expect(warning).toHaveTextContent("The outcome is not steady across this range");
+  expect(warning).toHaveTextContent(/HELP repayment threshold/);
+  expect(warning).toHaveTextContent(/lowest crossing, not the only one/);
+});
+
+test("no crossing in range is said plainly, with nothing to save", async () => {
+  fakeBackend({ breakEven: breakEven({ status: "none", direction: null, amount: null, below: null, at: null, above: null, verified: false }) });
+  await renderAppAt("/tax/whatifs/5");
+  await findBreakEven();
+  expect(await screen.findByTestId("break-even-none")).toHaveTextContent(/No amount of Jordan's Salary and wages.*no crossing in range/);
+  expect(screen.queryByRole("button", { name: "Save as what-if" })).toBeNull();
+});
+
+test("Save as what-if creates an ordinary Tax what-if with the other overrides and the found amount", async () => {
+  const calls = fakeBackend();
+  const { router } = await renderAppAt("/tax/whatifs/5");
+  await findBreakEven();
+  fireEvent.click(await screen.findByRole("button", { name: "Save as what-if" }));
+  const dialog = await screen.findByRole("dialog");
+  fireEvent.change(within(dialog).getByLabelText("Name"), { target: { value: "Jordan at break-even" } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Create Tax what-if" }));
+  await waitFor(() => expect(router.state.location.pathname).toBe("/tax/whatifs/6"));
+  const made = calls.find((c) => c.method === "POST" && c.path === "/api/tax/whatifs");
+  expect(made?.body).toMatchObject({
+    name: "Jordan at break-even",
+    financial_year: 2026,
+    // the what-if's own override of Jordan's salary is replaced, not doubled
+    overrides: [{ op: "set", member_id: 2, label: "salary", amount: "91234.56" }],
+  });
+  expect((made?.body?.overrides as unknown[]).length).toBe(1);
 });

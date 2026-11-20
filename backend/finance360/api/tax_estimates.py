@@ -28,7 +28,7 @@ from finance360.api.tax import (
     unmodelled_out,
     value_out,
 )
-from finance360.capabilities.tax import compare, labels, saved, whatif
+from finance360.capabilities.tax import breakeven, compare, labels, saved, whatif
 from finance360.capabilities.tax import input as tinput
 from finance360.capabilities.tax.input import Total
 from finance360.core.money import Money
@@ -563,6 +563,96 @@ def update_whatif(
 def delete_whatif(whatif_id: int, session: SessionDep, ctx: ContextDep) -> Response:
     saved.delete_whatif(session, ctx, whatif_id)
     return Response(status_code=204)
+
+
+# --- break-even -----------------------------------------------------------------------------
+
+
+class TaxBreakEvenIn(BaseModel):
+    financial_year: StrictInt = Field(description="The year it ends in: 2027 is FY 2026-27.")
+    dependants: StrictInt = Field(default=0, description="Dependent children.")
+    member_ids: list[StrictInt] = Field(description="One or two Household Members.")
+    member_id: StrictInt = Field(description="The Member whose total is varied.")
+    label: str = Field(description="The Return label key (an amount label) whose total is varied.")
+    whatif_id: StrictInt | None = Field(
+        default=None,
+        description="A Tax what-if of that year: its other overrides stay while the amount varies.",
+    )
+
+
+class TaxBreakEvenProbeOut(BaseModel):
+    amount: str
+    net_outcome: str
+    meets_target: bool
+
+
+class TaxBreakEvenOut(BaseModel):
+    """The search's answer. Nothing is stored; the amount may be saved as an ordinary what-if."""
+
+    status: str = Field(
+        description="'found'; 'always' (the target is met at every amount tried); 'none' (at no "
+        "amount in range)."
+    )
+    target: str = Field(description="The base case's household net outcome: what must be met.")
+    lower: str
+    upper: str
+    direction: str | None = Field(
+        description="'smallest': the target is met from this amount up. 'largest': up to it."
+    )
+    amount: str | None = Field(description="The amount found, when status is 'found'.")
+    below: TaxBreakEvenProbeOut | None = Field(description="One cent below the amount.")
+    at: TaxBreakEvenProbeOut | None
+    above: TaxBreakEvenProbeOut | None = Field(description="One cent above the amount.")
+    verified: bool = Field(description="The amount meets the target, its far neighbour does not.")
+    non_monotone: bool
+    reasons: list[str] = Field(
+        description="Why the range is not monotone: 'reversal', 'cliff', 'many_crossings'."
+    )
+
+
+def _probe_out(p: breakeven.Probe | None) -> TaxBreakEvenProbeOut | None:
+    if p is None:
+        return None
+    return TaxBreakEvenProbeOut(
+        amount=amount_out(Money(p.amount_minor, "AUD")),
+        net_outcome=amount_out(Money(p.net_minor, "AUD")),
+        meets_target=p.holds,
+    )
+
+
+@router.post(
+    "/whatifs/break-even",
+    response_model=TaxBreakEvenOut,
+    operation_id="searchTaxBreakEven",
+    responses=ERRORS,  # type: ignore[arg-type]
+)
+def search_break_even(body: TaxBreakEvenIn, session: SessionDep) -> TaxBreakEvenOut:
+    """At what amount of one Member's total for one label is the household net outcome at least
+    the base case? Nothing is saved."""
+    got = saved.break_even(
+        session,
+        financial_year=body.financial_year,
+        dependants=body.dependants,
+        member_ids=body.member_ids,
+        member_id=body.member_id,
+        label=body.label,
+        whatif_id=body.whatif_id,
+    )
+    s = got.search
+    return TaxBreakEvenOut(
+        status=s.status,
+        target=amount_out(got.target),
+        lower=amount_out(Money(s.lower_minor, "AUD")),
+        upper=amount_out(Money(s.upper_minor, "AUD")),
+        direction=s.direction,
+        amount=amount_out(got.found) if got.found is not None else None,
+        below=_probe_out(s.below),
+        at=_probe_out(s.at),
+        above=_probe_out(s.above),
+        verified=got.verified,
+        non_monotone=s.non_monotone,
+        reasons=list(s.reasons),
+    )
 
 
 # --- estimates ------------------------------------------------------------------------------

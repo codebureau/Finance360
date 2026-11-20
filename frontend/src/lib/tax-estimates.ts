@@ -16,6 +16,7 @@ export type TaxValue = components["schemas"]["TaxValueOut"];
 export type TaxTotal = components["schemas"]["TaxTotalOut"];
 export type TaxPrefill = components["schemas"]["TaxPrefillOut"];
 export type TaxAppliedOverride = components["schemas"]["TaxAppliedOverrideOut"];
+export type TaxBreakEven = components["schemas"]["TaxBreakEvenOut"];
 
 const client = createClient<paths>({
   baseUrl: window.location.origin,
@@ -94,6 +95,19 @@ export function overrideInput(o: TaxOverride): TaxOverrideInput {
 export async function previewEstimate(request: EstimateRequest): Promise<TaxEstimateView> {
   const { data, error, response } = await client.POST("/api/tax/estimates/preview", {
     body: runBody(request),
+  });
+  if (!data) throw toApiError(error, response.status);
+  return data;
+}
+
+/** At what amount of one Member's total for one label is the household net outcome at least the base case? Saves nothing. */
+export async function searchBreakEven(
+  request: EstimateRequest,
+  memberId: number,
+  label: string,
+): Promise<TaxBreakEven> {
+  const { data, error, response } = await client.POST("/api/tax/whatifs/break-even", {
+    body: { ...runBody(request), member_id: memberId, label },
   });
   if (!data) throw toApiError(error, response.status);
   return data;

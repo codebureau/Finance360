@@ -53,6 +53,15 @@ Press **Save estimate** on the Tax estimate or on a what-if and it is kept on [S
 
 To compare, tick two saved estimates **of the same financial year** and press **Compare**. It lists the Label totals that differ and every result line for the Household and each Member, as the second less the first. A negative change in net outcome means more tax to pay or a smaller refund.
 
+### Break-even: how much is it worth?
+A what-if's page has a **Break-even** panel. Pick a Member and a Return label that holds an amount, and press **Find break-even**: it finds the amount of that one total, from 0 to 10,000,000.00, at which the household's net outcome (credits less total tax) is at least what your Tax records give. The what-if's other overrides stay in force, so run it on a what-if that changes something; on one with no other overrides the answer is just your records' own total.
+
+- **Up to** an amount means more of it makes the household worse off (income); **From** an amount means more of it helps (a deduction). It is exact to the cent.
+- **It checks itself.** The cent either side is listed with its net outcome, and the result is calculated again in full.
+- **A warning when the outcome is not steady.** A Medicare levy surcharge tier or a HELP repayment threshold can make it jump, and some totals pull it both ways. The amount is then *a* crossing (the lowest), not necessarily the only one.
+- **No crossing** in range, or every amount meeting it, is said plainly.
+- **Nothing is stored** by searching. **Save as what-if** creates an ordinary Tax what-if from this one's other overrides with the found amount stated.
+
 ## Prefilled from Income streams: records first, never both
 A year-to-date total from your records and a full-year forecast from an Income stream describe the same pay, so they must never both count. The rule is one line: **for each Member and each Return label, if the Tax register has any record for that label in the year, the records are used and the Income stream is not counted. Otherwise the Income stream fills the total.**
 - There is no blending and no part-year top-up. Either a Member's salary is recorded or it is forecast.
