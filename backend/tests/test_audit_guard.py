@@ -1154,6 +1154,7 @@ NOT_AUDITED: dict[str, str] = {
     "tax.saved.list_whatifs": "read",
     "tax.saved.get_whatif": "read",
     "tax.saved.calculate": "read (calculates now; nothing is stored)",
+    "tax.saved.break_even": "read (searches for an amount now; nothing is stored)",
     "tax.saved.list_estimates": "read",
     "tax.saved.get_estimate": "read",
     "tax.saved.compare_estimates": "read",

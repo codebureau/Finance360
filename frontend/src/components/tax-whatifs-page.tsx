@@ -7,6 +7,7 @@ import { FinancialYearSelect, financialYears } from "@/components/financial-year
 import { FieldMessage, GeneralError, inputClass } from "@/components/form-fields";
 import { SaveEstimateDialog } from "@/components/save-estimate-dialog";
 import { TaxEstimateBody } from "@/components/tax-estimate-body";
+import { TaxBreakEven } from "@/components/tax-break-even";
 import { AllErrors, OverrideDialog } from "@/components/tax-override-dialog";
 import {
   AlertDialog,
@@ -482,6 +483,7 @@ function Editor({ whatif, members }: { whatif: TaxWhatIf; members: Member[] }) {
           )}
         </CardContent>
       </Card>
+      <TaxBreakEven key={`break-even-${whatif.id}`} whatif={whatif} members={members.slice(0, MAX_MEMBERS)} request={request} />
       <AllErrors error={calculate.error} />
       {calculate.data && <TaxEstimateBody view={calculate.data} />}
       <DeleteDialog

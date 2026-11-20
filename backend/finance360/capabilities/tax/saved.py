@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 
 from finance360.capabilities.household import service as household
 from finance360.capabilities.tax import (
+    breakeven,
     compare,
     engine,
     labels,
@@ -51,7 +52,7 @@ from finance360.core.models.tax_estimate import (
     TaxEstimate,
     TaxWhatIf,
 )
-from finance360.core.money import BASE_CURRENCY, MoneyError, parse_amount
+from finance360.core.money import BASE_CURRENCY, Money, MoneyError, parse_amount
 from finance360.core.rulepack import fy_label
 
 #: Estimates are for the whole Household, which is at most two Members (``TaxInput``).
@@ -487,6 +488,113 @@ def calculate(
         built.result,
         _provenance(built, row.id if row else None, row.name if row else None),
     )
+
+
+@dataclass(frozen=True)
+class BreakEvenResult:
+    """The outcome of a break-even search, in Money. Nothing here is stored."""
+
+    search: breakeven.BreakEven
+    #: The Household net outcome of the base case (the register, no overrides): what must be met.
+    target: Money
+    #: The found amount, when there is one.
+    found: Money | None
+    #: True when the search verified the amount AND a full calculation with the amount set as an
+    #: override gave the same net outcome as the search's own.
+    verified: bool
+
+
+def break_even(
+    session: Session,
+    *,
+    financial_year: int,
+    dependants: int,
+    member_ids: Sequence[int],
+    member_id: int,
+    label: str,
+    whatif_id: int | None = None,
+    upper_minor: int = breakeven.DEFAULT_UPPER_MINOR,
+) -> BreakEvenResult:
+    """At what amount of one Member's total for one label is the Household net outcome at least
+    the base case (the register, no overrides)?
+
+    ``whatif_id`` names a Tax what-if of the year whose *other* overrides stay in force while the
+    amount varies (its own override of this Member and label, if any, is replaced). Without it only
+    the amount varies. Nothing is saved: the caller may save the amount as an ordinary Tax what-if.
+    """
+    errors: list[FieldError] = []
+    held = labels.get(label)
+    if held is None or held.kind != labels.MONEY or held.direction == labels.MEMO:
+        errors.append(FieldError("label", "Choose a Return label that holds an amount."))
+    if member_id not in member_ids:
+        errors.append(FieldError("member_id", "Choose one of the Members of the estimate."))
+    if upper_minor <= 0 or upper_minor > breakeven.DEFAULT_UPPER_MINOR:
+        errors.append(
+            FieldError("upper", "The upper bound must be from 1 cent to AUD 10,000,000.00.")
+        )
+    if errors or held is None:
+        raise ValidationError(errors)
+
+    kept: tuple[whatif.Override, ...] = ()
+    if whatif_id is not None:
+        row = _whatif_row(session, whatif_id)
+        if row.financial_year != financial_year:
+            raise ValidationError(
+                [
+                    FieldError(
+                        "financial_year",
+                        f"'{row.name}' is a Tax what-if for FY {fy_label(row.financial_year)}.",
+                    )
+                ]
+            )
+        kept = tuple(
+            o
+            for o in whatif.from_json(row.overrides_json, financial_year)
+            if not (
+                isinstance(o, whatif.SetTotal | whatif.ExcludeLabel)
+                and (o.member_id, o.label) == (member_id, label)
+            )
+        )
+
+    def built(amount: int, extra: Sequence[whatif.Override]) -> service.Built:
+        return service.build(
+            session,
+            financial_year=financial_year,
+            dependants=dependants,
+            member_ids=member_ids,
+            overrides=(*extra, whatif.SetTotal(member_id, label, Money(amount, BASE_CURRENCY))),
+        )
+
+    target = service.build(
+        session, financial_year=financial_year, dependants=dependants, member_ids=member_ids
+    ).result.household.net_outcome
+    start = built(0, kept).input
+
+    def net_at(amount: int) -> int:
+        """The Household net outcome with the amount set: the engine only, no database."""
+        members = tuple(
+            replace(
+                m,
+                totals=(
+                    *(t for t in m.totals if t[0] != label),
+                    (label, Money(amount, BASE_CURRENCY)),
+                ),
+            )
+            if m.member_id == member_id
+            else m
+            for m in start.members
+        )
+        changed = replace(start, members=members)
+        return engine.estimate(changed).household.net_outcome.amount_minor
+
+    found = breakeven.search(net_at, target.amount_minor, upper_minor=upper_minor)
+    confirmed = False
+    amount: Money | None = None
+    if found.found_minor is not None and found.at is not None:
+        amount = Money(found.found_minor, BASE_CURRENCY)
+        full = built(found.found_minor, kept).result.household.net_outcome
+        confirmed = found.verified and full.amount_minor == found.at.net_minor
+    return BreakEvenResult(found, target, amount, confirmed)
 
 
 def _clean_label(label: str | None) -> str | None:

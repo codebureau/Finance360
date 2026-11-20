@@ -499,6 +499,60 @@ test("changing the value after confirming a jump takes the confirmation back", a
   expect(form.getByRole("button", { name: "Capture figure" })).toBeDisabled();
 });
 
+test("Use last year's figure fills the value only when asked, and saving is the same as typing it", async () => {
+  const calls = fakeBackend();
+  await renderAppAt("/rule-figures?fy=2027");
+  await openRowMenu("Car expenses: cents per kilometre rate");
+  fireEvent.click(
+    await screen.findByRole("menuitem", { name: "Capture figure" }),
+  );
+  const form = within(
+    await screen.findByRole("form", {
+      name: "Capture Car expenses: cents per kilometre rate",
+    }),
+  );
+  // never filled in silently
+  expect(form.getByLabelText(/^Value/)).toHaveValue("");
+  fireEvent.click(
+    form.getByRole("button", { name: "Use FY 2025-26's figure" }),
+  );
+  expect(form.getByLabelText(/^Value/)).toHaveValue("0.88"); // exactly as held
+  fireEvent.click(form.getByLabelText("This is announced but not yet law"));
+  fireEvent.change(form.getByLabelText("Provisional note"), {
+    target: { value: "Announced, not law." },
+  });
+  fireEvent.click(form.getByRole("button", { name: "Capture figure" }));
+  await waitFor(() =>
+    expect(calls.some((c) => c.method === "POST")).toBe(true),
+  );
+  // a normal capture: provisional only because it was ticked, and never "carried"
+  expect(calls.find((c) => c.method === "POST")?.body).toMatchObject({
+    key: "tax.car.rate_per_km",
+    value: "0.88",
+    provisional_note: "Announced, not law.",
+    confirm_jump: false,
+  });
+  expect(calls.find((c) => c.method === "POST")?.body).not.toHaveProperty(
+    "method",
+  );
+});
+
+test("a figure with no earlier year offers no way to take last year's", async () => {
+  fakeBackend();
+  await renderAppAt("/rule-figures?fy=2027");
+  await openRowMenu("Car expenses: kilometre limit per car");
+  fireEvent.click(
+    await screen.findByRole("menuitem", { name: "Capture figure" }),
+  );
+  const form = within(
+    await screen.findByRole("form", {
+      name: "Capture Car expenses: kilometre limit per car",
+    }),
+  );
+  expect(form.getByLabelText(/^Value/)).toHaveValue("");
+  expect(form.queryByRole("button", { name: /^Use FY / })).toBeNull();
+});
+
 test("the provisional note appears only behind the announced-not-yet-law tick, and is sent only then", async () => {
   const calls = fakeBackend();
   await renderAppAt("/rule-figures?fy=2027");

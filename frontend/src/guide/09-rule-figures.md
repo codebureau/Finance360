@@ -23,6 +23,8 @@ Most change every **1 July**, when a new financial year starts (the car and home
 4. Optionally paste the sentence on the page that states it. It is kept with the figure and shown on any record that uses it, so you can see later where the number came from.
 5. Check the page address and the day you read it, then press **Capture figure**.
 
+If the year before has a figure, press **Use FY 2025-26's figure** (the button names that year) to fill the value with it exactly as held, then check it against the page. Nothing is filled in until you press it, and saving is an ordinary capture: firm, or provisional if you tick it, never **Carried**.
+
 If the figure is much larger or smaller than last year's, the sheet shows last year's beside yours and asks you to tick **Yes, this is right** before it will save. That catches a slipped decimal point.
 
 To fix a mistake, choose **Correct figure** on a captured row. The new figure replaces the old one and the old one stays in the history (the [Audit trail](/audit) records both).

@@ -2232,6 +2232,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tax/whatifs/break-even": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search Break Even
+         * @description At what amount of one Member's total for one label is the household net outcome at least
+         *     the base case? Nothing is saved.
+         */
+        post: operations["searchTaxBreakEven"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tax/whatifs/{whatif_id}": {
         parameters: {
             query?: never;
@@ -6616,6 +6637,96 @@ export interface components {
              * @description The adjustable value at the start of the year.
              */
             opening: string;
+        };
+        /** TaxBreakEvenIn */
+        TaxBreakEvenIn: {
+            /**
+             * Dependants
+             * @description Dependent children.
+             * @default 0
+             */
+            dependants: number;
+            /**
+             * Financial Year
+             * @description The year it ends in: 2027 is FY 2026-27.
+             */
+            financial_year: number;
+            /**
+             * Label
+             * @description The Return label key (an amount label) whose total is varied.
+             */
+            label: string;
+            /**
+             * Member Id
+             * @description The Member whose total is varied.
+             */
+            member_id: number;
+            /**
+             * Member Ids
+             * @description One or two Household Members.
+             */
+            member_ids: number[];
+            /**
+             * Whatif Id
+             * @description A Tax what-if of that year: its other overrides stay while the amount varies.
+             */
+            whatif_id?: number | null;
+        };
+        /**
+         * TaxBreakEvenOut
+         * @description The search's answer. Nothing is stored; the amount may be saved as an ordinary what-if.
+         */
+        TaxBreakEvenOut: {
+            /** @description One cent above the amount. */
+            above: components["schemas"]["TaxBreakEvenProbeOut"] | null;
+            /**
+             * Amount
+             * @description The amount found, when status is 'found'.
+             */
+            amount: string | null;
+            at: components["schemas"]["TaxBreakEvenProbeOut"] | null;
+            /** @description One cent below the amount. */
+            below: components["schemas"]["TaxBreakEvenProbeOut"] | null;
+            /**
+             * Direction
+             * @description 'smallest': the target is met from this amount up. 'largest': up to it.
+             */
+            direction: string | null;
+            /** Lower */
+            lower: string;
+            /** Non Monotone */
+            non_monotone: boolean;
+            /**
+             * Reasons
+             * @description Why the range is not monotone: 'reversal', 'cliff', 'many_crossings'.
+             */
+            reasons: string[];
+            /**
+             * Status
+             * @description 'found'; 'always' (the target is met at every amount tried); 'none' (at no amount in range).
+             */
+            status: string;
+            /**
+             * Target
+             * @description The base case's household net outcome: what must be met.
+             */
+            target: string;
+            /** Upper */
+            upper: string;
+            /**
+             * Verified
+             * @description The amount meets the target, its far neighbour does not.
+             */
+            verified: boolean;
+        };
+        /** TaxBreakEvenProbeOut */
+        TaxBreakEvenProbeOut: {
+            /** Amount */
+            amount: string;
+            /** Meets Target */
+            meets_target: boolean;
+            /** Net Outcome */
+            net_outcome: string;
         };
         /**
          * TaxCalculationOut
@@ -15174,6 +15285,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaxWhatIfOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    searchTaxBreakEven: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaxBreakEvenIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxBreakEvenOut"];
                 };
             };
             /** @description Not Found */

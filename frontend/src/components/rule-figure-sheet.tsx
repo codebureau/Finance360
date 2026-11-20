@@ -119,6 +119,24 @@ function FigureForm({
         </span>
         <FieldMessage error={save.error} field="value" />
       </label>
+      {figure.previous && (
+        <div className="-mt-2 flex flex-wrap items-center gap-2 text-sm">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setValue(figure.previous?.value ?? "");
+              setConfirmJump(false);
+            }}
+          >
+            Use FY {figure.previous.financial_year_label}&apos;s figure
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            Fills the value with {figureText(figure, figure.previous.value)}.
+            Check it against the page before you save.
+          </span>
+        </div>
+      )}
       {jump && (
         <div
           role="alert"
