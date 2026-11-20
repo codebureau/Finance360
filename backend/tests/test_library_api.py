@@ -828,6 +828,7 @@ def test_the_kinds_a_document_can_be_linked_to_are_listed_with_their_titles(
     assert sample.get("/api/library/kinds").json() == [
         {"key": "account", "title": "Account"},
         {"key": "super_statement", "title": "Super statement"},
+        {"key": "tax_lodged_result", "title": "Lodged result"},
         {"key": "tax_record", "title": "Tax record"},
     ]
 

@@ -114,6 +114,7 @@ const EARLIER_DESTINATIONS = [
   "/tax/records",
   "/tax/whatifs",
   "/tax/estimates",
+  "/tax/lodged",
   "/library",
   "/income-streams",
   "/instruments",

@@ -7,6 +7,7 @@ import {
   Building2,
   Calculator,
   CloudDownload,
+  FileCheck,
   FileDown,
   FlaskConical,
   ClipboardList,
@@ -61,6 +62,7 @@ export const SIDEBAR_GROUPS: { heading: string; guide: string; items: Item[] }[]
       { to: "/tax/records", label: "Tax records", icon: Receipt },
       { to: "/tax/whatifs", label: "Tax what-ifs", icon: FlaskConical },
       { to: "/tax/estimates", label: "Saved estimates", icon: Archive },
+      { to: "/tax/lodged", label: "Return worksheet", icon: FileCheck },
     ],
   },
   {

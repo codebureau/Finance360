@@ -79,6 +79,10 @@ want; the test uses the **highest year** (the most recently lodged return). To k
 
 ## Reading the result
 
+The comparison is the product's own: the proof calls `compare_to_lodged`
+(`finance360.capabilities.tax.compare`), the function behind the Return worksheet, so what the
+worksheet reports and what this test reports cannot drift apart.
+
 * Passing means every `expected` item matched to the cent and nothing was left unmatched. The one
   exception is `net_outcome`, which is compared **within 5 cents** (the same allowance as the sign
   check above): the notice of assessment rounds the final result by a few cents, which the engine

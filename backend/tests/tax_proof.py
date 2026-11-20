@@ -23,6 +23,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
+from finance360.capabilities.tax import compare as tax_compare
 from finance360.capabilities.tax import engine, labels
 from finance360.capabilities.tax.input import (
     TAX_INPUT_VERSION,
@@ -35,19 +36,6 @@ from finance360.capabilities.tax.rules import TaxRules
 from finance360.core.money import Money, MoneyError, format_amount, parse_amount
 
 FOLDER_ENV = "FINANCE360_PRIVATE_TAX_PROOF"
-
-#: Lodged result keys the engine can match, and the ``MemberResult`` attribute each compares with.
-RESULT_KEYS: dict[str, str] = {
-    "taxable_income": "taxable_income",
-    "tax_on_taxable_income": "tax_on_taxable_income",
-    "offsets": "offsets",
-    "medicare_levy": "medicare_levy",
-    "medicare_levy_surcharge": "medicare_levy_surcharge",
-    "help_repayment": "help_repayment",
-    "total_tax": "total_tax",
-    "credits": "credits",
-    "net_outcome": "net_outcome",
-}
 
 
 class CaseError(ValueError):
@@ -183,10 +171,6 @@ def load_case(path: Path) -> Case:
     return Case(year, dependants, tuple(members))
 
 
-#: The tax office rounds small amounts on the final result, so the lodged net outcome can sit a
-#: few cents from credits less total tax.
-NET_OUTCOME_TOLERANCE = Money(5, "AUD")
-
 _TAX_COMPONENTS = (
     "tax_on_taxable_income",
     "offsets",
@@ -219,7 +203,7 @@ def _check_net_outcome(member: MemberCase, where: str) -> None:
     credits = _amount(exp["credits"], f"{where}: expected credits")
     net = _amount(exp["net_outcome"], f"{where}: expected net_outcome")
     gap = abs((credits - total).amount_minor - net.amount_minor)
-    if gap > NET_OUTCOME_TOLERANCE.amount_minor:
+    if gap > tax_compare.NET_OUTCOME_TOLERANCE.amount_minor:
         raise CaseError(
             f"{where}: net_outcome does not equal credits less total tax; check its sign "
             "(a refund is positive, an amount payable negative) and the other expected figures"
@@ -263,26 +247,24 @@ def build_input(case: Case, rules: TaxRules) -> TaxInput:
 
 
 def compare(case: Case, result: engine.TaxResult) -> Report:
-    """Compare the estimate with the lodged outcome, to the cent, reporting every difference."""
+    """Compare the estimate with the lodged outcome through ``compare_to_lodged`` (the product's own
+    comparison: to the cent, net outcome within the notice's rounding), reporting every item."""
     report = Report()
     for position, (member, got) in enumerate(zip(case.members, result.members, strict=True), 1):
-        for key, text in member.expected.items():
-            attribute = RESULT_KEYS.get(key)
-            if attribute is None:
-                report.findings.append(Finding(position, key, "unmatched"))
-                continue
-            lodged = _amount(text, f"member {position}: expected {key}")
-            difference = getattr(got, attribute).amount_minor - lodged.amount_minor
-            if key == "net_outcome" and abs(difference) <= NET_OUTCOME_TOLERANCE.amount_minor:
-                difference = 0  # the notice rounds the final result by a few cents (issue #61)
-            if difference == 0:
+        lodged = tax_compare.LodgedResult(
+            tuple(
+                (key, _amount(text, f"member {position}: expected {key}"))
+                for key, text in member.expected.items()
+            ),
+            tuple(tax_compare.OtherLine(name) for name in member.other),
+        )
+        for line in tax_compare.compare_to_lodged(got, lodged).lines:
+            if line.status in (tax_compare.MATCHED, tax_compare.ROUNDING):
                 report.matched += 1
+            elif line.status == tax_compare.DIFFERS:
+                report.findings.append(Finding(position, line.key, "difference", line.difference))
             else:
-                report.findings.append(
-                    Finding(position, key, "difference", Money(difference, "AUD"))
-                )
-        for name in member.other:
-            report.findings.append(Finding(position, name, "unmatched"))
+                report.findings.append(Finding(position, line.key, "unmatched"))
     for item in result.unmodelled:
         # the member id is the 1-based position (``build_input``)
         report.findings.append(Finding(item.member_id, item.label_key, "unmodelled"))

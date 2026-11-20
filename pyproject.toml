@@ -151,6 +151,7 @@ forbidden_modules = [
     "finance360.capabilities.tax.service",
     "finance360.capabilities.tax.saved",
     "finance360.capabilities.tax.evidence",
+    "finance360.capabilities.tax.lodged",
     "finance360.capabilities.projection",
     "finance360.capabilities.position",
     "finance360.capabilities.household",

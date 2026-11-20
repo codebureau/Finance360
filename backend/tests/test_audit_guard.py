@@ -63,6 +63,7 @@ from finance360.capabilities.projection import income_streams, scenarios
 from finance360.capabilities.reference import fetch, fx_rates, instruments, prices
 from finance360.capabilities.reference.providers import FxFetch, FxQuote, PriceBar, PriceSeries
 from finance360.capabilities.tax import link_kind as tax_link_kind
+from finance360.capabilities.tax import lodged as tax_lodged
 from finance360.capabilities.tax import saved as tax_saved
 from finance360.capabilities.tax import service as tax
 from finance360.core import audit, rulepack_store
@@ -624,6 +625,13 @@ MUTATORS: dict[str, tuple[dict[str, bool | str], Exerciser]] = {
     ),
     "tax.saved.save_estimate": ({}, lambda s, e, i: _save_tax_estimate(s, i)),
     "tax.saved.rerun_with_current_engine": ({}, lambda s, e, i: _rerun_tax_estimate(s, i)),
+    "tax.lodged.create_lodged_result": ({}, lambda s, e, i: _lodged_result(s, i)),
+    "tax.lodged.amend_lodged_result": (
+        {},
+        lambda s, e, i: tax_lodged.amend_lodged_result(
+            s, CTX, _lodged_result(s, i), _lodged_input(i, "2026-10-09", "51000.00")
+        ),
+    ),
     "library.service.add_document": ({}, lambda s, e, i: _add_document(s, e)),
     "library.service.link": ({}, lambda s, e, i: _link_document(s, e, i)),
     "library.service.unlink": ({}, lambda s, e, i: _unlink_document(s, e, i)),
@@ -681,6 +689,7 @@ LOADERS: dict[str, Exerciser] = {
         lambda s, e, i: tax.load_fixture_tax_records(s, e.data_dir)
     ),
     "tax.saved.load_fixture_tax_whatifs": lambda s, e, i: _load_tax_whatifs(s, e),
+    "tax.lodged.load_fixture_lodged_results": lambda s, e, i: _load_lodged_results(s, e),
     "library.service.load_fixture_documents": lambda s, e, i: _load_library_documents(s, e),
     "library.profiles.load_fixture_document_profiles": (
         lambda s, e, i: _load_document_profiles(s, e)
@@ -773,6 +782,9 @@ EXPECTED: dict[str, tuple[str, str]] = {
     "tax.saved.delete_whatif": ("tax_whatif", "delete"),
     "tax.saved.save_estimate": ("tax_estimate", "create"),
     "tax.saved.rerun_with_current_engine": ("tax_estimate", "create"),
+    "tax.lodged.create_lodged_result": ("tax_lodged_result", "create"),
+    "tax.lodged.amend_lodged_result": ("tax_lodged_result", "supersede"),
+    "tax.lodged.load_fixture_lodged_results": ("tax_lodged_result", "create"),
     "tax.saved.load_fixture_tax_whatifs": ("tax_estimate", "create"),
     "library.service.add_document": ("library_document", "create"),
     "library.service.link": ("document_link", "create"),
@@ -923,6 +935,24 @@ def _load_tax_whatifs(s: Session, env: Env) -> None:
     shutil.copy(FIXTURE.parent / "tax_whatifs.json", env.data_dir / "tax_whatifs.json")
     tax.load_fixture_tax_records(s, env.data_dir)
     tax_saved.load_fixture_tax_whatifs(s, env.data_dir)
+
+
+def _load_lodged_results(s: Session, env: Env) -> None:
+    shutil.copy(FIXTURE.parent / "lodged_results.json", env.data_dir / "lodged_results.json")
+    tax_lodged.load_fixture_lodged_results(s, env.data_dir)
+
+
+def _lodged_input(ids: dict[str, int], assessed: str, taxable: str) -> tax_lodged.LodgedInput:
+    return tax_lodged.LodgedInput(
+        ids["alex"], 2026, date.fromisoformat(assessed), {"taxable_income": taxable}
+    )
+
+
+def _lodged_result(s: Session, ids: dict[str, int]) -> int:
+    current = tax_lodged.current_lodged_result(s, ids["alex"], 2026)
+    if current is not None:
+        return current.id
+    return tax_lodged.create_lodged_result(s, CTX, _lodged_input(ids, "2026-08-14", "50000.00")).id
 
 
 def _tax_record(s: Session, ids: dict[str, int]) -> int:
@@ -1151,6 +1181,12 @@ NOT_AUDITED: dict[str, str] = {
     "tax.service.uncounted_records": "read",
     "tax.service.build": "read (calculates an estimate's input and result; nothing is stored)",
     "tax.service.check_overrides": "read (checks a Tax what-if's overrides; nothing is stored)",
+    "tax.lodged.get_lodged_result": "read",
+    "tax.lodged.history": "read",
+    "tax.lodged.current_lodged_result": "read",
+    "tax.lodged.list_current": "read",
+    "tax.lodged.worksheet": "read (calculates the estimate now; nothing is stored)",
+    "tax.lodged.member_delete_guard": "read (a guard that refuses a delete)",
     "tax.saved.list_whatifs": "read",
     "tax.saved.get_whatif": "read",
     "tax.saved.calculate": "read (calculates now; nothing is stored)",

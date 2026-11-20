@@ -141,6 +141,22 @@ them through the service layer on first run, so audit and validation apply:
   "Base, as the records stand", is the base calculated with the engine of the day (so it is never
   stale) and is the one to compare a what-if against. The load order is: Tax records first, then
   this file.
+  `lodged_results.json` (a separate file, so the household file's counts do not move, read by
+  `finance360.capabilities.tax.lodged.load_fixture_lodged_results` only while there is no Lodged
+  result, through the real service and audited with source `fixture`) holds two invented notices of
+  assessment for **Jordan Sample, FY 2025-26**, so the Return worksheet (Tax, "Return worksheet")
+  has something to show. The earlier one (assessed 14 August 2026) is **superseded** by the amended
+  one (assessed 9 October 2026), so the history shows both; the earlier notice has a taxable income
+  of 85,606.00 and a net outcome of a 391.49 refund. The current notice is close to, but not equal
+  to, the estimate of 85,106.00 taxable income, 1,702.12 Medicare levy, 19,292.51 total tax and a
+  557.49 refund: taxable income, tax on taxable income, offsets, surcharge, HELP and credits match
+  to the cent; the Medicare levy (1,702.07) and total tax (19,292.46) each differ by 0.05; net
+  outcome (557.54 refund) is 0.05 off, so it is matched within the notice's rounding with the
+  difference still shown; and the notice carries one line the engine has no figure for ("Sample
+  processing adjustment", 25.00), listed as unmatched. Alex has no Lodged result, so the worksheet
+  for Alex shows the estimate alone. The estimate figures are the engine's for the Tax records
+  above, so a change to those records or to the Rule figures moves the differences. Load order: Tax
+  records first, then this file.
   The top-level `assumptions` are read by
   `finance360.capabilities.projection.scenarios.load_fixture_assumptions` only while no Household
   default spending phase and no custom Scenario exists. `defaults` are Household default

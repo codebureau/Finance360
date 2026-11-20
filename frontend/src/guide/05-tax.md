@@ -62,6 +62,24 @@ A what-if's page has a **Break-even** panel. Pick a Member and a Return label th
 - **No crossing** in range, or every amount meeting it, is said plainly.
 - **Nothing is stored** by searching. **Save as what-if** creates an ordinary Tax what-if from this one's other overrides with the found amount stated.
 
+## Return worksheet: your estimate against the notice of assessment
+Once the tax office has assessed a year, the [Return worksheet](/tax/lodged) tells you how close the estimate came. It is how you find out whether the engine can be trusted for your household.
+
+1. Pick the Member and the financial year.
+2. Press **Enter Lodged result** and copy the amounts from the notice of assessment: the date on the notice, then taxable income, tax on taxable income, offsets, Medicare levy, surcharge, HELP, total tax, credits and the net outcome. Leave blank anything the notice leaves out. A refund is positive and an amount payable negative. Anything else the notice lists (a line the estimate has no figure for) goes under **Other lines**, named as the notice names it.
+3. The worksheet sets the **estimate** (calculated now from your Tax records and the year's Rule figures) beside the **lodged** amount, with the **difference**, which is the estimate less the notice, for each item you entered. An item you did not enter reads **Not entered**.
+
+How the comparison reads:
+- **Every difference is listed**, to the cent. Nothing is rounded away.
+- **Net outcome** is matched **within 5 cents**, because the notice rounds its final result by a few cents. Such a line says *Within rounding* and still lists its difference. Every other item must agree to the cent.
+- **Lines the engine cannot match** (your Other lines) are listed by name. The estimate has no figure for them, so they are reported, never compared or dropped.
+- If the estimate itself cannot be calculated (the year has no Rule figures, say) the notice is still listed, with the reason and a link to [Rule figures](/rule-figures).
+- The estimate covers the whole Household, as on the Tax estimate page; set **Dependent children** to match your return.
+
+**An amended notice** replaces the earlier one. Press **Enter an amended notice**, change what the new notice changes, and save. The earlier notice is **kept**: it stays under *Notices entered*, marked Superseded, exactly as you entered it. Add the notice itself under **Documents** on the worksheet. An amended notice keeps its earlier notice's documents. A Lodged result is never deleted; a wrong entry is amended.
+
+This only records and compares. Nothing is lodged, and a notice is not read for you.
+
 ## Prefilled from Income streams: records first, never both
 A year-to-date total from your records and a full-year forecast from an Income stream describe the same pay, so they must never both count. The rule is one line: **for each Member and each Return label, if the Tax register has any record for that label in the year, the records are used and the Income stream is not counted. Otherwise the Income stream fills the total.**
 - There is no blending and no part-year top-up. Either a Member's salary is recorded or it is forecast.
@@ -198,9 +216,10 @@ Capital gains on the statement go under the capital gains labels (the discountab
 4. Open the [Income reconciliation](/tax/reconciliation) and check that Unreconciled is small and makes sense.
 5. Open the [Tax estimate](/tax) for the year, Calculate, and look at the net outcome and any Incomplete or Provisional notice.
 6. If the estimate does not look right, open the Label totals under it and drill into the one that looks wrong. The cause is almost always a record.
+7. When the notice of assessment arrives, enter it on the [Return worksheet](/tax/lodged) and see each difference.
 
 ## Not here yet
-These are **coming later**: prefilling investment income, working out the break-even of a change, entering the result from your notice of assessment so it can be set beside the estimate, and the Tax estimate itself supplying take-home pay: the [Projection](/projection) can estimate it with the same engine when a Scenario switches on Tax in the projection (see [Projection](/guide/projection)).
+These are **coming later**: prefilling investment income, reading a notice of assessment from a file instead of typing it, and the Tax estimate itself supplying take-home pay: the [Projection](/projection) can estimate it with the same engine when a Scenario switches on Tax in the projection (see [Projection](/guide/projection)).
 
 ## Which parts do I need?
 - **Just want the numbers for this year?** Members, Tax records, income statements and the Tax estimate.
