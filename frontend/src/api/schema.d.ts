@@ -2160,6 +2160,73 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tax/lodged-results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Lodged Result
+         * @description Enter a Member's notice for a year. Audited. A year that already has one is refused: enter
+         *     the amended notice with PUT.
+         */
+        post: operations["createLodgedResult"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tax/lodged-results/worksheet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Worksheet
+         * @description The estimate beside the current Lodged result: each difference, every lodged item the engine
+         *     cannot match, and the earlier (superseded) notices.
+         */
+        get: operations["getReturnWorksheet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tax/lodged-results/{lodged_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Lodged Result
+         * @description A Lodged result by id, current or superseded.
+         */
+        get: operations["getLodgedResult"];
+        /**
+         * Amend Lodged Result
+         * @description Enter an amended notice. The current one is superseded and kept; the new row is returned.
+         *     Audited.
+         */
+        put: operations["amendLodgedResult"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tax/records": {
         parameters: {
             query?: never;
@@ -4603,6 +4670,94 @@ export interface components {
              * @description The projection year it takes effect: the first starting on or after.
              */
             year: number;
+        };
+        /** LodgedItemOut */
+        LodgedItemOut: {
+            /** Amount */
+            amount: string;
+            /** Key */
+            key: string;
+        };
+        /** LodgedOtherIn */
+        LodgedOtherIn: {
+            /**
+             * Amount
+             * @description AUD decimal string, as printed on the notice, e.g. 1234.56.
+             * @default
+             */
+            amount: string;
+            /**
+             * Name
+             * @description The line's name as the notice gives it.
+             * @default
+             */
+            name: string;
+        };
+        /** LodgedOtherOut */
+        LodgedOtherOut: {
+            /** Amount */
+            amount: string;
+            /** Name */
+            name: string;
+        };
+        /** LodgedResultIn */
+        LodgedResultIn: {
+            /**
+             * Assessed On
+             * @description The date on the notice.
+             */
+            assessed_on?: string | null;
+            /**
+             * Financial Year
+             * @description The year it ends in: 2026 is FY 2025-26.
+             */
+            financial_year: number;
+            /**
+             * Items
+             * @description Result key to amount. Keys: taxable_income, tax_on_taxable_income, offsets, medicare_levy, medicare_levy_surcharge, help_repayment, total_tax, credits, net_outcome (a refund is positive, an amount payable negative). A blank amount is left out.
+             */
+            items?: {
+                [key: string]: string;
+            };
+            /** Member Id */
+            member_id: number;
+            /**
+             * Other
+             * @description Named lines the engine has no key for.
+             */
+            other?: components["schemas"]["LodgedOtherIn"][];
+        };
+        /** LodgedResultOut */
+        LodgedResultOut: {
+            /**
+             * Assessed On
+             * Format: date
+             */
+            assessed_on: string;
+            /**
+             * Current
+             * @description False: an amended notice has replaced it (it is kept).
+             */
+            current: boolean;
+            /** Financial Year */
+            financial_year: number;
+            /** Financial Year Label */
+            financial_year_label: string;
+            /** Id */
+            id: number;
+            /** Items */
+            items: components["schemas"]["LodgedItemOut"][];
+            /** Member Id */
+            member_id: number;
+            /** Other */
+            other: components["schemas"]["LodgedOtherOut"][];
+            /**
+             * Recorded At
+             * Format: date-time
+             */
+            recorded_at: string;
+            /** Superseded By Id */
+            superseded_by_id: number | null;
         };
         /** LoginIn */
         LoginIn: {
@@ -8488,6 +8643,97 @@ export interface components {
              * Format: date
              */
             today: string;
+        };
+        /** WorksheetLineOut */
+        WorksheetLineOut: {
+            /**
+             * Difference
+             * @description The estimate less the notice; null if not both.
+             */
+            difference: string | null;
+            /**
+             * Engine
+             * @description The estimate's amount.
+             */
+            engine: string | null;
+            /**
+             * Key
+             * @description A result key.
+             */
+            key: string;
+            /**
+             * Lodged
+             * @description The notice's amount.
+             */
+            lodged: string | null;
+            /**
+             * Status
+             * @description matched: equal to the cent. rounding: net outcome off by no more than the notice's rounding (5 cents); the difference is still shown. differs. not_lodged: the notice has no amount for it. no_estimate: the estimate could not be calculated.
+             * @enum {string}
+             */
+            status: "matched" | "rounding" | "differs" | "not_lodged" | "no_estimate";
+        };
+        /** WorksheetOut */
+        WorksheetOut: {
+            current: components["schemas"]["LodgedResultOut"] | null;
+            /** Dependants */
+            dependants: number;
+            /** Differs Count */
+            differs_count: number;
+            /** Engine Version */
+            engine_version: number | null;
+            /** Financial Year */
+            financial_year: number;
+            /** Financial Year Label */
+            financial_year_label: string;
+            /**
+             * History
+             * @description Every notice for the Member and year, newest first, the current one first.
+             */
+            history: components["schemas"]["LodgedResultOut"][];
+            /**
+             * Incomplete
+             * @description The estimate leaves out return items it does not model.
+             */
+            incomplete: boolean;
+            /**
+             * Lines
+             * @description Every result key, in the Estimate's order.
+             */
+            lines: components["schemas"]["WorksheetLineOut"][];
+            /** Matched Count */
+            matched_count: number;
+            /** Member Id */
+            member_id: number;
+            /** Member Name */
+            member_name: string;
+            /**
+             * Problems
+             * @description Why the estimate could not be calculated, if so.
+             */
+            problems: string[];
+            /** Rule Pack Version */
+            rule_pack_version: string | null;
+            /**
+             * Unmatched
+             * @description Every lodged item the engine has no value to compare with.
+             */
+            unmatched: components["schemas"]["WorksheetUnmatchedOut"][];
+        };
+        /** WorksheetUnmatchedOut */
+        WorksheetUnmatchedOut: {
+            /** Amount */
+            amount: string;
+            /**
+             * Is Other
+             * @description True for a named other line on the notice.
+             */
+            is_other: boolean;
+            /**
+             * Name
+             * @description The lodged line's name, or its key the engine does not model.
+             */
+            name: string;
         };
         /** YearOut */
         YearOut: {
@@ -14944,6 +15190,213 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaxLabelTotalsOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    createLodgedResult: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LodgedResultIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LodgedResultOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    getReturnWorksheet: {
+        parameters: {
+            query: {
+                /** @description The Member. */
+                member_id: number;
+                /** @description The year it ends in: 2026 is FY 2025-26. */
+                financial_year: number;
+                /** @description Dependent children, for the estimate. */
+                dependants?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorksheetOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    getLodgedResult: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lodged_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LodgedResultOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    amendLodgedResult: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lodged_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LodgedResultIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LodgedResultOut"];
                 };
             };
             /** @description Not Found */

@@ -345,6 +345,11 @@ A Member's assessed outcome for a financial year, entered from a notice of asses
 Tax estimate is compared. A later notice supersedes the earlier, which stays retrievable.
 _Avoid_: Actual, Tax return (the return is what is lodged, not what Finance360 keeps)
 
+**Return worksheet**:
+The screen that shows one Member's Tax estimate for a financial year beside their current Lodged result:
+each difference, and every lodged line the engine cannot match.
+_Avoid_: Reconciliation (that is Income reconciliation), Tax return
+
 **Evidence**:
 A Library document linked to a record to support it (a receipt or statement on a Tax record, a statement
 on a Super statement). Evidence is a role of a Document link, not a separate store; the screen says

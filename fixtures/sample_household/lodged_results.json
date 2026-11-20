@@ -1,0 +1,38 @@
+{
+  "lodged_results": [
+    {
+      "member": "Jordan Sample",
+      "financial_year": 2026,
+      "assessed_on": "2026-08-14",
+      "items": {
+        "taxable_income": "85606.00",
+        "tax_on_taxable_income": "16469.80",
+        "offsets": "6.00",
+        "medicare_levy": "1712.12",
+        "medicare_levy_surcharge": "1282.59",
+        "help_repayment": "0.00",
+        "total_tax": "19458.51",
+        "credits": "19850.00",
+        "net_outcome": "391.49"
+      },
+      "other": []
+    },
+    {
+      "member": "Jordan Sample",
+      "financial_year": 2026,
+      "assessed_on": "2026-10-09",
+      "items": {
+        "taxable_income": "85106.00",
+        "tax_on_taxable_income": "16319.80",
+        "offsets": "6.00",
+        "medicare_levy": "1702.07",
+        "medicare_levy_surcharge": "1276.59",
+        "help_repayment": "0.00",
+        "total_tax": "19292.46",
+        "credits": "19850.00",
+        "net_outcome": "557.54"
+      },
+      "other": [{ "name": "Sample processing adjustment", "amount": "25.00" }]
+    }
+  ]
+}

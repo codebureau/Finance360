@@ -569,6 +569,15 @@ def _seed_tax_estimates(session: Session, data_dir: Path) -> None:
     assert tax_saved.load_fixture_tax_whatifs(session, data_dir) == 3
 
 
+def _seed_tax_lodged_results(session: Session, data_dir: Path) -> None:
+    """Revision 0032 created ``tax_lodged_result``: the fixture's Jordan notice and its amendment,
+    through the real service (invented, FY 2025-26)."""
+    from finance360.capabilities.tax import lodged
+
+    shutil.copy(FIXTURE.parent / lodged.FIXTURE_FILENAME, data_dir / lodged.FIXTURE_FILENAME)
+    assert lodged.load_fixture_lodged_results(session, data_dir) == 2
+
+
 #: revision -> loads the data its migration created tables for. Extend with each schema slice.
 SEEDERS: dict[str, Callable[[Session, Path], None]] = {
     BASELINE: _seed_baseline,
@@ -594,6 +603,7 @@ SEEDERS: dict[str, Callable[[Session, Path], None]] = {
     "0029": _seed_document_profile,
     "0030": _seed_carried_capture,
     "0031": _seed_tax_estimates,
+    "0032": _seed_tax_lodged_results,
 }
 
 
@@ -869,7 +879,9 @@ def test_upgrading_a_populated_database_changes_no_existing_row(tmp_path: Path) 
         "document_profile",
         "tax_whatif",
         "tax_estimate",
+        "tax_lodged_result",
     } <= final.tables.keys()
+    assert len(final.tables["tax_lodged_result"].rows) == 2, "the Lodged result step's seeder ran"
     assert len(final.tables["tax_whatif"].rows) == 2, "the Tax estimate step's seeder ran"
     assert len(final.tables["tax_estimate"].rows) == 1
     assert len(final.tables["document_profile"].rows) == 1, "the profile step's seeder ran"
@@ -1213,6 +1225,52 @@ def test_downgrading_0026_makes_a_matched_capture_typed_and_keeps_everything_els
     command.check(config)
 
 
+def test_the_upgraded_database_keeps_both_lodged_results_and_still_refuses_to_change_them(
+    tmp_path: Path,
+) -> None:
+    """0032 adds ``tax_lodged_result``. After the whole chain, the seeded notice and its amendment
+    are readable (the earlier one superseded, not lost) and the append-only triggers are there."""
+    upgrade_populated(tmp_path)
+    after = snapshot(tmp_path)
+    assert {"tax_lodged_result_no_update", "tax_lodged_result_no_delete"} <= after.triggers.keys()
+    conn = sqlite3.connect(db_path(tmp_path))
+    try:
+        conn.execute("PRAGMA foreign_keys=ON")
+        rows = conn.execute(
+            "SELECT id, superseded_at IS NULL, superseded_by_id, items_json "
+            "FROM tax_lodged_result ORDER BY id"
+        ).fetchall()
+        assert [(r[0], r[1], r[2]) for r in rows] == [(1, 0, 2), (2, 1, None)]
+        assert '"taxable_income":{"ccy":"AUD","minor":8560600}' in rows[0][3]
+        assert '"taxable_income":{"ccy":"AUD","minor":8510600}' in rows[1][3]
+        with pytest.raises(sqlite3.DatabaseError, match="append-only"):
+            conn.execute("UPDATE tax_lodged_result SET items_json = '{}'")
+        with pytest.raises(sqlite3.DatabaseError, match="append-only"):
+            conn.execute("DELETE FROM tax_lodged_result")
+        assert conn.execute("SELECT count(*) FROM tax_lodged_result").fetchone()[0] == 2
+    finally:
+        conn.close()
+
+
+def test_downgrading_0032_drops_only_the_lodged_result_table(tmp_path: Path) -> None:
+    upgrade_populated(tmp_path)
+    before = snapshot(tmp_path)
+    assert len(before.tables["tax_lodged_result"].rows) == 2
+    config = alembic_config(tmp_path, MIGRATIONS_DIR)
+    command.downgrade(config, "0031")
+    after = snapshot(tmp_path)
+    assert "tax_lodged_result" not in after.tables
+    assert not {n for n in after.triggers if n.startswith("tax_lodged_result")}
+    assert after.indexes == {
+        k: v for k, v in before.indexes.items() if "tax_lodged_result" not in k
+    }
+    for name, table in after.tables.items():
+        if name != "audit_event":  # the notices' audit rows stay: the trail is append-only
+            assert table.rows == before.tables[name].rows, name
+    command.upgrade(config, "head")
+    command.check(config)
+
+
 def test_downgrading_0031_drops_only_the_tax_estimate_tables(tmp_path: Path) -> None:
     upgrade_populated(tmp_path)
     before = snapshot(tmp_path)
@@ -1220,9 +1278,12 @@ def test_downgrading_0031_drops_only_the_tax_estimate_tables(tmp_path: Path) -> 
     config = alembic_config(tmp_path, MIGRATIONS_DIR)
     command.downgrade(config, "0030")
     after = snapshot(tmp_path)
-    assert not {"tax_whatif", "tax_estimate"} & after.tables.keys()
+    assert not {"tax_whatif", "tax_estimate", "tax_lodged_result"} & after.tables.keys()
     assert not {n for n in after.triggers if n.startswith("tax_estimate")}
-    assert after.indexes == before.indexes
+    # 0032's index went too, passing back through its downgrade
+    assert after.indexes == {
+        k: v for k, v in before.indexes.items() if "tax_lodged_result" not in k
+    }
     for name, table in after.tables.items():
         if name != "audit_event":  # the estimate's audit rows stay: the trail is append-only
             assert table.rows == before.tables[name].rows, name
@@ -1248,9 +1309,13 @@ def test_downgrading_0030_makes_a_carried_capture_typed_and_keeps_everything_els
     assert [r[:at] + r[at + 1 :] for r in after.tables["rule_capture"].rows] == old
     # 0031's two triggers went with its tables, passing back through its downgrade
     assert after.triggers == {
-        k: v for k, v in before.triggers.items() if not k.startswith("tax_estimate_")
+        k: v
+        for k, v in before.triggers.items()
+        if not k.startswith(("tax_estimate_", "tax_lodged_result_"))
     }
-    assert after.indexes == before.indexes
+    assert after.indexes == {
+        k: v for k, v in before.indexes.items() if "tax_lodged_result" not in k
+    }
     for name, table in after.tables.items():
         if name not in ("rule_capture", "audit_event"):
             assert_rows_kept(table, before.tables[name], name)

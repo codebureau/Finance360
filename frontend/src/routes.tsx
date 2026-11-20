@@ -44,6 +44,7 @@ import { SidebarNav } from "@/components/sidebar-nav";
 import { IncomeReconciliationPage } from "@/components/income-reconciliation-page";
 import { WhatsDuePage } from "@/components/whats-due-page";
 import { TaxComparePage, TaxEstimatePage, TaxEstimatesPage } from "@/components/tax-estimates-page";
+import { TaxLodgedPage } from "@/components/tax-lodged-page";
 import { TaxPage } from "@/components/tax-page";
 import { TaxRecordDetailPage } from "@/components/tax-record-detail-page";
 import { TaxRecordsPage } from "@/components/tax-records-page";
@@ -56,6 +57,7 @@ import { parseLibrarySearch } from "@/lib/library";
 import { parseRuleFiguresSearch } from "@/lib/rule-figures";
 import { parseTaxRecordsSearch, parseTaxSearch } from "@/lib/tax";
 import { parseCompareSearch, parseYearSearch } from "@/lib/tax-estimates";
+import { parseLodgedSearch } from "@/lib/tax-lodged";
 import { parsePositionSearch } from "@/lib/position-search";
 import { parseTransactionsSearch } from "@/lib/transactions";
 
@@ -235,6 +237,18 @@ const taxCompareRoute = createRoute({
   component: function TaxCompareRoute() {
     const { a, b } = taxCompareRoute.useSearch();
     return <TaxComparePage a={a} b={b} />;
+  },
+});
+
+/** `/tax/lodged?member=1&fy=2026`: the return worksheet. The Member and year are URL search params. */
+const taxLodgedRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/tax/lodged",
+  validateSearch: (search: Record<string, unknown>) => parseLodgedSearch(search),
+  component: function TaxLodgedRoute() {
+    const { member, fy } = taxLodgedRoute.useSearch();
+    const navigate = taxLodgedRoute.useNavigate();
+    return <TaxLodgedPage member={member} fy={fy} onSearch={(search) => void navigate({ search, replace: true })} />;
   },
 });
 
@@ -499,6 +513,7 @@ const routeTree = rootRoute.addChildren([
   taxWhatIfRoute,
   taxEstimatesRoute,
   taxCompareRoute,
+  taxLodgedRoute,
   taxEstimateRoute,
   libraryRoute,
   libraryDocumentRoute,

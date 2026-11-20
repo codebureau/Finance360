@@ -1,4 +1,11 @@
-"""Comparing two saved Tax estimates of the same financial year (ADR-0019 section 6). Pure.
+"""Comparing Tax estimates (ADR-0019 sections 6 and 8). Pure.
+
+Two parts. ``compare(a, b)`` compares two saved estimates of one financial year (below).
+``compare_to_lodged(result, lodged)`` compares one Member's estimate with a Lodged result, the
+assessed outcome from a notice (the worksheet, and the local proof against ``private/``): each
+result key's difference (the engine less the lodged amount), and every lodged item the engine has
+no value to compare with, by name. Net outcome is matched within the notice's rounding (5 cents,
+the 2026-11-17 amendment of ADR-0019 section 8, #61); every other item is compared to the cent.
 
 ``compare(a, b)`` reports, for each Member, every Label total that differs, and for each Member and
 the Household every result line, each with its exact delta: ``b`` less ``a``. Money deltas are exact
@@ -138,3 +145,97 @@ def compare(a: Side, b: Side) -> Comparison:
         (a.result.engine_version, b.result.engine_version),
         a.input.rules != b.input.rules,
     )
+
+
+# --- the engine's estimate against a Lodged result (ADR-0019 section 8) -----------------------
+
+#: The notice rounds the final result by a few cents, and the Return labels cannot reproduce that
+#: step, so net outcome is matched within this. Everything else is compared to the cent.
+NET_OUTCOME_TOLERANCE = Money(5, "AUD")
+NET_OUTCOME = "net_outcome"
+
+#: ``LodgedLine.status``.
+MATCHED = "matched"  # engine and notice agree to the cent
+ROUNDING = "rounding"  # net outcome, off by no more than the notice's rounding; difference shown
+DIFFERS = "differs"
+UNMATCHED = "unmatched"  # a lodged item the engine has no value to compare with
+
+
+@dataclass(frozen=True)
+class OtherLine:
+    """A named line on the notice that the engine has no result key for. ``amount`` is ``None``
+    when only the name is known (the local proof lists names without figures)."""
+
+    name: str
+    amount: Money | None = None
+
+
+@dataclass(frozen=True)
+class LodgedResult:
+    """The assessed outcome of a notice: result key to amount, plus the other named lines."""
+
+    items: tuple[tuple[str, Money], ...]
+    other: tuple[OtherLine, ...] = ()
+
+
+@dataclass(frozen=True)
+class LodgedLine:
+    """One lodged item against the engine's value."""
+
+    #: The result key, or the name of an ``other`` line.
+    key: str
+    status: str
+    lodged: Money | None
+    #: ``None`` when the engine has no value to compare.
+    engine: Money | None
+    #: The engine less the lodged amount; ``None`` when unmatched. Non-zero for a ``rounding`` line.
+    difference: Money | None
+    #: ``True`` for an ``other`` line (the notice names it, the engine has no key for it).
+    is_other: bool = False
+
+
+@dataclass(frozen=True)
+class LodgedComparison:
+    #: Result keys in the estimate's order, then unknown keys, then ``other`` lines.
+    lines: tuple[LodgedLine, ...]
+
+    @property
+    def matched(self) -> tuple[LodgedLine, ...]:
+        """Agreed to the cent, or net outcome within the notice's rounding."""
+        return tuple(x for x in self.lines if x.status in (MATCHED, ROUNDING))
+
+    @property
+    def differences(self) -> tuple[LodgedLine, ...]:
+        return tuple(x for x in self.lines if x.status == DIFFERS)
+
+    @property
+    def unmatched(self) -> tuple[LodgedLine, ...]:
+        return tuple(x for x in self.lines if x.status == UNMATCHED)
+
+
+def compare_to_lodged(result: MemberResult, lodged: LodgedResult) -> LodgedComparison:
+    """Compare one Member's estimate with their Lodged result. Reports every difference (the engine
+    less the lodged amount), and every lodged item with no engine value, by name. It never passes
+    over an item."""
+    order = {name: i for i, name in enumerate(RESULT_KEYS)}
+    known = sorted((i for i in lodged.items if i[0] in order), key=lambda i: order[i[0]])
+    unknown = [i for i in lodged.items if i[0] not in order]
+    lines: list[LodgedLine] = []
+    for key, amount in known:
+        engine: Money = getattr(result, key)
+        difference = engine - amount
+        if difference.amount_minor == 0:
+            status = MATCHED
+        elif key == NET_OUTCOME and abs(difference.amount_minor) <= (
+            NET_OUTCOME_TOLERANCE.amount_minor
+        ):
+            status = ROUNDING
+        else:
+            status = DIFFERS
+        lines.append(LodgedLine(key, status, amount, engine, difference))
+    lines.extend(LodgedLine(key, UNMATCHED, amount, None, None) for key, amount in unknown)
+    lines.extend(
+        LodgedLine(line.name, UNMATCHED, line.amount, None, None, is_other=True)
+        for line in lodged.other
+    )
+    return LodgedComparison(tuple(lines))

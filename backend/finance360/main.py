@@ -38,6 +38,7 @@ from finance360.api import (
     super_statements,
     tax,
     tax_estimates,
+    tax_lodged_results,
     transactions,
     valuations,
 )
@@ -78,6 +79,7 @@ from finance360.capabilities.reference import providers as reference_providers
 from finance360.capabilities.tax import due as tax_due
 from finance360.capabilities.tax import fill_target as tax_fill_target
 from finance360.capabilities.tax import link_kind as tax_link_kind
+from finance360.capabilities.tax import lodged as tax_lodged
 from finance360.capabilities.tax import rule_figures_due
 from finance360.capabilities.tax import saved as tax_saved
 from finance360.capabilities.tax import service as tax_service
@@ -220,6 +222,7 @@ def create_app(
                 projection_income_streams.load_fixture_income_streams(session, settings.data_dir)
                 tax_service.load_fixture_tax_records(session, settings.data_dir)
                 tax_saved.load_fixture_tax_whatifs(session, settings.data_dir)
+                tax_lodged.load_fixture_lodged_results(session, settings.data_dir)
                 library_service.load_fixture_documents(session, settings.data_dir)
                 tax_service.load_fixture_tax_evidence(session, settings.data_dir)
                 library_profiles.load_fixture_document_profiles(session, settings.data_dir)
@@ -288,8 +291,10 @@ def create_app(
     position_accounts.register()  # position's Member delete guard (household never imports it)
     projection_income_streams.register()  # so does projection's, for income streams
     tax_service.register()  # and tax's, for Tax records
+    tax_lodged.register()  # and for Lodged results
     importers.register(VANGUARD_PI)  # Importers register here, the composition root (ADR-0013)
     link_kinds.register(tax_link_kind.KIND)  # so do Link kinds (ADR-0026 section 3)
+    link_kinds.register(tax_link_kind.LODGED_KIND)
     link_kinds.register(position_link_kinds.ACCOUNT_KIND)
     link_kinds.register(position_link_kinds.SUPER_STATEMENT_KIND)
     document_profiles.register_target(  # so do Fill targets (ADR-0026 section 4), before profiles
@@ -332,6 +337,7 @@ def create_app(
     app.include_router(scenarios.router, dependencies=signed_in)
     app.include_router(tax.router, dependencies=signed_in)
     app.include_router(tax_estimates.router, dependencies=signed_in)
+    app.include_router(tax_lodged_results.router, dependencies=signed_in)
     app.include_router(rule_figures.router, dependencies=signed_in)
     app.include_router(due.router, dependencies=signed_in)
     app.include_router(documents.router, dependencies=signed_in)

@@ -100,3 +100,47 @@ def test_what_if_and_estimate_writes_work_over_a_real_server_and_are_read_back_a
         "/api/audit", params={"entity_type": "tax_estimate", "entity_id": base.json()["id"]}
     ).json()["items"]
     assert [e["action"] for e in trail] == ["create"]
+
+
+def test_lodged_result_writes_work_over_a_real_server_and_the_earlier_notice_is_kept(
+    signed_in: httpx.Client,  # noqa: F811
+) -> None:
+    http = signed_in
+    body = {
+        "member_id": 2,
+        "financial_year": FY,
+        "assessed_on": "2026-08-14",
+        "items": {"taxable_income": "85106.00", "net_outcome": "557.49"},
+        "other": [{"name": "Real server adjustment", "amount": "1.00"}],
+    }
+    made = http.post("/api/tax/lodged-results", json=body)
+    assert made.status_code == 201, made.text
+    # committed before the response returned, so the next read sees it
+    sheet = http.get(
+        "/api/tax/lodged-results/worksheet", params={"member_id": 2, "financial_year": FY}
+    ).json()
+    assert sheet["current"]["id"] == made.json()["id"]
+    assert sheet["matched_count"] == 2 and sheet["differs_count"] == 0
+    assert [u["name"] for u in sheet["unmatched"]] == ["Real server adjustment"]
+
+    # a second entry for the year is refused in the shared shape, and writes nothing
+    again = http.post("/api/tax/lodged-results", json=body)
+    assert again.status_code == 422
+    assert again.json()["errors"][0]["field"] == "financial_year"
+
+    amended = http.put(
+        f"/api/tax/lodged-results/{made.json()['id']}",
+        json={**body, "assessed_on": "2026-10-09", "items": {"taxable_income": "85100.00"}},
+    )
+    assert amended.status_code == 200, amended.text
+    sheet = http.get(
+        "/api/tax/lodged-results/worksheet", params={"member_id": 2, "financial_year": FY}
+    ).json()
+    assert [(h["id"], h["current"]) for h in sheet["history"]] == [
+        (amended.json()["id"], True),
+        (made.json()["id"], False),
+    ]
+    assert sheet["differs_count"] == 1  # 85,106.00 estimated against 85,100.00 lodged
+    assert http.get(f"/api/tax/lodged-results/{made.json()['id']}").json()["current"] is False
+    trail = http.get("/api/audit", params={"entity_type": "tax_lodged_result"}).json()["items"]
+    assert [e["action"] for e in trail][::-1] == ["create", "supersede"]
