@@ -28,6 +28,7 @@ SLOW_FILES = frozenset(
         "test_fetch_real_server.py",
         "test_imports_commit_real_server.py",
         "test_opening_real_server.py",
+        "test_position_history_timing.py",
         "test_imports_real_server.py",
         "test_library_real_server.py",
         "test_reference_real_server.py",

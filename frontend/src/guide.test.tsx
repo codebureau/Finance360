@@ -14,7 +14,7 @@ beforeEach(() => {
     "fetch",
     vi.fn((request: Request) => {
       const path = new URL(request.url).pathname;
-      if (path === "/health") return Promise.resolve(json({ status: "healthy", git_sha: "abc1234", schema_version: "0004" }));
+      if (path === "/health") return Promise.resolve(json({ status: "healthy", git_sha: "abc1234", version: "v1.2.3", schema_version: "0004" }));
       if (path === "/api/backup/status") {
         return Promise.resolve(
           json({

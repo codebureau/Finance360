@@ -25,8 +25,16 @@ def test_health_reports_status_and_git_sha(tmp_path: Path) -> None:
     assert res.json() == {
         "status": "healthy",
         "git_sha": "abc1234",
+        "version": "dev",
         "schema_version": head_revision(),
     }
+
+
+def test_health_reports_the_release_tag_beside_the_commit(tmp_path: Path) -> None:
+    settings = _settings(tmp_path, git_sha="abc1234", app_version="v9.9.9")
+    with TestClient(create_app(settings)) as client:
+        body = client.get("/health").json()
+    assert (body["version"], body["git_sha"]) == ("v9.9.9", "abc1234")
 
 
 def test_startup_creates_and_migrates_the_database(tmp_path: Path) -> None:

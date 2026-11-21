@@ -17,7 +17,7 @@ The sequence, aborting at the first failure:
  2. fetch tags (never overwriting one) and resolve the tag
  3. pre-deploy Backup, in the running app: `python -m finance360.backup run --reason pre-deploy`
  4. check out the tag, write `.env`, `docker compose up -d --build`
- 5. wait for /health to report the tag's GIT_SHA and the current schema revision
+ 5. wait for /health to report the tag's APP_VERSION, GIT_SHA and the current schema revision
  6. report
 
 `deploy setup` checks the host (Docker, the clone's tooling, disk, the HTTPS port), makes the
@@ -284,9 +284,9 @@ class Deployer:
             )
         return result.stdout.strip().splitlines()[-1] if result.stdout.strip() else "backup ok"
 
-    def write_env(self, sha: str) -> None:
+    def write_env(self, sha: str, tag: str) -> None:
         """`.env` in the clone: read by compose now and by ad hoc `docker compose` commands."""
-        lines = [f"GIT_SHA={sha}"]
+        lines = [f"GIT_SHA={sha}", f"APP_VERSION={tag}"]
         if self.target.compose_project:
             lines.append(f"COMPOSE_PROJECT_NAME={self.target.compose_project}")
         lines += [f"{k}={v}" for k, v in sorted(self.target.app_env.items())]
@@ -312,8 +312,8 @@ class Deployer:
         data = json.loads(result.stdout)
         return {k: str(v) for k, v in data.items()}
 
-    def verify(self, sha: str) -> dict[str, str]:
-        """Wait until /health says healthy at the tag's SHA and the current schema revision."""
+    def verify(self, sha: str, tag: str) -> dict[str, str]:
+        """Wait until /health says healthy at the tag, its SHA and the current schema revision."""
         expected_schema = self._ok(
             self._compose("exec", "-T", "finance360", "python", "-c", HEAD_SNIPPET),
             "reading the schema head",
@@ -329,13 +329,17 @@ class Deployer:
                 if (
                     data.get("status") == "healthy"
                     and data.get("git_sha") == sha
+                    # A release before APP_VERSION existed reports no version; the commit
+                    # still pins it, so a rollback to one is not refused.
+                    and data.get("version", tag) == tag
                     and data.get("schema_version") == expected_schema
                 ):
                     return data
                 last = (
                     f"/health reported status={data.get('status')!r} "
-                    f"git_sha={data.get('git_sha')!r} schema={data.get('schema_version')!r}; "
-                    f"expected git_sha={sha!r} schema={expected_schema!r}"
+                    f"version={data.get('version')!r} git_sha={data.get('git_sha')!r} "
+                    f"schema={data.get('schema_version')!r}; "
+                    f"expected version={tag!r} git_sha={sha!r} schema={expected_schema!r}"
                 )
             if self.clock() >= deadline:
                 raise DeployError(f"The new release did not come up healthy: {last}")
@@ -355,13 +359,14 @@ class Deployer:
         self.say(f"Backup: {backup}")
         try:
             self.start(tag)
-            self.write_env(sha)
+            self.write_env(sha, tag)
             self.build_and_up()
-            health = self.verify(sha)
+            health = self.verify(sha, tag)
         except DeployError as err:
             raise DeployError(f"{err}\n\n{self._rollback_hint(previous, started=True)}") from err
         self.say(
             f"\nDeployed {tag}.\n"
+            f"  APP_VERSION     {health.get('version', '(not reported by this release)')}\n"
             f"  GIT_SHA         {health['git_sha']}\n"
             f"  schema version  {health['schema_version']}\n"
             f"  previous        {previous}  (roll back with: deploy {previous})\n"

@@ -25,7 +25,7 @@ test("signing in at a deep link lands on that same URL (AuthGate sits outside th
         return json({ setup_required: false, totp_required: false, authenticated });
       }
       if (path === "/api/catalogue") return json({ version: 1, classes: [] });
-      if (path === "/health") return json({ status: "healthy", git_sha: "abc1234", schema_version: "0004" });
+      if (path === "/health") return json({ status: "healthy", git_sha: "abc1234", version: "v1.2.3", schema_version: "0004" });
       return json({});
     }),
   );

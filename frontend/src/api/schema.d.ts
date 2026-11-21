@@ -3917,6 +3917,8 @@ export interface components {
             schema_version: string;
             /** Status */
             status: string;
+            /** Version */
+            version: string;
         };
         /** HistoryPointOut */
         HistoryPointOut: {

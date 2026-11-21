@@ -62,7 +62,7 @@ jobs:
             [frontend]='^frontend/'
             [api]='^(backend/|scripts/export_openapi\.py$|pyproject\.toml$|uv\.lock$)'
             [docker]='^(Dockerfile$|\.dockerignore$|backend/|frontend/|pyproject\.toml$|uv\.lock$|alembic\.ini$)'
-            [slow]='^(backend/finance360/(core|api|auth|jobs|migrations|backup|mcp)/|backend/finance360/(main|config)\.py$|backend/tests/(conftest|support)\.py$|backend/tests/test_(ai_concurrency|allowed_hosts|architecture|ask_real_server|auth_concurrency|commit_before_response|document_profiles_real_server|due_real_server|fetch_api|fetch_real_server|imports_commit_real_server|opening_real_server|imports_real_server|library_real_server|reference_real_server|rule_figures_real_server|scenarios_real_server|scheduler_fetch|super_statements_real_server|tax_real_server|upgrade_populated)\.py$|fixtures/|pyproject\.toml$|uv\.lock$|alembic\.ini$)'
+            [slow]='^(backend/finance360/(core|api|auth|jobs|migrations|backup|mcp)/|backend/finance360/(main|config)\.py$|backend/tests/(conftest|support)\.py$|backend/tests/test_(ai_concurrency|allowed_hosts|architecture|ask_real_server|auth_concurrency|commit_before_response|document_profiles_real_server|due_real_server|fetch_api|fetch_real_server|imports_commit_real_server|opening_real_server|position_history_timing|imports_real_server|library_real_server|reference_real_server|rule_figures_real_server|scenarios_real_server|scheduler_fetch|super_statements_real_server|tax_real_server|upgrade_populated)\.py$|fixtures/|pyproject\.toml$|uv\.lock$|alembic\.ini$)'
           )
           if [ -z "$BASE" ]; then
             files=""; all=true

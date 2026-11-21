@@ -37,6 +37,7 @@ class FakeHost:
         backup_exit: int = 0,
         up_exit: int = 0,
         health_sha: str = SHA,
+        health_version: str | None = TAG,
         health_schema: str = HEAD,
         healthy_after: int = 0,
         fetch_exit: int = 0,
@@ -45,6 +46,7 @@ class FakeHost:
         self.inputs: list[str | None] = []
         self.dirty, self.running, self.backup_exit = dirty, running, backup_exit
         self.up_exit, self.health_sha, self.health_schema = up_exit, health_sha, health_schema
+        self.health_version = health_version
         self.healthy_after, self.fetch_exit = healthy_after, fetch_exit
         self.health_calls = 0
 
@@ -88,6 +90,8 @@ class FakeHost:
                 "git_sha": self.health_sha,
                 "schema_version": self.health_schema,
             }
+            if self.health_version is not None:
+                body["version"] = self.health_version
             return Result(0, json.dumps(body))
         if " up " in line:
             return Result(self.up_exit)
@@ -148,6 +152,7 @@ def test_backup_comes_before_anything_changes_then_health_is_verified() -> None:
     assert backup[backup.index("--reason") + 1] == "pre-deploy"
     report = "\n".join(out)
     assert f"GIT_SHA         {SHA}" in report
+    assert f"APP_VERSION     {TAG}" in report
     assert "roll back with: deploy prevsha00000" in report
 
 
@@ -223,9 +228,22 @@ def test_the_wrong_git_sha_fails_and_gives_rollback_guidance() -> None:
     with pytest.raises(deploy.DeployError, match="did not come up healthy") as err:
         make(FakeHost(health_sha="oldsha000000")).deploy(TAG)
     text = str(err.value)
-    assert "git_sha='oldsha000000'" in text and f"expected git_sha='{SHA}'" in text
+    assert "git_sha='oldsha000000'" in text and f"git_sha='{SHA}'" in text
     assert "deploy prevsha00000" in text
     assert "restore-runbook.md" in text
+
+
+def test_the_wrong_version_fails_even_when_the_commit_matches() -> None:
+    with pytest.raises(deploy.DeployError, match="did not come up healthy") as err:
+        make(FakeHost(health_version="v0.0.1")).deploy(TAG)
+    text = str(err.value)
+    assert "version='v0.0.1'" in text and f"expected version='{TAG}'" in text
+    assert "deploy prevsha00000" in text
+
+
+def test_an_older_release_without_a_version_still_deploys_on_its_commit() -> None:
+    # A rollback to a tag from before APP_VERSION: its /health has no "version".
+    assert make(FakeHost(health_version=None)).deploy(TAG) == 0
 
 
 def test_the_wrong_schema_fails() -> None:
@@ -264,6 +282,7 @@ def test_env_file_carries_the_sha_and_the_app_settings_only() -> None:
     assert body is not None
     assert body.splitlines() == [
         f"GIT_SHA={SHA}",
+        f"APP_VERSION={TAG}",
         "FINANCE360_ALLOWED_HOSTS=192.0.2.10:8843",
         "FINANCE360_PORT=8000",
     ]
