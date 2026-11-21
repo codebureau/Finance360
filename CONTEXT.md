@@ -19,6 +19,13 @@ The single top-level unit Finance360 models: the people whose combined financial
 planned. One deployment, one Household.
 _Avoid_: Family, Tenant, Organisation, Portfolio
 
+**Household fact**:
+A stated fact about the Household that a rule needs and the app cannot derive, such as whether the
+Members are a pension couple and whether the Household owns its home and which Property Account it is. Stored on the Household and
+audited, with a visible default when not entered. It is not an Assumption: a Scenario cannot vary it,
+and it does not change during a projection (ADR-0029).
+_Avoid_: Setting, Profile, Assumption
+
 **Household time zone**:
 The Household's IANA time zone (default `Australia/Melbourne`). "Today" for date validation and
 default as-at dates is the local date in this zone, never the server's UTC date.
@@ -285,6 +292,13 @@ into it before the engine runs. A saved projection run snapshots it, together wi
 version (ADR-0015).
 _Avoid_: Parameters, Config, Snapshot (that is a Backup term), Scenario (a Scenario is what
 resolves into one)
+
+**Assessable assets**:
+What the Age Pension means test counts: cash, Investments, and super and overseas pensions from their
+owner's Age Pension age (all financial, so deemed), plus every Property and Vehicle Account except the
+principal home (not financial, fixed per-year inputs rather than projected). Assessed on a year's
+opening balances, never its closing ones (ADR-0029).
+_Avoid_: Net worth, Assets (on its own)
 
 **Line debit**:
 A regular, non-discretionary amount taken from one Member's line in one projection year, with a reason
