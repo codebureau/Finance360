@@ -8,7 +8,6 @@ series reproduces them at the same dates.
 from __future__ import annotations
 
 import shutil
-import time
 from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
@@ -168,14 +167,12 @@ def test_the_tag_filter_narrows_every_point(sample: TestClient) -> None:
     assert body["points"][0]["liabilities"]["household"] == "0.00"
 
 
-def test_the_default_range_spans_the_data_to_today_and_is_fast(sample: TestClient) -> None:
-    started = time.perf_counter()
+def test_the_default_range_spans_the_data_to_today(sample: TestClient) -> None:
+    # Its speed is checked in the slow tier (test_position_history_timing.py).
     body = history(sample)
-    elapsed = time.perf_counter() - started
     dates = [p["on"] for p in body["points"]]
     assert dates[0] == "2024-10-31" and len(dates) >= 24
     assert dates == sorted(set(dates))
-    assert elapsed < 1.0
     assert [m["name"] for m in body["members"]] == ["Alex Sample", "Jordan Sample"]
     assert "retirement" in body["tags"]
 
