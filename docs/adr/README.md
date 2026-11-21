@@ -64,3 +64,4 @@ Superseding is explicit: the new ADR names what it supersedes, and the old one's
 | [0026](0026-library-documents-links-and-prefill.md) | Library: one document store, generic links, and pre-fill beside the source | Proposed |
 | [0027](0027-profile-authoring-through-claude-code-and-mcp.md) | Profile authoring through Claude Code and MCP: access tokens, a thin MCP server, proposed profiles | Proposed |
 | [0028](0028-regular-deduction-from-super-line-debit.md) | Regular deduction from super: the Line debit | Proposed |
+| [0029](0029-household-facts-and-age-pension-means-test-in-the-projection.md) | Household facts for the Age Pension, and how the means test reads the projection | Accepted |
