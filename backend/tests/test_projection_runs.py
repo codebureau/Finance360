@@ -222,7 +222,7 @@ def test_a_saved_run_reproduces_from_its_stored_input(sample: TestClient) -> Non
         ) == result_json.sustainable_from_json(row.sustainable_json)
         assert pinput.to_json(reloaded) == row.input_json  # the stored text is canonical
         # B10 onward; "+1" is the sample household's invented captured figure
-        assert row.rule_pack_version == "au/2026-27/r8+1:5be77e"
+        assert row.rule_pack_version == "au/2026-27/r9+1:5be77e"
 
 
 def test_saving_writes_one_audit_event_with_header_fields_only(sample: TestClient) -> None:
@@ -242,7 +242,7 @@ def test_saving_writes_one_audit_event_with_header_fields_only(sample: TestClien
         "input_version": pinput.INPUT_VERSION,
         "funds_last_to_age": header["funds_last_to_age"],
         "lasts_beyond_horizon": header["lasts_beyond_horizon"],
-        "rule_pack_version": "au/2026-27/r8+1:5be77e",
+        "rule_pack_version": "au/2026-27/r9+1:5be77e",
     }
     assert event_.summary == "Saved a projection run of 'Likely' (Audit me)"
 

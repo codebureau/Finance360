@@ -11,10 +11,18 @@ from datetime import date, timedelta
 
 import pytest
 
+from finance360.core.money import Money
 from finance360.core.rate import Rate
-from finance360.core.rulepack import Age, materialise
+from finance360.core.rulepack import Age, carried_value, materialise
 from finance360.rulepacks import capture
-from finance360.rulepacks.au import PACK, ages, tax_figures, tax_specs
+from finance360.rulepacks.au import (
+    PACK,
+    SPECS,
+    age_pension_specs,
+    ages,
+    tax_figures,
+    tax_specs,
+)
 
 #: (first date of birth of the band, age for the band). The day before each is the previous band.
 PRESERVATION = [
@@ -124,9 +132,10 @@ def test_the_sg_rate_steps_up_on_1_july_and_stays_at_12_percent_after_the_last_y
 
 
 def test_every_pack_parameter_names_its_source_and_says_it_is_unverified() -> None:
-    # The tax. keys are captured by the guided script, which records the retrieval date instead.
+    # The tax. and age_pension. keys are captured by the guided script, which records the
+    # retrieval date instead.
     for param in PACK.params:
-        if not param.key.startswith("tax."):
+        if not param.key.startswith(("tax.", "age_pension.")):
             assert param.source and "unverified" in param.source
 
 
@@ -143,12 +152,69 @@ def test_the_declared_tax_figures_are_well_formed_and_carry_no_value_in_the_spec
 
 def test_the_shipped_tax_figures_load_and_every_held_key_is_declared() -> None:
     data = capture.load_figures(
-        tax_specs.SPECS, tax_figures.FIGURES, tax_figures.PROVISIONAL, tax_figures.RETRIEVED
+        SPECS, tax_figures.FIGURES, tax_figures.PROVISIONAL, tax_figures.RETRIEVED
     )
-    declared = {spec.key for spec in tax_specs.SPECS}
+    declared = {spec.key for spec in SPECS}
     held = {key for values in data.figures.values() for key in values}
     assert held <= declared
-    assert {p.key for p in PACK.params if p.key.startswith("tax.")} == held
+    assert {p.key for p in PACK.params if p.key.startswith(("tax.", "age_pension."))} == held
+
+
+AGE_PENSION_KEYS = {
+    "age_pension.max_basic.single",
+    "age_pension.max_basic.couple_each",
+    "age_pension.pension_supplement.single",
+    "age_pension.pension_supplement.couple_each",
+    "age_pension.income_free_area.single",
+    "age_pension.income_free_area.couple",
+    "age_pension.income_taper",
+    "age_pension.assets_threshold.homeowner_single",
+    "age_pension.assets_threshold.homeowner_couple",
+    "age_pension.assets_threshold.non_homeowner_single",
+    "age_pension.assets_threshold.non_homeowner_couple",
+    "age_pension.assets_taper",
+    "age_pension.deeming.threshold_single",
+    "age_pension.deeming.threshold_couple",
+    "age_pension.deeming.rate_lower",
+    "age_pension.deeming.rate_upper",
+}
+
+
+def test_the_age_pension_keys_are_declared_cited_and_held_for_fy_2026_27() -> None:
+    assert {s.key for s in age_pension_specs.SPECS} == AGE_PENSION_KEYS
+    for spec in age_pension_specs.SPECS:
+        assert spec.page_url.startswith("https://www.servicesaustralia.gov.au/") and spec.where
+        assert spec.source and spec.policy == "cpi"
+        assert spec.kind != "money" or spec.unit in ("fortnight", None)
+        assert PACK.years[2027][spec.key] is not None
+        assert PACK.retrieved_on(2027, spec.key) is not None  # a retrieval date for every key
+        assert PACK.provisional_note(2027, spec.key)  # none confirmed against the page yet
+    assert PACK.years[2027]["age_pension.max_basic.single"] == Money(113540, "AUD")
+    assert PACK.years[2027]["age_pension.assets_taper"] == Rate.from_percent("0.3")
+
+
+def test_age_pension_keys_are_exact_not_floats() -> None:
+    for key in AGE_PENSION_KEYS:
+        assert not isinstance(PACK.years[2027][key], float)
+    assert all(
+        isinstance(v, str) for k, v in tax_figures.FIGURES[2027].items() if k in AGE_PENSION_KEYS
+    )
+
+
+def test_a_later_year_carries_each_age_pension_figure_under_its_declared_policy() -> None:
+    for key in AGE_PENSION_KEYS:
+        carried = carried_value(PACK, key, 2030, Rate.from_percent("3"))
+        assert carried is not None
+        assert (carried.policy, carried.behind) == ("cpi", 3)
+        assert carried.value == PACK.years[2027][key]  # cpi repeats the last figure
+
+
+def test_the_age_pension_keys_do_not_disturb_the_projection_materialise_or_overrides() -> None:
+    # Read for an exact year by their own calculation, like tax. keys (not projected yet).
+    assert not any(k.startswith("age_pension.") for k in PACK.keys)
+    (span,) = materialise(PACK, 2027, 3, Rate.zero())
+    assert not any(k.startswith("age_pension.") for k in span.values)
+    assert materialise(PACK, 2024, 2, Rate.zero())  # a year before the Age Pension figures
 
 
 # --- the pin -------------------------------------------------------------------------------
@@ -157,8 +223,8 @@ def test_the_shipped_tax_figures_load_and_every_held_key_is_declared() -> None:
 #: without recording it: bump ``rulepacks.au.REVISION``, then update both numbers here. A change to
 #: an age function's result has no hash; the golden tests above fail for it, and it needs a bump
 #: too.
-PINNED_REVISION = 8
-PINNED_HASH = "8c3a0f41389d78db6676360d9350cfa3206a9fe4ff6fea18b280e2b945227767"
+PINNED_REVISION = 9
+PINNED_HASH = "f1e505741871f7a02d9fbb18e9566642ffb8ccaf45bd9ae31ed914962912826f"
 
 
 def test_the_revision_and_content_hash_are_pinned() -> None:
@@ -168,4 +234,4 @@ def test_the_revision_and_content_hash_are_pinned() -> None:
 
 
 def test_the_version_label_is_what_a_saved_run_records() -> None:
-    assert PACK.version_label == "au/2026-27/r8"
+    assert PACK.version_label == "au/2026-27/r9"

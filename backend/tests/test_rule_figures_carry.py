@@ -123,8 +123,9 @@ def test_the_preview_proposes_each_missing_key_from_last_year_and_writes_nothing
     assert {n["key"] for n in preview["no_earlier"]} == NO_EARLIER
     # nothing was written: still missing, the version label unmoved, no capture row, no audit
     figures = by_key(sample, 2027)
-    assert {f["state"] for f in figures.values()} == {"missing"}
-    assert year(sample, 2027)["rule_pack_version"] == "au/2026-27/r8"
+    # (the Age Pension keys ship for 2026-27, so they are not missing; only the tax keys are)
+    assert {f["state"] for k, f in figures.items() if k.startswith("tax.")} == {"missing"}
+    assert year(sample, 2027)["rule_pack_version"] == "au/2026-27/r9"
     assert sample.get("/api/audit", params={"entity_type": "rule_capture"}).json()["items"] == []
     offer = year(sample, 2027)["carry_offer"]
     assert offer == {

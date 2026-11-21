@@ -104,7 +104,7 @@ def spec_of(key: str) -> AssumptionKey | None:
         if age.key == name:
             return AssumptionKey(AGE_KIND, (HOUSEHOLD,), age.label)
     for param in pack.params:
-        if param.key == name and not name.startswith(rulepack.TAX_PREFIX):
+        if param.key == name and not rulepack.is_exact_year_key(name):
             return AssumptionKey(param.kind, (HOUSEHOLD,), param.key)
     return None
 
