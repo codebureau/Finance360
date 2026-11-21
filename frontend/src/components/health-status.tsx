@@ -16,7 +16,10 @@ export function HealthStatus() {
       </div>
       <div className="flex gap-1">
         <dt className="text-muted-foreground">Version</dt>
-        <dd className="font-mono">{data.git_sha}</dd>
+        <dd className="font-mono">
+          {data.version === "dev" ? "dev build" : data.version}
+          <span className="ml-1 text-muted-foreground">{data.git_sha}</span>
+        </dd>
       </div>
       <div className="flex gap-1">
         <dt className="text-muted-foreground">Schema version</dt>

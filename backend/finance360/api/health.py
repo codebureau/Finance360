@@ -13,6 +13,7 @@ router = APIRouter()
 class Health(BaseModel):
     status: str
     git_sha: str
+    version: str
     schema_version: str
 
 
@@ -21,5 +22,6 @@ def get_health(request: Request) -> Health:
     return Health(
         status="healthy",
         git_sha=request.app.state.settings.git_sha,
+        version=request.app.state.settings.app_version,
         schema_version=schema_version(request.app.state.engine) or "unmigrated",
     )

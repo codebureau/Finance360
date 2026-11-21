@@ -58,7 +58,7 @@ function stubBackend(health: Response) {
   );
 }
 
-const HEALTHY = () => stubBackend(json({ status: "healthy", git_sha: "abc1234", schema_version: "0004" }));
+const HEALTHY = () => stubBackend(json({ status: "healthy", git_sha: "abc1234", version: "v1.2.3", schema_version: "0004" }));
 
 beforeEach(() => {
   document.documentElement.classList.remove("dark");
@@ -67,12 +67,20 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 test("shows status, version and schema version from /health", async () => {
-  stubBackend(json({ status: "healthy", git_sha: "abc1234", schema_version: "0001" }));
+  stubBackend(json({ status: "healthy", git_sha: "abc1234", version: "v1.2.3", schema_version: "0001" }));
   await renderAppAt();
   expect(await screen.findByText("healthy")).toBeInTheDocument();
+  expect(screen.getByText("v1.2.3")).toBeInTheDocument();
   expect(screen.getByText("abc1234")).toBeInTheDocument();
   expect(screen.getByText("Schema version")).toBeInTheDocument();
   expect(screen.getByText("0001")).toBeInTheDocument();
+});
+
+test("a build with no release tag reads dev build, with the commit", async () => {
+  stubBackend(json({ status: "healthy", git_sha: "abc1234", version: "dev", schema_version: "0001" }));
+  await renderAppAt();
+  expect(await screen.findByText("dev build")).toBeInTheDocument();
+  expect(screen.getByText("abc1234")).toBeInTheDocument();
 });
 
 test("shows an error when the backend is unreachable", async () => {

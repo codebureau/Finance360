@@ -69,9 +69,11 @@ COPY frontend/src/guide /app/guide
 COPY CONTEXT.md /app/CONTEXT.md
 
 ARG GIT_SHA=dev
+ARG APP_VERSION=dev
 # rclone's config lives in its own writable mount (it rewrites the OAuth token on refresh): the
 # one deliberate exception to "the data volume is the only writable mount" (ADR-0011).
 ENV GIT_SHA=${GIT_SHA} \
+    APP_VERSION=${APP_VERSION} \
     FINANCE360_DATA_DIR=/data \
     FINANCE360_PORT=8000 \
     FINANCE360_STATIC_DIR=/app/static \

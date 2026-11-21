@@ -16,6 +16,8 @@ from finance360.core.ai_settings import AiSettings
 
 DEFAULT_PORT = 8000
 DEFAULT_GIT_SHA = "dev"
+#: What a build with no release tag reports as its version.
+DEFAULT_APP_VERSION = "dev"
 DEFAULT_AUTH_PROVIDERS = ("password",)
 DEFAULT_BACKUP_TIME = "02:00"
 DEFAULT_FETCH_TIME = "18:30"
@@ -104,6 +106,9 @@ class Settings:
     port: int
     git_sha: str
     static_dir: Path | None
+    #: The release tag this build was made from (``v0.10.0``), or ``dev`` for a build with none.
+    #: Separate from ``git_sha``, which stays the commit (and what Backups record).
+    app_version: str = DEFAULT_APP_VERSION
     #: Active auth providers, by ``plugins.auth.REGISTRY`` key (ADR-0010).
     auth_providers: tuple[str, ...] = DEFAULT_AUTH_PROVIDERS
     #: ``Secure`` on the Session cookie. Default on; off only for plain-http hosts that need it.
@@ -148,6 +153,7 @@ class Settings:
             data_dir=Path(e.get("FINANCE360_DATA_DIR") or "data").resolve(),
             port=port,
             git_sha=e.get("GIT_SHA") or DEFAULT_GIT_SHA,
+            app_version=e.get("APP_VERSION") or DEFAULT_APP_VERSION,
             static_dir=Path(static).resolve() if static else None,
             auth_providers=tuple(
                 k.strip()

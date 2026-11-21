@@ -159,8 +159,9 @@ deploy v0.2.0
    previous release still running and nothing changed.
 4. Checks out the tag, writes `.env` and runs `docker compose up -d --build`. The app's own startup
    migration takes a further copy of the database first if the schema changes.
-5. Waits (up to 2 minutes) for `/health` to report the tag's `GIT_SHA` and the schema's current
-   revision, then reports both, the previous release and the Backup.
+5. Waits (up to 2 minutes) for `/health` to report the tag as its `version` (`APP_VERSION`), the tag's
+   commit (`GIT_SHA`) and the schema's current revision (a different tag or commit fails), then
+   reports them, the previous release and the Backup.
 
 A stopped app is refused unless you pass `--first`: a missing Backup is never silently skipped.
 
