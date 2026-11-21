@@ -113,6 +113,7 @@ source_modules = [
     "finance360.capabilities.projection.life_events",
     "finance360.capabilities.projection.spending",
     "finance360.capabilities.projection.income",
+    "finance360.capabilities.projection.age_pension",
 ]
 forbidden_modules = [
     "finance360.core.db",
@@ -186,6 +187,7 @@ type = "forbidden"
 source_modules = [
     "finance360.capabilities.projection.engine",
     "finance360.capabilities.projection.input",
+    "finance360.capabilities.projection.age_pension",
 ]
 forbidden_modules = ["finance360.core.rulepack", "finance360.rulepacks"]
 

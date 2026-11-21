@@ -12,8 +12,8 @@ figure you cannot confirm as provisional with a note. It then rewrites
 
 Afterwards update the pinned revision and hash in ``backend/tests/test_rulepack_au.py`` (the script
 prints both) and review the diff. The declarations are ``FigureSpec`` values in
-``rulepacks/au/tax_specs.py``; the Age Pension slice (B11) adds its own and reuses
-``finance360.rulepacks.capture``.
+``rulepacks/au/tax_specs.py`` and ``age_pension_specs.py`` (use ``--prefix age_pension.`` for the
+Age Pension keys); all values are written to ``tax_figures.py``.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ from pathlib import Path
 
 from finance360.core.rulepack import fy_label
 from finance360.rulepacks import capture
-from finance360.rulepacks.au import tax_specs
+from finance360.rulepacks.au import SPECS
 
 DEFAULT_PACK_DIR = (
     Path(__file__).resolve().parents[1] / "backend" / "finance360" / "rulepacks" / "au"
@@ -57,12 +57,12 @@ def run(
 
     figures_path = args.pack_dir / "tax_figures.py"
     init_path = args.pack_dir / "__init__.py"
-    specs = [s for s in tax_specs.SPECS if s.key.startswith(args.prefix)]
+    specs = [s for s in SPECS if s.key.startswith(args.prefix)]
     if not specs:
         say(f"No declared key starts with {args.prefix!r}.")
         return 2
 
-    data = capture.load_figures(tax_specs.SPECS, *_load_texts(figures_path))
+    data = capture.load_figures(SPECS, *_load_texts(figures_path))
     try:
         changed = capture.capture_year(specs, args.fy, data, ask, say, today or date.today())
     except (EOFError, KeyboardInterrupt):
@@ -75,7 +75,7 @@ def run(
     # newline="\n": without it Windows writes CRLF, unlike the LF the files are stored with.
     docstring = ast.get_docstring(ast.parse(figures_path.read_text(encoding="utf-8"))) or ""
     figures_path.write_text(
-        capture.render_figures_module(docstring + "\n", tax_specs.SPECS, data),
+        capture.render_figures_module(docstring + "\n", SPECS, data),
         encoding="utf-8",
         newline="\n",
     )

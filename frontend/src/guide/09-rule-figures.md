@@ -4,6 +4,11 @@ Some of what Finance360 works out depends on official figures that the governmen
 
 The [Rule figures](/rule-figures) screen lists every figure a financial year needs. Pick the year at the top; the list runs from the first year Finance360 holds to next year (so you can enter figures that have been announced). Tick **Missing only** to see just what is left to do.
 
+## The Age Pension figures
+Rule figures also lists the figures the Age Pension means test reads, for **2026-27**: the maximum basic rate and pension supplement (single, and each of a couple), the income free areas and the income test reduction rate, the assets test limits (homeowner and non-homeowner, single and couple) and its reduction rate, and the deeming thresholds and rates. Their keys start with `age_pension.`, and each links to its Services Australia page (the payment rates, income test, assets test and deeming pages). Payment amounts and free areas are kept per fortnight, as Services Australia publishes them.
+
+These figures ship as **provisional**: they were copied from a secondary source and nobody has checked them against the official page yet, so open each page and capture the figure from it (see **How to capture one**); your capture replaces the provisional one. A later year starts from the latest figure: they are indexed to prices each year, so Finance360 repeats the last one. **Coming later:** the projection does not use them yet. The means test is built and tested, but nothing in a projection or a screen shows an Age Pension amount until it is connected, so confirming them now changes no result.
+
 ## Shipped or captured
 Each figure says where it came from.
 - **Shipped (r6)** means it came with the release you are running. The release number is the Rule pack's revision. These figures were checked by the maintainer with the official page open.

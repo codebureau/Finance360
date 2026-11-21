@@ -16,7 +16,8 @@ services look a pack up here by jurisdiction key and never import ``rulepacks/``
 * ``materialise`` returns a step function: a new span only where a value changes.
 * **Tax keys** (prefix ``tax.``, ADR-0019) belong to the Tax capability, which reads exact
   financial years from the pack. They are never materialised for a projection and are not
-  Scenario-overridable.
+  Scenario-overridable. The ``age_pension.`` keys (B11) are treated the same until the engine
+  slice that reads them.
 * A year's entry may mark a key **provisional** (announced, not yet law) with a note. The marker is
   in the content hash, so setting or clearing it needs a ``revision`` bump.
 * **Captured figures** (ADR-0022) layer over the shipped pack: ``layer`` is a pure function from a
@@ -54,6 +55,15 @@ OVERRIDE_PREFIX = "rule."
 
 #: Keys of the Tax capability's rules (ADR-0019 section 4).
 TAX_PREFIX = "tax."
+
+#: Keys of the Age Pension means test (B11). Like ``tax.`` keys they are read for an exact
+#: financial year by their own calculation, not projected year by year and not yet overridable.
+AGE_PENSION_PREFIX = "age_pension."
+
+
+def is_exact_year_key(key: str) -> bool:
+    """A key read for an exact FY by its own calculation, never materialised for a projection."""
+    return key.startswith((TAX_PREFIX, AGE_PENSION_PREFIX))
 
 
 class RulePackError(ValueError):
@@ -332,7 +342,7 @@ class RulePack:
     def keys(self) -> tuple[str, ...]:
         """Every key a Scenario may override: the parameters (not ``tax.``), then the ages."""
         return (
-            *(p.key for p in self.params if not p.key.startswith(TAX_PREFIX)),
+            *(p.key for p in self.params if not is_exact_year_key(p.key)),
             *(a.key for a in self.ages),
         )
 
@@ -631,8 +641,8 @@ def materialise(
         fy = first_fy + t
         values: dict[str, Value] = {}
         for param in pack.params:
-            if param.key.startswith(TAX_PREFIX):
-                continue  # read by the Tax capability for an exact FY, never projected
+            if is_exact_year_key(param.key):
+                continue  # read for an exact FY (Tax, Age Pension), never projected
             if param.key in overrides:
                 values[param.key] = overrides[param.key]
                 continue

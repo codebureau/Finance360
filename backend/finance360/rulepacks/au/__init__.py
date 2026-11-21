@@ -5,23 +5,35 @@ needs a ``REVISION`` bump and the pinned hash in ``tests/test_rulepack_au.py`` u
 
 Revision 2 (B7) adds ``sg_rate`` and ``contributions_tax_rate`` for FY 2021-22 to
 2026-27 (``super_rates``), both ``cpi`` parameters. The last known FY is 2026-27 (``2027``), so
-the version label is ``au/2026-27/r3``. Age Pension parameters arrive with B11.
+the version label is ``au/2026-27/r3``.
 
-This pack also carries the ``tax.`` keys (``tax_specs``: declarations, no figures) and their values
-(``tax_figures``: written by ``scripts/rulepack_update.py``, which bumps ``REVISION``). A key
-joins the pack only once it has a figure, so a pack with none captured is unchanged.
+This pack also carries the ``tax.`` keys (``tax_specs``: declarations, no figures) and the
+``age_pension.`` keys (``age_pension_specs``, B11, FY 2026-27 from the 20 September 2026
+indexation), and their values (``tax_figures``: written by ``scripts/rulepack_update.py``, which
+bumps ``REVISION``). A key joins the pack only once it has a figure, so a pack with none captured
+is unchanged.
 """
 
 from __future__ import annotations
 
 from finance360.core.rulepack import CPI, RATE, AgeRule, Param, RulePack, Value
 from finance360.rulepacks import capture
-from finance360.rulepacks.au import ages, super_rates, tax_figures, tax_specs
+from finance360.rulepacks.au import (
+    age_pension_specs,
+    ages,
+    super_rates,
+    tax_figures,
+    tax_specs,
+)
+
+#: Every capturable key of this pack, ``tax.`` then ``age_pension.``. Their values all live in
+#: ``tax_figures.py`` (the one module ``scripts/rulepack_update.py`` writes).
+SPECS = (*tax_specs.SPECS, *age_pension_specs.SPECS)
 
 _TAX = capture.load_figures(
-    tax_specs.SPECS, tax_figures.FIGURES, tax_figures.PROVISIONAL, tax_figures.RETRIEVED
+    SPECS, tax_figures.FIGURES, tax_figures.PROVISIONAL, tax_figures.RETRIEVED
 )
-_TAX_PARAMS, _TAX_YEARS = capture.pack_parts(tax_specs.SPECS, _TAX)
+_TAX_PARAMS, _TAX_YEARS = capture.pack_parts(SPECS, _TAX)
 
 _YEARS: dict[int, dict[str, Value]] = {
     fy: {
@@ -33,7 +45,7 @@ _YEARS: dict[int, dict[str, Value]] = {
 for _fy, _values in _TAX_YEARS.items():
     _YEARS.setdefault(_fy, {}).update(_values)
 
-REVISION = 8
+REVISION = 9
 
 PACK = RulePack(
     pack_id="au",
@@ -52,8 +64,8 @@ PACK = RulePack(
     years=_YEARS,
     provisional=_TAX.provisional,
     retrieved=_TAX.retrieved,
-    declared=tuple(spec.to_param() for spec in tax_specs.SPECS),
-    specs=tuple(tax_specs.SPECS),
+    declared=tuple(spec.to_param() for spec in SPECS),
+    specs=SPECS,
     ages=(
         AgeRule(
             "preservation_age",

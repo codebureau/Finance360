@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from finance360.capabilities.projection.assumptions import Source
-from finance360.core.rulepack import TAX_PREFIX, Age, RulePack
+from finance360.core.rulepack import Age, RulePack, is_exact_year_key
 
 #: Where a value came from, beside the Assumption layers ``scenario`` and ``household``.
 LAYER_PACK = "rule_pack"
@@ -75,6 +75,6 @@ def member_ages(
                 values.append(RuleValue(member_id, rule.key, rule.evaluate(born_on), LAYER_PACK))
     parameters = tuple(RuleParameter(a.key, a.label, a.source) for a in pack.ages)
     captured = tuple(
-        CapturedUsed(c.key, c.fy, c.id) for c in pack.captured if not c.key.startswith(TAX_PREFIX)
+        CapturedUsed(c.key, c.fy, c.id) for c in pack.captured if not is_exact_year_key(c.key)
     )
     return RulesUsed(pack.version_label, parameters, tuple(values), captured)

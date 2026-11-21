@@ -1,4 +1,4 @@
-"""Tax figures of the AU Rule pack, by financial year. Written by ``scripts/rulepack_update.py``.
+"""Captured figures of the AU Rule pack (``tax.`` and ``age_pension.``), by financial year. Written by ``scripts/rulepack_update.py``.
 
 Do not edit by hand: run the script (it validates, records the retrieval date and bumps
 ``REVISION`` in ``rulepacks/au/__init__.py``). Empty until the first capture run.
@@ -48,6 +48,24 @@ FIGURES: dict[int, dict[str, str]] = {
         "tax.sbito.rate": "16%",
         "tax.super.concessional_cap": "30000.00",
     },
+    2027: {
+        "age_pension.assets_taper": "0.3%",
+        "age_pension.assets_threshold.homeowner_couple": "499000.00",
+        "age_pension.assets_threshold.homeowner_single": "333000.00",
+        "age_pension.assets_threshold.non_homeowner_couple": "766000.00",
+        "age_pension.assets_threshold.non_homeowner_single": "600000.00",
+        "age_pension.deeming.rate_lower": "1.75%",
+        "age_pension.deeming.rate_upper": "3.75%",
+        "age_pension.deeming.threshold_couple": "110600.00",
+        "age_pension.deeming.threshold_single": "66800.00",
+        "age_pension.income_free_area.couple": "396.00",
+        "age_pension.income_free_area.single": "226.00",
+        "age_pension.income_taper": "50%",
+        "age_pension.max_basic.couple_each": "855.90",
+        "age_pension.max_basic.single": "1135.40",
+        "age_pension.pension_supplement.couple_each": "66.50",
+        "age_pension.pension_supplement.single": "88.20",
+    },
 }
 
 PROVISIONAL: dict[int, dict[str, str]] = {
@@ -59,6 +77,24 @@ PROVISIONAL: dict[int, dict[str, str]] = {
         "tax.medicare.low_income.family_per_child": "Reflects the 2026-27 Budget announcement, not yet law when retrieved; check against the ATO table.",
         "tax.medicare.low_income.single_lower": "Reflects the 2026-27 Budget announcement, not yet law when retrieved; check against the ATO table.",
         "tax.super.concessional_cap": "Entered by the developer from the ATO's published figure without opening the page; confirm it on Rule figures.",
+    },
+    2027: {
+        "age_pension.assets_taper": "Entered by the developer: Services Australia states $3 per fortnight per $1,000 of assets over the limit, which is 0.3%; the page was not opened. Confirm it on Rule figures.",
+        "age_pension.assets_threshold.homeowner_couple": "Entered by the developer from SuperGuide's 'Age Pension rates (from 20 September 2026)' assets test table (secondary source); the published limit applies from 1 July 2026. The Services Australia page was not opened. Confirm it on Rule figures.",
+        "age_pension.assets_threshold.homeowner_single": "Entered by the developer from SuperGuide's 'Age Pension rates (from 20 September 2026)' assets test table (secondary source); the published limit applies from 1 July 2026. The Services Australia page was not opened. Confirm it on Rule figures.",
+        "age_pension.assets_threshold.non_homeowner_couple": "Entered by the developer from SuperGuide's 'Age Pension rates (from 20 September 2026)' assets test table (secondary source); the published limit applies from 1 July 2026. The Services Australia page was not opened. Confirm it on Rule figures.",
+        "age_pension.assets_threshold.non_homeowner_single": "Entered by the developer from SuperGuide's 'Age Pension rates (from 20 September 2026)' assets test table (secondary source); the published limit applies from 1 July 2026. The Services Australia page was not opened. Confirm it on Rule figures.",
+        "age_pension.deeming.rate_lower": "Entered by the developer from search summaries of SuperGuide and the DVA deeming page; sources disagree on the date the rates changed (20 March or 20 September 2026). The Services Australia page was not opened. Confirm it on Rule figures.",
+        "age_pension.deeming.rate_upper": "Entered by the developer from search summaries of SuperGuide and the DVA deeming page; sources disagree on the date the rates changed (20 March or 20 September 2026). The Services Australia page was not opened. Confirm it on Rule figures.",
+        "age_pension.deeming.threshold_couple": "Entered by the developer from search summaries of SuperGuide and the DVA deeming page; sources disagree on the date the rates changed (20 March or 20 September 2026). The Services Australia page was not opened. Confirm it on Rule figures.",
+        "age_pension.deeming.threshold_single": "Entered by the developer from search summaries of SuperGuide and the DVA deeming page; sources disagree on the date the rates changed (20 March or 20 September 2026). The Services Australia page was not opened. Confirm it on Rule figures.",
+        "age_pension.income_free_area.couple": "Entered by the developer from SuperGuide's 'Age Pension rates (from 20 September 2026)' income test figures (secondary source); the Services Australia page was not opened. Confirm it on Rule figures.",
+        "age_pension.income_free_area.single": "Entered by the developer from SuperGuide's 'Age Pension rates (from 20 September 2026)' income test figures (secondary source); the Services Australia page was not opened. Confirm it on Rule figures.",
+        "age_pension.income_taper": "Entered by the developer: Services Australia states 50 cents in the dollar combined (25 each); the page was not opened. Confirm it on Rule figures.",
+        "age_pension.max_basic.couple_each": "Entered by the developer from SuperGuide's 'Age Pension rates (from 20 September 2026)' table (secondary source, agreeing with the DSS rates list as reported by search); the Services Australia page was not opened. Confirm it on Rule figures.",
+        "age_pension.max_basic.single": "Entered by the developer from SuperGuide's 'Age Pension rates (from 20 September 2026)' table (secondary source, agreeing with the DSS rates list as reported by search); the Services Australia page was not opened. Confirm it on Rule figures.",
+        "age_pension.pension_supplement.couple_each": "Entered by the developer from SuperGuide's 'Age Pension rates (from 20 September 2026)' table (secondary source, agreeing with the DSS rates list as reported by search); the Services Australia page was not opened. Confirm it on Rule figures.",
+        "age_pension.pension_supplement.single": "Entered by the developer from SuperGuide's 'Age Pension rates (from 20 September 2026)' table (secondary source, agreeing with the DSS rates list as reported by search); the Services Australia page was not opened. Confirm it on Rule figures.",
     },
 }
 
@@ -103,5 +139,23 @@ RETRIEVED: dict[int, dict[str, str]] = {
         "tax.sbito.cap": "2026-10-27",
         "tax.sbito.rate": "2026-10-27",
         "tax.super.concessional_cap": "2026-11-08",
+    },
+    2027: {
+        "age_pension.assets_taper": "2026-11-21",
+        "age_pension.assets_threshold.homeowner_couple": "2026-11-21",
+        "age_pension.assets_threshold.homeowner_single": "2026-11-21",
+        "age_pension.assets_threshold.non_homeowner_couple": "2026-11-21",
+        "age_pension.assets_threshold.non_homeowner_single": "2026-11-21",
+        "age_pension.deeming.rate_lower": "2026-11-21",
+        "age_pension.deeming.rate_upper": "2026-11-21",
+        "age_pension.deeming.threshold_couple": "2026-11-21",
+        "age_pension.deeming.threshold_single": "2026-11-21",
+        "age_pension.income_free_area.couple": "2026-11-21",
+        "age_pension.income_free_area.single": "2026-11-21",
+        "age_pension.income_taper": "2026-11-21",
+        "age_pension.max_basic.couple_each": "2026-11-21",
+        "age_pension.max_basic.single": "2026-11-21",
+        "age_pension.pension_supplement.couple_each": "2026-11-21",
+        "age_pension.pension_supplement.single": "2026-11-21",
     },
 }

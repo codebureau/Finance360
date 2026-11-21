@@ -27,7 +27,7 @@ REPO = Path(__file__).resolve().parents[2]
 RATE = "tax.car.rate_per_km"
 LIMIT = "tax.car.max_km"
 LEVY = "tax.medicare.levy_rate"
-BASE = "au/2026-27/r8"
+BASE = "au/2026-27/r9"
 
 
 def _client(
@@ -94,6 +94,21 @@ def a_car_record(client: TestClient, member: int) -> dict[str, Any]:
 
 def member_ids(client: TestClient) -> list[int]:
     return [m["id"] for m in client.get("/api/household").json()["members"]]
+
+
+def test_rule_figures_lists_the_age_pension_keys_as_shipped_and_provisional_with_sources(
+    sample: TestClient,
+) -> None:
+    listed = figures(sample, 2027)
+    keys = [k for k in listed if k.startswith("age_pension.")]
+    assert len(keys) == 16
+    row = listed["age_pension.max_basic.single"]
+    assert (row["state"], row["value"]) == ("shipped", "1135.40")
+    assert row["provisional_note"] and "not opened" in row["provisional_note"]
+    assert row["page_url"].startswith("https://www.servicesaustralia.gov.au/")
+    assert listed["age_pension.assets_taper"]["value"] == "0.3%"
+    assert listed["age_pension.deeming.rate_upper"]["value"] == "3.75%"
+    assert {listed[k]["state"] for k in keys} == {"shipped"}
 
 
 def test_a_captured_car_rate_makes_a_record_count_and_its_trace_says_captured(

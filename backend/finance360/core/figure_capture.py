@@ -235,7 +235,7 @@ def range_text(spec: FigureSpec) -> str:
 
 def entry_hint(spec: FigureSpec) -> str:
     if spec.kind == MONEY:
-        return f"dollars per {spec.unit or 'year'}, e.g. 1234.50"
+        return "dollars" + (f" per {spec.unit}" if spec.unit else "") + ", e.g. 1234.50"
     if spec.kind == RATE:
         return "a percentage, e.g. 16.5"
     if spec.kind == BRACKETS:
