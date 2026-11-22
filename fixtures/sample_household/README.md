@@ -40,7 +40,14 @@ them through the service layer on first run, so audit and validation apply:
   vendor-id and product-name-alias identifiers, all AUD) are read by
   `finance360.capabilities.reference.instruments.load_fixture_instruments` only while no Instrument
   exists. They are audited with source `fixture`. The fund has no ticker and no provider symbol, as
-  an unlisted fund would not.
+  an unlisted fund would not. Each Instrument also carries an `exposure_profiles` list (ADR-0030),
+  read by `finance360.capabilities.reference.exposure_profiles.load_fixture_exposure_profiles` only
+  while no profile exists, through `record_profile`, audited with source `fixture`: one entry of
+  `as_at`, `note` and `weights` (a map of Dimension key to label key to a percent string), all as at
+  2026-06-30. The ETF is 60% Australian shares and 39.5% International shares, a total of 99.5%: the
+  within-tolerance case, whose 0.5% shortfall resolves to Not classified. The mining share is 100%
+  Australian shares. The fund is a diversified mix summing to exactly 100%. The `Sample New Horizons
+  ETF` that an import creates has none, so it shows as No profile.
   The top-level `income_streams` (an invented salary for each Member: Alex 120,000.00 gross and
   91,000.00 take-home, Jordan 85,000.00 gross and 66,000.00 take-home; both end at the owner's
   retirement) are read by
@@ -286,6 +293,12 @@ them through the service layer on first run, so audit and validation apply:
   50 x 12.50 (625.00) + cash 834.93. Add a manual Valuation on 2026-09-30 and the page shows the
   difference as reconciliation. Edit the type back to *Brokerage account* to restore the original
   series. No new fixture file is needed.
+  With the Account on that type and a Price for `Sample New Horizons ETF`, its page also has
+  **Look-through by asset class** as at 2026-09-30: Australian shares 3,263.05 (49.10%),
+  International shares 1,898.12 (28.56%), Cash 834.93 (12.56%), *No profile: Sample New Horizons ETF*
+  625.00 (9.41%, linking to the Instrument to enter one), Not classified 24.03 (0.36%, the ETF's 0.5%
+  shortfall) and Unallocated 0.00: the rows add to 6,645.13. Entering a profile for that Instrument
+  moves its 625.00 into the asset classes and removes the No profile row.
 
 - **Fetching Prices and FX rates in the review slot.** No fixture file is needed: the review slot
   (`scripts/review.compose.yml`) sets `FINANCE360_PRICE_PROVIDER=yfinance`,

@@ -96,10 +96,11 @@ type = "independence"
 modules = ["finance360.api", "finance360.mcp", "finance360.jobs"]
 
 [[tool.importlinter.contracts]]
-name = "Capabilities: projection > tax > position > library > documents > household (never the reverse; ADR-0015 section 1, ADR-0019 section 1, ADR-0026 section 3)"
+# Capability layers: ADR-0015 section 1, ADR-0019 section 1, ADR-0026 section 3, ADR-0030 section 1.
+name = "projection > tax | lookthrough > position > library > documents > household (never the reverse)"
 type = "layers"
 containers = ["finance360.capabilities"]
-layers = ["projection", "tax", "position", "library", "documents", "household"]
+layers = ["projection", "tax | lookthrough", "position", "library", "documents", "household"]
 
 [[tool.importlinter.contracts]]
 name = "The projection engine and its input are pure: no database, audit, service or other Capability (ADR-0015 section 1)"
@@ -126,6 +127,29 @@ forbidden_modules = [
     "finance360.capabilities.reference",
     "finance360.capabilities.imports",
     "finance360.capabilities.auth",
+    "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
+]
+
+[[tool.importlinter.contracts]]
+name = "The look-through resolver and its pure modules: no database, audit, service or other Capability (ADR-0030 section 1)"
+type = "forbidden"
+source_modules = [
+    "finance360.capabilities.lookthrough.resolve",
+    "finance360.capabilities.lookthrough.lines",
+    "finance360.capabilities.lookthrough.reconcile",
+]
+forbidden_modules = [
+    "finance360.core.db",
+    "finance360.core.models",
+    "finance360.core.audit",
+    "finance360.capabilities.lookthrough.service",
+    "finance360.capabilities.position",
+    "finance360.capabilities.household",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.auth",
+    "finance360.capabilities.projection",
     "finance360.capabilities.tax",
 ]
 
@@ -222,6 +246,7 @@ forbidden_modules = [
     "finance360.capabilities.position",
     "finance360.capabilities.household",
     "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
 ]
 
 [[tool.importlinter.contracts]]
@@ -238,6 +263,7 @@ forbidden_modules = [
     "finance360.capabilities.position",
     "finance360.capabilities.household",
     "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
 ]
 
 [[tool.importlinter.contracts]]
@@ -292,6 +318,7 @@ forbidden_modules = [
     "finance360.capabilities.household",
     "finance360.capabilities.imports",
     "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
     "finance360.capabilities.due",
     "finance360.capabilities.ai",
     "finance360.capabilities.ask",
@@ -309,6 +336,7 @@ source_modules = [
     "finance360.capabilities.household",
     "finance360.capabilities.imports",
     "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
     "finance360.capabilities.due",
     "finance360.capabilities.ai",
     "finance360.capabilities.ask",
@@ -325,6 +353,7 @@ source_modules = ["finance360.capabilities.due"]
 forbidden_modules = [
     "finance360.capabilities.position",
     "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
     "finance360.capabilities.projection",
     "finance360.capabilities.household",
     "finance360.capabilities.imports",
@@ -338,6 +367,7 @@ type = "forbidden"
 source_modules = [
     "finance360.capabilities.position",
     "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
     "finance360.capabilities.projection",
     "finance360.capabilities.household",
     "finance360.capabilities.imports",
@@ -364,6 +394,7 @@ source_modules = ["finance360.capabilities.ai"]
 forbidden_modules = [
     "finance360.capabilities.position",
     "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
     "finance360.capabilities.projection",
     "finance360.capabilities.household",
     "finance360.capabilities.imports",
@@ -381,6 +412,7 @@ source_modules = ["finance360.capabilities.ask"]
 forbidden_modules = [
     "finance360.capabilities.position",
     "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
     "finance360.capabilities.projection",
     "finance360.capabilities.household",
     "finance360.capabilities.imports",
@@ -395,6 +427,7 @@ type = "forbidden"
 source_modules = [
     "finance360.capabilities.position",
     "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
     "finance360.capabilities.projection",
     "finance360.capabilities.household",
     "finance360.capabilities.imports",
@@ -416,6 +449,7 @@ source_modules = ["finance360.capabilities.rulecapture"]
 forbidden_modules = [
     "finance360.capabilities.position",
     "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
     "finance360.capabilities.projection",
     "finance360.capabilities.household",
     "finance360.capabilities.imports",
@@ -431,6 +465,7 @@ type = "forbidden"
 source_modules = [
     "finance360.capabilities.position",
     "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
     "finance360.capabilities.projection",
     "finance360.capabilities.household",
     "finance360.capabilities.imports",
@@ -462,6 +497,7 @@ forbidden_modules = [
     "finance360.plugins",
     "finance360.capabilities.position",
     "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
     "finance360.capabilities.projection",
     "finance360.capabilities.household",
     "finance360.capabilities.imports",
@@ -489,6 +525,7 @@ forbidden_modules = [
     "finance360.capabilities.due",
     "finance360.capabilities.position",
     "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
     "finance360.capabilities.projection",
     "finance360.capabilities.household",
     "finance360.capabilities.imports",
@@ -519,6 +556,7 @@ source_modules = ["finance360.capabilities.documents"]
 forbidden_modules = [
     "finance360.capabilities.position",
     "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
     "finance360.capabilities.projection",
     "finance360.capabilities.household",
     "finance360.capabilities.imports",
@@ -537,6 +575,7 @@ type = "forbidden"
 source_modules = [
     "finance360.capabilities.position",
     "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
     "finance360.capabilities.projection",
     "finance360.capabilities.household",
     "finance360.capabilities.imports",
@@ -607,6 +646,7 @@ forbidden_modules = [
     "finance360.capabilities.documents.registry",
     "finance360.capabilities.position",
     "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
     "finance360.capabilities.projection",
     "finance360.capabilities.household",
     "finance360.capabilities.imports",
@@ -621,6 +661,7 @@ source_modules = ["finance360.capabilities.library"]
 forbidden_modules = [
     "finance360.capabilities.position",
     "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
     "finance360.capabilities.projection",
     "finance360.capabilities.household",
     "finance360.capabilities.imports",

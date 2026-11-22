@@ -60,7 +60,13 @@ from finance360.capabilities.library import registry as link_kinds
 from finance360.capabilities.library import service as library
 from finance360.capabilities.position import accounts, super_statements, valuations
 from finance360.capabilities.projection import income_streams, scenarios
-from finance360.capabilities.reference import fetch, fx_rates, instruments, prices
+from finance360.capabilities.reference import (
+    exposure_profiles,
+    fetch,
+    fx_rates,
+    instruments,
+    prices,
+)
 from finance360.capabilities.reference.providers import FxFetch, FxQuote, PriceBar, PriceSeries
 from finance360.capabilities.tax import link_kind as tax_link_kind
 from finance360.capabilities.tax import lodged as tax_lodged
@@ -69,6 +75,7 @@ from finance360.capabilities.tax import service as tax
 from finance360.core import audit, rulepack_store
 from finance360.core.audit import AuditContext
 from finance360.core.catalogue import seed_catalogue
+from finance360.core.exposure_vocab import seed_exposure_vocab
 from finance360.core.models.audit import AuditEvent
 from finance360.core.models.auth import AuthEvent
 from finance360.core.models.price import Price
@@ -148,6 +155,7 @@ class Env:
         ids: dict[str, int] = {}
         household.ensure_household(s)
         seed_catalogue(s)
+        seed_exposure_vocab(s)
         a = household.add_member(s, CTX, "Alex Sample", date(1984, 3, 12), today=TODAY)
         b = household.add_member(s, CTX, "Jordan Sample", date(1986, 9, 30), today=TODAY)
         ids.update(alex=a.id, jordan=b.id)
@@ -441,6 +449,20 @@ MUTATORS: dict[str, tuple[dict[str, bool | str], Exerciser]] = {
         {"instruments": True},
         lambda s, e, i: instruments.remove_identifier(s, CTX, i["instrument"], i["identifier"]),
     ),
+    "reference.exposure_profiles.record_profile": (
+        {"instruments": True},
+        lambda s, e, i: exposure_profiles.record_profile(
+            s,
+            CTX,
+            i["instrument"],
+            exposure_profiles.ProfileInput(
+                as_at=date(2026, 6, 30),
+                retrieved_on=date(2026, 11, 22),
+                provenance_note="Checked",
+                weights=(exposure_profiles.WeightInput("asset_class", "cash", "100"),),
+            ),
+        ),
+    ),
     "reference.prices.add_price": (
         {"instruments": True},
         lambda s, e, i: prices.add_price(s, CTX, i["instrument"], _price()),
@@ -683,6 +705,9 @@ LOADERS: dict[str, Exerciser] = {
     "reference.prices.load_fixture_prices": lambda s, e, i: prices.load_fixture_prices(
         s, e.data_dir
     ),
+    "reference.exposure_profiles.load_fixture_exposure_profiles": (
+        lambda s, e, i: exposure_profiles.load_fixture_exposure_profiles(s, e.data_dir)
+    ),
     "imports.account_identifiers.load_fixture_account_identifiers": (
         lambda s, e, i: account_identifiers.load_fixture_account_identifiers(s, e.data_dir)
     ),
@@ -750,6 +775,8 @@ EXPECTED: dict[str, tuple[str, str]] = {
     "reference.instruments.add_identifier": ("instrument", "update"),
     "reference.instruments.remove_identifier": ("instrument", "update"),
     "reference.instruments.load_fixture_instruments": ("instrument", "create"),
+    "reference.exposure_profiles.record_profile": ("exposure_profile", "create"),
+    "reference.exposure_profiles.load_fixture_exposure_profiles": ("exposure_profile", "create"),
     "reference.prices.add_price": ("price", "create"),
     "reference.prices.correct_price": ("price", "supersede"),
     "reference.prices.remove_price": ("price", "supersede"),
@@ -1095,6 +1122,13 @@ NOT_AUDITED: dict[str, str] = {
     "reference.instruments.get_instrument": "read",
     "reference.instruments.list_instruments": "read",
     "reference.instruments.resolve": "read (the identifier crosswalk lookup)",
+    "reference.exposure_profiles.vocabulary": "read",
+    "reference.exposure_profiles.label_order": "read",
+    "reference.exposure_profiles.get_profile": "read",
+    "reference.exposure_profiles.list_profiles": "read",
+    "reference.exposure_profiles.current_profile_facts": "read",
+    "reference.exposure_profiles.resolutions": "read (how a stored profile resolves)",
+    "core.exposure_vocab.seed_exposure_vocab": "system bootstrap: seeds the Exposure vocabulary",
     "reference.prices.get_price": "read",
     "reference.prices.current_prices": "read",
     "reference.prices.list_prices": "read",
@@ -1311,8 +1345,10 @@ def _exercise_one(name: str, factory: sessionmaker[Session], data_dir: Path) -> 
                     or "load_fixture_facts" in name
                 ):
                     accounts.load_fixture_accounts(s, data_dir)
-                if "prices" in name:
+                if "prices" in name or "exposure" in name:
                     instruments.load_fixture_instruments(s, data_dir)
+                if "exposure" in name:
+                    seed_exposure_vocab(s)
         before = _last_audit_id(factory)
         with factory.begin() as s:
             LOADERS[name](s, env, {})

@@ -132,3 +132,30 @@ def test_a_manual_price_over_a_real_server_wins_and_is_read_back_at_once(
     assert now["value"] == "124.00"
     none = http.get(f"/api/instruments/{etf}/price", params={"on": "2026-07-01"}).json()
     assert none["result"] == "no_price" and none["value"] is None
+
+
+def test_an_exposure_profile_over_a_real_server_supersedes_and_is_read_back_at_once(
+    signed_in: httpx.Client,
+) -> None:
+    http = signed_in
+    etf = _by_kind(http)["etf"]["id"]
+    [fixture] = http.get(f"/api/instruments/{etf}/exposure-profiles").json()
+    assert fixture["status"] == "current"
+
+    body = {
+        "as_at": fixture["as_at"],
+        "provenance_note": "Corrected over a real server",
+        "weights": [
+            {"dimension_key": "asset_class", "label_key": "australian_shares", "percent": "55"},
+            {"dimension_key": "asset_class", "label_key": "international_shares", "percent": "45"},
+        ],
+    }
+    posted = http.post(f"/api/instruments/{etf}/exposure-profiles", json=body)
+    assert posted.status_code == 201
+    history = http.get(f"/api/instruments/{etf}/exposure-profiles").json()
+    assert [p["status"] for p in history] == ["current", "corrected"]  # read back at once
+
+    far_off = {**body, "weights": body["weights"][:1]}  # 55%: 45 points short
+    rejected = http.post(f"/api/instruments/{etf}/exposure-profiles", json=far_off)
+    assert rejected.status_code == 422
+    assert rejected.json()["errors"][0]["field"] == "weights"

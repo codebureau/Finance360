@@ -358,6 +358,18 @@
         { "scheme": "isin", "value": "AU0000SMPL01" },
         { "scheme": "name", "value": "Sample Broad Market Index ETF" }
       ],
+      "exposure_profiles": [
+        {
+          "as_at": "2026-06-30",
+          "note": "Invented factsheet, as at 30 June 2026. The weights total 99.5%: the 0.5% shortfall resolves to Not classified.",
+          "weights": {
+            "asset_class": {
+              "australian_shares": "60",
+              "international_shares": "39.5"
+            }
+          }
+        }
+      ],
       "prices": [
         { "as_at": "2026-08-03", "value": "98.8957", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
         { "as_at": "2026-08-04", "value": "98.6661", "source": "yfinance", "note": "Invented daily close (symbol SBME.AX)" },
@@ -408,6 +420,17 @@
         { "scheme": "isin", "value": "AU0000SMPM09" },
         { "scheme": "name", "value": "Sample Mining Limited" }
       ],
+      "exposure_profiles": [
+        {
+          "as_at": "2026-06-30",
+          "note": "Invented factsheet, as at 30 June 2026. A single Australian share.",
+          "weights": {
+            "asset_class": {
+              "australian_shares": "100"
+            }
+          }
+        }
+      ],
       "prices": [
         { "as_at": "2026-09-01", "value": "6.2682", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
         { "as_at": "2026-09-02", "value": "6.2156", "source": "yfinance", "note": "Invented daily close (symbol SMPM.AX)" },
@@ -439,6 +462,23 @@
         { "scheme": "vendor_id", "value": "SBGF-0001" },
         { "scheme": "isin", "value": "AU0000SMPF03" },
         { "scheme": "name", "value": "Sample Balanced Growth (unlisted)" }
+      ],
+      "exposure_profiles": [
+        {
+          "as_at": "2026-06-30",
+          "note": "Invented fund fact sheet, as at 30 June 2026.",
+          "weights": {
+            "asset_class": {
+              "australian_shares": "30",
+              "international_shares": "28",
+              "property": "8",
+              "infrastructure": "4",
+              "fixed_income": "20",
+              "cash": "7",
+              "alternatives": "3"
+            }
+          }
+        }
       ],
       "prices": [
         { "as_at": "2026-03-31", "value": "1.8412", "source": "manual", "note": "Invented unit price from a sample statement" },

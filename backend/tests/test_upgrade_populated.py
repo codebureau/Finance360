@@ -601,6 +601,36 @@ def _seed_household_facts(session: Session, data_dir: Path) -> None:
     household_service.load_fixture_facts(session, data_dir)
 
 
+def _seed_exposure_profiles(session: Session, data_dir: Path) -> None:
+    """Revision 0034 created the Exposure tables: seed the vocabulary and load the fixture's
+    profiles through the real service, then correct one so a superseded version exists too."""
+    from datetime import date
+
+    from sqlalchemy import select
+
+    from finance360.capabilities.reference import exposure_profiles as profiles
+    from finance360.core.audit import AuditContext
+    from finance360.core.exposure_vocab import seed_exposure_vocab
+    from finance360.core.models.instrument import Instrument
+
+    seed_exposure_vocab(session)
+    assert profiles.load_fixture_exposure_profiles(session, data_dir) == 3
+    etf = session.scalars(
+        select(Instrument).where(Instrument.name == "Sample Broad Market ETF")
+    ).one()
+    profiles.record_profile(
+        session,
+        AuditContext("owner", "owner", "api"),
+        etf.id,
+        profiles.ProfileInput(
+            as_at=date(2026, 6, 30),
+            retrieved_on=date(2026, 11, 22),
+            provenance_note="Corrected for the upgrade check",
+            weights=(profiles.WeightInput("asset_class", "australian_shares", "100"),),
+        ),
+    )
+
+
 #: revision -> loads the data its migration created tables for. Extend with each schema slice.
 SEEDERS: dict[str, Callable[[Session, Path], None]] = {
     BASELINE: _seed_baseline,
@@ -628,6 +658,7 @@ SEEDERS: dict[str, Callable[[Session, Path], None]] = {
     "0031": _seed_tax_estimates,
     "0032": _seed_tax_lodged_results,
     "0033": _seed_household_facts,
+    "0034": _seed_exposure_profiles,
 }
 
 
@@ -1333,6 +1364,60 @@ def test_the_upgraded_database_keeps_both_lodged_results_and_still_refuses_to_ch
         conn.close()
 
 
+def test_downgrading_0034_drops_only_the_exposure_tables(tmp_path: Path) -> None:
+    upgrade_populated(tmp_path)
+    before = snapshot(tmp_path)
+    assert len(before.tables["exposure_profile"].rows) == 4  # three, and a corrected ETF
+    assert len(before.tables["exposure_weight"].rows) == 11  # 2 + 1 + 7 weights, then 1 more
+    config = alembic_config(tmp_path, MIGRATIONS_DIR)
+    command.downgrade(config, "0033")
+    after = snapshot(tmp_path)
+    gone = {"exposure_dimension", "exposure_label", "exposure_profile", "exposure_weight"}
+    assert not gone & after.tables.keys()
+    assert not {n for n in after.triggers if n.startswith("exposure_")}
+    assert after.indexes == {k: v for k, v in before.indexes.items() if "exposure_" not in k}
+    for name, table in after.tables.items():
+        if name != "audit_event":  # the profiles' audit rows stay: the trail is append-only
+            assert table.rows == before.tables[name].rows, name
+    command.upgrade(config, "head")
+    command.check(config)
+
+
+def test_the_upgraded_database_keeps_a_superseded_profile_and_still_refuses_to_change_it(
+    tmp_path: Path,
+) -> None:
+    """0034 adds the Exposure tables. After the whole chain the corrected profile's earlier version
+    is still there (superseded, not lost, with its own weights) and the guards are in place."""
+    upgrade_populated(tmp_path)
+    after = snapshot(tmp_path)
+    assert {
+        "exposure_profile_no_update",
+        "exposure_profile_no_delete",
+        "exposure_weight_no_update",
+        "exposure_weight_no_delete",
+    } <= after.triggers.keys()
+    conn = sqlite3.connect(db_path(tmp_path))
+    try:
+        conn.execute("PRAGMA foreign_keys=ON")
+        rows = conn.execute(
+            "SELECT id, superseded_at IS NULL, superseded_by_id FROM exposure_profile "
+            "WHERE instrument_id = "
+            "(SELECT id FROM instrument WHERE name = 'Sample Broad Market ETF') ORDER BY id"
+        ).fetchall()
+        assert [(r[1], r[2] is not None) for r in rows] == [(0, True), (1, False)]
+        old = conn.execute(
+            "SELECT label_key, weight_ppm FROM exposure_weight WHERE profile_id = ? ORDER BY id",
+            (rows[0][0],),
+        ).fetchall()
+        assert old == [("australian_shares", 600000), ("international_shares", 395000)]
+        with pytest.raises(sqlite3.DatabaseError, match="append-only"):
+            conn.execute("UPDATE exposure_profile SET provenance_note = 'tampered'")
+        with pytest.raises(sqlite3.DatabaseError, match="immutable"):
+            conn.execute("DELETE FROM exposure_weight")
+    finally:
+        conn.close()
+
+
 def test_downgrading_0033_drops_only_the_household_fact_columns(tmp_path: Path) -> None:
     upgrade_populated(tmp_path)
     before = snapshot(tmp_path)
@@ -1361,7 +1446,9 @@ def test_downgrading_0032_drops_only_the_lodged_result_table(tmp_path: Path) -> 
     assert "tax_lodged_result" not in after.tables
     assert not {n for n in after.triggers if n.startswith("tax_lodged_result")}
     assert after.indexes == {
-        k: v for k, v in before.indexes.items() if "tax_lodged_result" not in k
+        k: v
+        for k, v in before.indexes.items()
+        if "tax_lodged_result" not in k and "exposure_" not in k  # 0034's went too
     }
     for name, table in after.tables.items():
         if name != "audit_event":  # the notices' audit rows stay: the trail is append-only
@@ -1382,7 +1469,9 @@ def test_downgrading_0031_drops_only_the_tax_estimate_tables(tmp_path: Path) -> 
     assert not {n for n in after.triggers if n.startswith("tax_estimate")}
     # 0032's index went too, passing back through its downgrade
     assert after.indexes == {
-        k: v for k, v in before.indexes.items() if "tax_lodged_result" not in k
+        k: v
+        for k, v in before.indexes.items()
+        if "tax_lodged_result" not in k and "exposure_" not in k  # 0034's went too
     }
     for name, table in after.tables.items():
         if name != "audit_event":  # the estimate's audit rows stay: the trail is append-only
@@ -1412,10 +1501,12 @@ def test_downgrading_0030_makes_a_carried_capture_typed_and_keeps_everything_els
     assert after.triggers == {
         k: v
         for k, v in before.triggers.items()
-        if not k.startswith(("tax_estimate_", "tax_lodged_result_"))
+        if not k.startswith(("tax_estimate_", "tax_lodged_result_", "exposure_"))
     }
     assert after.indexes == {
-        k: v for k, v in before.indexes.items() if "tax_lodged_result" not in k
+        k: v
+        for k, v in before.indexes.items()
+        if "tax_lodged_result" not in k and "exposure_" not in k  # 0034's went too
     }
     for name, table in after.tables.items():
         if name not in ("rule_capture", "audit_event"):
