@@ -7,6 +7,7 @@ A schedule of what Finance360 needs from you, and when. Each item says which sta
 
 ## Once, then when it changes
 - **Household and Members** (tax, investments, whole picture). Names and dates of birth, on [Household](/household). Everything else hangs off a Member.
+- **Household facts** (whole picture). Couple or single, homeowner or not, and which Property Account is the principal home, on [Household](/household). Once, and again only if your situation changes. A blank one uses a labelled default, so you only need to enter what differs, and you will want to choose the principal home if you own more than one property. They are stored now and used by the Age Pension calculation when it arrives (coming later).
 - **Accounts** (investments, whole picture). Add each one on [Accounts](/accounts). Close one when it ends; Accounts are never deleted.
 - **Income streams** (whole picture). A salary for each Member on [Income streams](/income-streams). Change it when pay changes. You type take-home pay yourself, unless a Scenario switches on Tax in the projection, which estimates it instead (see [Projection](/guide/projection)). The [Tax estimate](/tax) also uses a salary stream to fill a Member's salary for a year in which you have entered no Tax records for it (see [Tax](/guide/tax)).
 - **Assumptions** (whole picture). Returns, inflation, retirement ages and spending, on the [Projection](/projection). The Best, Likely and Worst Scenarios start with placeholder figures, so review them before you trust a result.

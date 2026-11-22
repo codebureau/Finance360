@@ -55,7 +55,11 @@ from finance360.capabilities.auth.redact import RedactFilter
 from finance360.capabilities.auth.types import AuthProvider
 from finance360.capabilities.documents import registry as document_profiles
 from finance360.capabilities.documents import store as document_profile_store
-from finance360.capabilities.household.service import bootstrap, household_today
+from finance360.capabilities.household.service import (
+    bootstrap,
+    household_today,
+    load_fixture_facts,
+)
 from finance360.capabilities.imports import account_identifiers as import_account_identifiers
 from finance360.capabilities.imports import commit as import_commit
 from finance360.capabilities.imports import registry as importers
@@ -211,7 +215,8 @@ def create_app(
                 # never stop the app starting.
                 document_profile_store.load_active(session)
                 bootstrap(session, settings.data_dir)  # first run: the Household (and fixture)
-                position_accounts.load_fixture_accounts(session, settings.data_dir)
+                if position_accounts.load_fixture_accounts(session, settings.data_dir):
+                    load_fixture_facts(session, settings.data_dir)
                 import_account_identifiers.load_fixture_account_identifiers(
                     session, settings.data_dir
                 )

@@ -17,6 +17,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from finance360.capabilities.household import facts
 from finance360.core import audit
 from finance360.core.audit import AuditContext
 from finance360.core.due import LEVELS
@@ -31,7 +32,9 @@ from finance360.core.localtime import (
     local_today,
     parse_time_zone,
 )
-from finance360.core.models.household import HOUSEHOLD_ID, Household, Member
+from finance360.core.models.account import Account
+from finance360.core.models.catalogue import Category
+from finance360.core.models.household import COUPLE_STATUSES, HOUSEHOLD_ID, Household, Member
 
 DEFAULT_HOUSEHOLD_NAME = "My household"
 NAME_MAX = 200
@@ -208,6 +211,106 @@ def household_today(session: Session) -> date:
     return local_today(household.time_zone if household else DEFAULT_TIME_ZONE)
 
 
+# --- Household facts (ADR-0029 section 1) ---------------------------------------------------
+
+PROPERTY_CATEGORY_KEY = "property"
+#: Sentinel for "leave this fact unchanged" (``None`` means "clear it back to not entered").
+UNCHANGED: Any = object()
+
+
+def open_property_accounts(session: Session, today: date | None = None) -> list[Account]:
+    """The open Property Accounts, by name: the choices for the principal home."""
+    on = today or household_today(session)
+    return list(
+        session.scalars(
+            select(Account)
+            .join(Category, Account.category_id == Category.id)
+            .where(Category.key == PROPERTY_CATEGORY_KEY)
+            .where(Account.closed_on.is_(None) | (Account.closed_on > on))
+            .order_by(Account.name, Account.id)
+        )
+    )
+
+
+def effective_facts(session: Session, today: date | None = None) -> facts.EffectiveFacts:
+    """The Household's facts as a rule may use them: defaults resolved, each labelled, plus the
+    state ("ok", "needs a choice of home" or "not modelled"). The one entry point for #69."""
+    household = get_household(session)
+    members = len(list_members(session))
+    open_ids = frozenset(a.id for a in open_property_accounts(session, today))
+    stored = facts.StoredFacts(
+        household.couple_status, household.homeowner, household.principal_home_account_id
+    )
+    return facts.resolve_facts(stored, members, open_ids)
+
+
+def _fact_text(value: object) -> str:
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    return str(value)
+
+
+def set_household_facts(
+    session: Session,
+    context: AuditContext,
+    *,
+    couple_status: str | None = UNCHANGED,
+    homeowner: bool | None = UNCHANGED,
+    principal_home_account_id: int | None = UNCHANGED,
+    today: date | None = None,
+) -> Household:
+    """Set, clear or reset (``None``) each fact given; one audit entry per fact that changes.
+
+    A couple status that contradicts the Member count is accepted: it is reported as not modelled
+    (ADR-0029), not refused. A chosen home must be an open Property Account.
+    """
+    errors: list[FieldError] = []
+    if couple_status is not UNCHANGED and couple_status not in (None, *COUPLE_STATUSES):
+        errors.append(FieldError("couple_status", "Choose single or couple."))
+    home_name: str | None = None
+    if principal_home_account_id is not UNCHANGED and principal_home_account_id is not None:
+        homes = {a.id: a.name for a in open_property_accounts(session, today)}
+        if principal_home_account_id not in homes:
+            errors.append(
+                FieldError("principal_home_account_id", "Choose one of the open Property Accounts.")
+            )
+        else:
+            home_name = homes[principal_home_account_id]
+    if errors:
+        raise ValidationError(errors)
+
+    household = get_household(session)
+    changes: list[tuple[str, object, str]] = []
+    if couple_status is not UNCHANGED:
+        changes.append(("couple_status", couple_status, "couple status"))
+    if homeowner is not UNCHANGED:
+        changes.append(("homeowner", homeowner, "homeowner"))
+    if principal_home_account_id is not UNCHANGED:
+        changes.append(("principal_home_account_id", principal_home_account_id, "principal home"))
+    for column, value, label in changes:
+        old = getattr(household, column)
+        if old == value:
+            continue
+        setattr(household, column, value)
+        session.flush()
+        shown = home_name if column == "principal_home_account_id" and value else value
+        audit.record(
+            session,
+            context,
+            entity_type="household",
+            entity_id=household.id,
+            action="update",
+            before={column: old},
+            after={column: value},
+            summary=(
+                f"Reset the Household {label} to not entered"
+                if value is None
+                else f"Set the Household {label} to {_fact_text(shown)}"
+            ),
+        )
+    return household
+
+
 # --- Members -------------------------------------------------------------------------------
 
 
@@ -340,3 +443,26 @@ def bootstrap(session: Session, data_dir: Path) -> Household:
             date.fromisoformat(entry["date_of_birth"]),
         )
     return household
+
+
+def load_fixture_facts(session: Session, data_dir: Path) -> None:
+    """Set the fixture's Household facts, through the service. Call it only on the run that created
+    the fixture's Accounts (it names the principal home by Account name), so a later start never
+    undoes the owner's own edit. Reads ``household.facts`` from ``<data_dir>/household.json``."""
+    path = data_dir / FIXTURE_FILENAME
+    if not path.is_file():
+        return
+    entry = json.loads(path.read_text(encoding="utf-8")).get("household", {}).get("facts", {})
+    home = entry.get("principal_home")
+    home_id = None
+    if home is not None:
+        home_id = next((a.id for a in open_property_accounts(session) if a.name == home), None)
+        if home_id is None:
+            raise ValidationError([FieldError("principal_home", f"No open Property '{home}'.")])
+    set_household_facts(
+        session,
+        FIXTURE_CONTEXT,
+        couple_status=entry.get("couple_status", UNCHANGED),
+        homeowner=entry.get("homeowner", UNCHANGED),
+        principal_home_account_id=home_id if home is not None else UNCHANGED,
+    )

@@ -38,6 +38,7 @@ Income stream entitlements (Age Pension, foreign State Pensions, defined-benefit
 | Vehicle | Vehicles | simple balance | simple balance | estimate | Depreciation is an Assumption |
 | Home loan | Loans & credit | simple balance | amortising loan | manual, then lender import | A "mortgage" may be several loan Accounts (e.g. construction-era splits). Has **dated terms** and **redraw** (see below) |
 | Credit card | Loans & credit | simple balance | simple balance | manual, then bank import | Limit and rate as attributes |
+| Investment property | Property | simple balance | simple balance | estimate | Added by catalogue version 3. A Property that is not the principal home: counted by the Age Pension assets test (ADR-0029). Rent is not yet an Income stream (#76) |
 
 ## Income stream types
 

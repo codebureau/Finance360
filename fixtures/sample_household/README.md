@@ -8,7 +8,10 @@ them through the service layer on first run, so audit and validation apply:
 
 - `household.json`: the Household name, time zone and Effort level (`steady`, so every What's due rule
   has something to show; the app's own default is Light), and three invented Members (name, date of
-  birth). Read by
+  birth). Its `facts.principal_home` names the Account ("Family Home") that is the principal home, set
+  through the service by `load_fixture_facts` on the run that creates the Accounts (so a later start never
+  undoes an owner's edit); couple status and homeowner are left blank, to show their labelled defaults. The
+  non-home Account for the means test is the invented "Family Car" (a Vehicle with Valuations). Read by
   `finance360.capabilities.household.service.bootstrap` only while no Household exists yet. Its
   Members are audited with source `fixture`. Its `accounts` (nine invented Accounts across the
   Categories, one joint, one in GBP, with Tags; owners are named by Member name) are read by
