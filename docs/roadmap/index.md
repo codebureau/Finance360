@@ -10,17 +10,15 @@ real. Every epic hangs off the backlog index, [#1](https://github.com/codebureau
 
 ## Current milestone
 
-**M3 First projection**: "Are we on track for retirement?" is roughly answerable per
-Scenario, with reproducible saved runs.
+**M4 Look-through analytics** ([#5](https://github.com/codebureau/Finance360/issues/5)): what the
+household's invested money is exposed to (asset class, region, sector and exposure currency) is
+visible for investment-platform and super Accounts, with fund-of-funds resolved.
 
-- **Definition of Done:** the epic's Outcome is real, and saved projection runs record their
-  inputs, Rule pack version and engine version.
-- **Built:** Scenarios with seeded Best, Likely and Worst, saved reproducible runs, the Drawdown
-  policy, Life events, salary Income streams with super contributions, spending phases, sustainable
-  retirement income, tax in the plan, AU Rule pack ages, and the Superannuation Guarantee and tax figures.
-- **Remaining:** the Age Pension, as sub-issues of [#4](https://github.com/codebureau/Finance360/issues/4):
-  #66 Rule pack figures, #67 means test, #68 ADR on Household facts, #69 calculated Income stream,
-  #70 screens, Guide and fixture.
+- **Definition of Done:** the epic's acceptance criteria hold on the synthetic household: exposure by
+  the four dimensions at Account, Category, Member and Household level; a fund-of-funds resolves to
+  its underlying funds; an unallocated remainder is shown, not absorbed.
+- **Remaining:** split #5 into sub-issues before any Developer pass. #6 (super option allocations,
+  including an age-based lifecycle glide path) is the only one filed so far.
 
 **In flight alongside:**
 - **Orientation** (inserted 2026-11-03): someone can open Finance360 cold and know why
@@ -46,6 +44,11 @@ Scenario, with reproducible saved runs.
 - Tax planning (epic #11, ADR-0019): closed 2026-11-20. Records, Tax estimates, what-ifs, break-even
   and the Return worksheet; released as `v0.10.0`.
 - Tax in the plan (ADR-0028): done, delivered under #11. Take-home pay and Division 293 are in the projection.
+- M3 First projection (epic #4): closed 2026-11-22. Scenarios, saved reproducible runs, Drawdown,
+  Life events, Income streams, spending phases, tax in the plan and, last, the Age Pension (ADR-0029:
+  Household facts, the means test on opening balances, its working on screen). Released as `v0.11.0`.
+  Its deferred items stay open on their own: survivor amounts (#26), inheritance (#35) and rent as an
+  Income stream (#76).
 
 ## Committed sequence
 
@@ -55,7 +58,7 @@ Scenario, with reproducible saved runs.
 | M1 | Household position (walking skeleton; closed 2026-11-17) ([#2](https://github.com/codebureau/Finance360/issues/2)) | Real Accounts entered in a deployment show the true household net position by Member and Category, in AUD, today and over time. Includes the review slot, backup and a tested restore |
 | UX | UX foundation (inserted 2026-10-20; done) | URL routing, sidebar shell, list and detail pages, anchored editing, confirmed destructive actions and semantic theming. New screens follow one pattern (ADR-0014) |
 | M2 | Investment platform import | The platform's exports derive an investment Account's value and history automatically, kept current by daily prices |
-| M3 | First projection ([#4](https://github.com/codebureau/Finance360/issues/4)) | "Are we on track for retirement?" is roughly answerable per Scenario, with reproducible saved runs |
+| M3 | First projection (closed 2026-11-22) ([#4](https://github.com/codebureau/Finance360/issues/4)) | "Are we on track for retirement?" is roughly answerable per Scenario, with reproducible saved runs |
 | O | Orientation (inserted 2026-11-03; complete 2026-11-03) | Someone can open Finance360 cold and know why they are here, what it answers, where each answer lives, what is out of date and what to provide next |
 | T1 | Tax planning (closed 2026-11-20) ([#11](https://github.com/codebureau/Finance360/issues/11)) | Records for a financial year produce a Tax estimate that matches a lodged return to the cent; Tax what-ifs can be saved, compared and break-even searched |
 | T2 | Tax in the plan (done; delivered under #11) | The tax engine supplies take-home pay to the projection, and Division 293 is predicted with its lag |
