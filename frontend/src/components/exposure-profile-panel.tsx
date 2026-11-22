@@ -21,13 +21,14 @@ import {
   fetchExposureProfiles,
   fetchExposureVocabulary,
   judgeTotal,
+  percentToPpm,
   ppmToPercent,
   recordExposureProfile,
   WEIGHT_TOLERANCE_PPM,
   type ExposureDimension,
   type ExposureProfile,
 } from "@/lib/exposure";
-import { fetchHousehold, todayIn } from "@/lib/household";
+import { ApiError, fetchHousehold, todayIn } from "@/lib/household";
 import type { Instrument } from "@/lib/instruments";
 
 const DEFAULT_TIME_ZONE = "Australia/Melbourne";
@@ -36,6 +37,17 @@ const SHOWN = 5;
 
 const labelName = (vocab: ExposureDimension[], dimension: string, label: string) =>
   vocab.find((d) => d.key === dimension)?.labels.find((l) => l.key === label)?.name ?? label;
+
+const dimensionName = (vocab: ExposureDimension[], dimension: string) =>
+  vocab.find((d) => d.key === dimension)?.name ?? dimension;
+
+/** A profile's weights by Dimension, in the order it gives them. Label names repeat across
+ * Dimensions ("Other"), so weights are always shown under their Dimension. */
+function byDimension(profile: ExposureProfile) {
+  const groups = new Map<string, ExposureProfile["weights"]>();
+  for (const w of profile.weights) groups.set(w.dimension_key, [...(groups.get(w.dimension_key) ?? []), w]);
+  return [...groups];
+}
 
 /** How the running total of one Dimension will be judged (the server decides; this previews). */
 function totalMessage(state: ReturnType<typeof judgeTotal>): string {
@@ -53,6 +65,79 @@ function totalMessage(state: ReturnType<typeof judgeTotal>): string {
     default:
       return `Total ${total}%: ${gap} points ${state.differencePpm < 0 ? "short of" : "over"} 100%. More than ${ppmToPercent(WEIGHT_TOLERANCE_PPM)} point either way is rejected.`;
   }
+}
+
+/**
+ * One Dimension's weights. Each is a disclosure so the form stays short at phone width (four
+ * Dimensions are about forty fields): the first, and any that already has figures, starts open. A
+ * Dimension may be left blank, which leaves it out of the profile.
+ */
+function DimensionFields({
+  dimension,
+  entered,
+  error,
+  initiallyOpen,
+  onChange,
+}: {
+  dimension: ExposureDimension;
+  entered: Record<string, string>;
+  error: unknown;
+  initiallyOpen: boolean;
+  onChange: (key: string, value: string) => void;
+}) {
+  const [open, setOpen] = useState(initiallyOpen);
+  // a rejected weight is never hidden in a closed Dimension
+  const failed =
+    error instanceof ApiError && Object.keys(error.fields).some((f) => f.startsWith(`weights.${dimension.key}.`));
+  const state = judgeTotal(dimension.labels.map((l) => entered[`${dimension.key}.${l.key}`] ?? ""));
+  return (
+    <details
+      open={open || failed}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+      className="rounded-md border border-border px-3 py-2"
+    >
+      <summary className="cursor-pointer text-sm font-medium">
+        {dimension.name} weights (%)
+        <span className="ml-2 font-normal text-muted-foreground">
+          {state.state === "empty" ? "left out" : `total ${ppmToPercent(state.totalPpm)}%`}
+        </span>
+      </summary>
+      <fieldset className="mt-2 flex flex-col gap-2">
+        <legend className="sr-only">{dimension.name} weights (%)</legend>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {dimension.labels.map((label) => {
+            const key = `${dimension.key}.${label.key}`;
+            return (
+              <label key={key} className="flex flex-col gap-1 text-sm">
+                {label.name}
+                <input
+                  className={inputClass}
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={entered[key] ?? ""}
+                  onChange={(e) => onChange(key, e.target.value)}
+                />
+                <FieldMessage error={error} field={`weights.${key}`} />
+              </label>
+            );
+          })}
+        </div>
+        <p
+          role="status"
+          aria-label={`${dimension.name} total`}
+          className={
+            state.state === "rejected"
+              ? "text-sm text-destructive"
+              : state.state === "short" || state.state === "over"
+                ? "text-sm text-warning"
+                : "text-sm text-muted-foreground"
+          }
+        >
+          {totalMessage(state)}
+        </p>
+      </fieldset>
+    </details>
+  );
 }
 
 function ProfileForm({
@@ -119,46 +204,16 @@ function ProfileForm({
           <FieldMessage error={save.error} field="provenance_note" />
         </label>
       </div>
-      {vocab.map((dimension) => {
-        const texts = dimension.labels.map((l) => entered[`${dimension.key}.${l.key}`] ?? "");
-        const state = judgeTotal(texts);
-        return (
-          <fieldset key={dimension.key} className="flex flex-col gap-2">
-            <legend className="mb-1 text-sm font-medium">{dimension.name} weights (%)</legend>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {dimension.labels.map((label) => {
-                const key = `${dimension.key}.${label.key}`;
-                return (
-                  <label key={key} className="flex flex-col gap-1 text-sm">
-                    {label.name}
-                    <input
-                      className={inputClass}
-                      inputMode="decimal"
-                      placeholder="0"
-                      value={entered[key] ?? ""}
-                      onChange={(e) => setEntered((prev) => ({ ...prev, [key]: e.target.value }))}
-                    />
-                    <FieldMessage error={save.error} field={`weights.${key}`} />
-                  </label>
-                );
-              })}
-            </div>
-            <p
-              role="status"
-              aria-label={`${dimension.name} total`}
-              className={
-                state.state === "rejected"
-                  ? "text-sm text-destructive"
-                  : state.state === "short" || state.state === "over"
-                    ? "text-sm text-warning"
-                    : "text-sm text-muted-foreground"
-              }
-            >
-              {totalMessage(state)}
-            </p>
-          </fieldset>
-        );
-      })}
+      {vocab.map((dimension, index) => (
+        <DimensionFields
+          key={dimension.key}
+          dimension={dimension}
+          entered={entered}
+          error={save.error}
+          initiallyOpen={index === 0 || dimension.labels.some((l) => (entered[`${dimension.key}.${l.key}`] ?? "") !== "")}
+          onChange={(key, value) => setEntered((prev) => ({ ...prev, [key]: value }))}
+        />
+      ))}
       <FieldMessage error={save.error} field="weights" />
       <GeneralError error={save.error} />
       <DialogFooter>
@@ -176,11 +231,12 @@ function ProfileForm({
 /** What the stored total means: a shortfall goes to Not classified, an excess is trimmed. */
 function resolutionNotes(profile: ExposureProfile, vocab: ExposureDimension[]): string[] {
   return profile.resolutions.flatMap((r) => {
+    const name = dimensionName(vocab, r.dimension_key);
     if (r.outcome === "short")
-      return [`Totals ${r.total_percent}%: the ${r.not_classified_percent}% shortfall shows as Not classified.`];
+      return [`${name} totals ${r.total_percent}%: the ${r.not_classified_percent}% shortfall shows as Not classified.`];
     if (r.outcome === "over")
       return [
-        `Totals ${r.total_percent}%: ${r.trimmed
+        `${name} totals ${r.total_percent}%: ${r.trimmed
           .map((t) => `${t.percent}% is trimmed from ${labelName(vocab, r.dimension_key, t.label_key)}`)
           .join(", ")}, the largest weight.`,
       ];
@@ -244,14 +300,21 @@ function CurrentProfile({
               <TableHead className="text-right">Weight</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {profile.weights.map((w) => (
-              <TableRow key={`${w.dimension_key}.${w.label_key}`}>
-                <TableCell>{labelName(vocab, w.dimension_key, w.label_key)}</TableCell>
-                <TableCell className="text-right font-mono tabular-nums">{w.percent}%</TableCell>
+          {byDimension(profile).map(([key, weights]) => (
+            <TableBody key={key} aria-label={dimensionName(vocab, key)} className="border-t border-border">
+              <TableRow>
+                <TableHead scope="rowgroup" colSpan={2} className="bg-muted/30 text-left">
+                  {dimensionName(vocab, key)}
+                </TableHead>
               </TableRow>
-            ))}
-          </TableBody>
+              {weights.map((w) => (
+                <TableRow key={w.label_key}>
+                  <TableCell>{labelName(vocab, key, w.label_key)}</TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">{w.percent}%</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          ))}
         </Table>
         {notes.map((n) => (
           <p key={n} className="text-sm text-muted-foreground">
@@ -263,15 +326,54 @@ function CurrentProfile({
   );
 }
 
+/** The most weights a header summary lists before "and more". */
+const SUMMARY_SHOWN = 3;
+
+/**
+ * An Instrument's **Exposure currency** from its current profile, shown beside its Holding
+ * currency in the header: what the underlying assets are exposed to, not what the Instrument is
+ * priced in. Says so plainly when there is no profile or the profile leaves the Dimension out.
+ */
+export function ExposureCurrencySummary({ instrument }: { instrument: Instrument }) {
+  const vocab = useQuery({ queryKey: ["exposure-vocabulary"], queryFn: fetchExposureVocabulary });
+  const profiles = useQuery({
+    queryKey: ["exposure-profiles", instrument.id],
+    queryFn: () => fetchExposureProfiles(instrument.id),
+  });
+  if (!profiles.data || !vocab.data) return null;
+  const current = profiles.data
+    .filter((p) => p.status === "current")
+    .sort((a, b) => b.as_at.localeCompare(a.as_at))[0];
+  const weights = (current?.weights ?? [])
+    .filter((w) => w.dimension_key === "exposure_currency")
+    .sort((a, b) => (percentToPpm(b.percent) ?? 0) - (percentToPpm(a.percent) ?? 0));
+  const text = !current
+    ? "no profile yet"
+    : weights.length === 0
+      ? "not in its profile"
+      : weights
+          .slice(0, SUMMARY_SHOWN)
+          .map((w) => `${labelName(vocab.data, w.dimension_key, w.label_key)} ${w.percent}%`)
+          .join(", ") + (weights.length > SUMMARY_SHOWN ? ` and ${weights.length - SUMMARY_SHOWN} more` : "");
+  return (
+    <span className="text-muted-foreground">
+      Exposure currency: <span className="text-foreground">{text}</span>
+    </span>
+  );
+}
+
 function summary(profile: ExposureProfile, vocab: ExposureDimension[]): string {
-  return profile.weights
-    .map((w) => `${labelName(vocab, w.dimension_key, w.label_key)} ${w.percent}%`)
-    .join(", ");
+  return byDimension(profile)
+    .map(
+      ([key, weights]) =>
+        `${dimensionName(vocab, key)}: ${weights.map((w) => `${labelName(vocab, key, w.label_key)} ${w.percent}%`).join(", ")}`,
+    )
+    .join("; ");
 }
 
 /**
- * An Instrument's Exposure profile (ADR-0030): its asset-class weights entered by hand from a
- * published figure, with an as-at date and the source `manual`. A correction supersedes and the
+ * An Instrument's Exposure profile (ADR-0030): its weights in each Dimension (asset class, region,
+ * sector, exposure currency) entered by hand from a published figure, any Dimension optional, with an as-at date and the source `manual`. A correction supersedes and the
  * earlier version stays in the history. The form shows the running total and how it will be judged;
  * the server decides (within one point is accepted, a shortfall shows as Not classified).
  */
@@ -319,7 +421,8 @@ export function ExposureProfilePanel({ instrument }: { instrument: Instrument })
           </div>
         </div>
         <p className="text-sm text-muted-foreground">
-          How {instrument.name} splits across asset classes, typed in from a published figure. A look-through on a
+          How {instrument.name} splits across asset class, region, sector and exposure currency, typed in from a
+          published figure. Leave a Dimension blank if the figure is not published. A look-through on a
           date uses the latest profile on or before it. Weights within one point of 100% are accepted as printed.
         </p>
         {profiles.isPending && <p className="text-muted-foreground">Loading…</p>}
@@ -384,7 +487,7 @@ export function ExposureProfilePanel({ instrument }: { instrument: Instrument })
           <DialogHeader>
             <DialogTitle>Enter an exposure profile</DialogTitle>
             <DialogDescription>
-              For {instrument.name}, as published. Leave a weight blank for none.
+              For {instrument.name}, as published. Leave a weight blank for none, or a whole Dimension blank to leave it out.
             </DialogDescription>
           </DialogHeader>
           <ProfileForm

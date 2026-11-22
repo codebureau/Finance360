@@ -2,9 +2,10 @@
 
 Same shape as the catalogue seeder: it inserts Dimensions and Exposure labels whose key is missing
 and never touches an existing row. A new label is a seed change (bump
-``EXPOSURE_VOCAB_SEED_VERSION``), not code or a migration. #83 seeds ``asset_class`` only; #84
-adds the other three Dimensions. Seeding is not audited (system bootstrap); the version is
-recorded instead.
+``EXPOSURE_VOCAB_SEED_VERSION``), not code or a migration. #83 seeded ``asset_class`` (version 1);
+#84 added region, sector and exposure currency (version 2), so a database seeded at version 1
+gains them on the next start without touching an existing row or profile. Seeding is not audited
+(system bootstrap); the version is recorded instead.
 """
 
 from __future__ import annotations
@@ -14,11 +15,11 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from finance360.core.exposure import ASSET_CLASS
+from finance360.core.exposure import ASSET_CLASS, EXPOSURE_CURRENCY, REGION, SECTOR
 from finance360.core.models.catalogue import Meta
 from finance360.core.models.exposure import ExposureDimension, ExposureLabel
 
-EXPOSURE_VOCAB_SEED_VERSION = 1
+EXPOSURE_VOCAB_SEED_VERSION = 2
 EXPOSURE_VOCAB_VERSION_KEY = "exposure_vocab_seed_version"
 
 
@@ -43,6 +44,62 @@ DIMENSIONS = (
             ("fixed_income", "Fixed income"),
             ("cash", "Cash"),
             ("alternatives", "Alternatives"),
+            ("other", "Other"),
+        ),
+    ),
+    #: Non-overlapping geographic groups; emerging markets is its own group, so the developed
+    #: Asia Pacific label excludes it.
+    SeedDimension(
+        REGION,
+        "Region",
+        (
+            ("australia", "Australia"),
+            ("north_america", "North America"),
+            ("europe", "Europe (ex UK)"),
+            ("united_kingdom", "United Kingdom"),
+            ("japan", "Japan"),
+            ("asia_pacific", "Asia Pacific (developed, ex Japan and Australia)"),
+            ("emerging_markets", "Emerging markets"),
+            ("other", "Other"),
+        ),
+    ),
+    #: The eleven standard equity sectors.
+    SeedDimension(
+        SECTOR,
+        "Sector",
+        (
+            ("energy", "Energy"),
+            ("materials", "Materials"),
+            ("industrials", "Industrials"),
+            ("consumer_discretionary", "Consumer discretionary"),
+            ("consumer_staples", "Consumer staples"),
+            ("health_care", "Health care"),
+            ("financials", "Financials"),
+            ("information_technology", "Information technology"),
+            ("communication_services", "Communication services"),
+            ("utilities", "Utilities"),
+            ("real_estate", "Real estate"),
+            ("other", "Other"),
+        ),
+    ),
+    #: ISO 4217 codes for commonly held currencies. A label key is the lower-cased code, so cash in
+    #: a currency maps to its label by ``currency.lower()``.
+    SeedDimension(
+        EXPOSURE_CURRENCY,
+        "Exposure currency",
+        (
+            ("aud", "AUD"),
+            ("usd", "USD"),
+            ("eur", "EUR"),
+            ("gbp", "GBP"),
+            ("jpy", "JPY"),
+            ("nzd", "NZD"),
+            ("cad", "CAD"),
+            ("chf", "CHF"),
+            ("cny", "CNY"),
+            ("hkd", "HKD"),
+            ("sgd", "SGD"),
+            ("inr", "INR"),
             ("other", "Other"),
         ),
     ),

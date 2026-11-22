@@ -88,6 +88,8 @@ export type TransactionsSearch = {
   superseded?: true;
   /** The Holdings as-at date (`YYYY-MM-DD`); absent means the latest. */
   asat?: string;
+  /** The look-through Dimension (a key from the Exposure vocabulary); absent means asset class. */
+  dimension?: string;
 };
 
 export function parseTransactionsSearch(
@@ -107,6 +109,10 @@ export function parseTransactionsSearch(
     asat:
       typeof search.asat === "string" && /^\d{4}-\d{2}-\d{2}$/.test(search.asat)
         ? search.asat
+        : undefined,
+    dimension:
+      typeof search.dimension === "string" && /^[a-z_]{1,30}$/.test(search.dimension)
+        ? search.dimension
         : undefined,
   };
 }

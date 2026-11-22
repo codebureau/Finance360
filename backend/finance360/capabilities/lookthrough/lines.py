@@ -17,7 +17,7 @@ from typing import Literal
 
 from finance360.capabilities.lookthrough.reconcile import is_material, reconcile_tolerance
 from finance360.capabilities.lookthrough.resolve import resolve
-from finance360.core.exposure import ASSET_CLASS, CASH, ProfileFacts
+from finance360.core.exposure import ASSET_CLASS, CASH, EXPOSURE_CURRENCY, ProfileFacts
 from finance360.core.money import Money, allocate, round_div
 
 LineKind = Literal["label", "no_profile", "not_classified", "unallocated"]
@@ -31,6 +31,8 @@ class Part:
     instrument_id: int | None
     name: str
     amount: Money
+    #: A cash part's currency: its Exposure currency (ADR-0030 section 6). ``None`` for a Holding.
+    currency: str | None = None
 
 
 @dataclass(frozen=True)
@@ -44,6 +46,8 @@ class PartResult:
     dated_after: bool
     shortfall_ppm: int
     trimmed: tuple[tuple[str, int], ...]
+    #: The part has a profile that gives this Dimension no weights: all Not classified.
+    omitted: bool = False
 
 
 @dataclass(frozen=True)
@@ -77,6 +81,17 @@ def percent_text(amount: Money, total: Money) -> str | None:
     hundredths = round_div(abs(amount.amount_minor) * 10_000, total.amount_minor)
     sign = "-" if amount.amount_minor < 0 and hundredths else ""
     return f"{sign}{hundredths // 100}.{hundredths % 100:02d}"
+
+
+def _cash_label(dimension: str, currency: str | None, names: Mapping[str, str]) -> str | None:
+    """The label the Account's cash takes in a Dimension (ADR-0030 section 6): asset class
+    ``cash`` and Exposure currency its own currency; Not classified (``None``) for region and
+    sector, and for a currency the vocabulary does not list."""
+    if dimension == ASSET_CLASS and CASH in names:
+        return CASH
+    if dimension == EXPOSURE_CURRENCY and currency is not None and currency.lower() in names:
+        return currency.lower()
+    return None
 
 
 def compose(
@@ -113,8 +128,9 @@ def compose(
     results: list[PartResult] = []
     for part, amount in zip(parts, in_base, strict=True):
         if part.instrument_id is None:
-            if dimension == ASSET_CLASS and CASH in names:
-                by_label[CASH] = by_label.get(CASH, zero) + amount
+            cash_label = _cash_label(dimension, part.currency, names)
+            if cash_label is not None:
+                by_label[cash_label] = by_label.get(cash_label, zero) + amount
             else:
                 not_classified += amount
             results.append(PartResult(None, part.name, amount, None, False, 0, ()))
@@ -138,6 +154,7 @@ def compose(
                 resolved.dated_after,
                 resolved.shortfall_ppm,
                 resolved.trimmed,
+                resolved.omitted,
             )
         )
 

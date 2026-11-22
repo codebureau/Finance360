@@ -63,7 +63,7 @@ def _events(factory: sessionmaker[Session]) -> list[AuditEvent]:
 # --- the seeded vocabulary -------------------------------------------------------------------
 
 
-def test_the_asset_class_vocabulary_is_seeded_once_and_never_overwritten(
+def test_the_vocabulary_is_seeded_once_and_never_overwritten(
     session_factory: sessionmaker[Session],
 ) -> None:
     with session_factory.begin() as s:
@@ -72,8 +72,21 @@ def test_the_asset_class_vocabulary_is_seeded_once_and_never_overwritten(
         s.execute(text("UPDATE exposure_label SET name = 'Edited' WHERE key = 'cash'"))
         seed_exposure_vocab(s)  # a second run changes nothing
     with session_factory() as s:
-        [asset_class] = svc.vocabulary(s)
-        assert asset_class.key == "asset_class"
+        dimensions = svc.vocabulary(s)
+        assert [d.key for d in dimensions] == [
+            "asset_class",
+            "region",
+            "sector",
+            "exposure_currency",
+        ]
+        assert [d.name for d in dimensions][-1] == "Exposure currency"
+        # every Dimension has the manager's own residual, and its labels have unique keys
+        for dimension in dimensions:
+            keys = [label.key for label in dimension.labels]
+            assert keys[-1] == "other" and len(keys) == len(set(keys))
+        assert len(dimensions[2].labels) == 12  # the eleven standard sectors and other
+        assert {"aud", "usd", "eur", "gbp", "jpy"} <= {x.key for x in dimensions[3].labels}
+        asset_class = dimensions[0]
         labels = {label.key: label.name for label in asset_class.labels}
         assert list(labels) == [
             "australian_shares",
@@ -86,8 +99,98 @@ def test_the_asset_class_vocabulary_is_seeded_once_and_never_overwritten(
             "other",
         ]
         assert labels["cash"] == "Edited"
-        assert s.query(ExposureLabel).count() == 8
-        assert s.get(Meta, EXPOSURE_VOCAB_VERSION_KEY).value == "1"  # type: ignore[union-attr]
+        assert s.query(ExposureLabel).count() == sum(len(d.labels) for d in dimensions)
+        assert s.get(Meta, EXPOSURE_VOCAB_VERSION_KEY).value == "2"  # type: ignore[union-attr]
+
+
+#: What a version-1 database holds (#83): the asset-class Dimension only, as shipped then.
+V1_LABELS = (
+    ("australian_shares", "Australian shares"),
+    ("international_shares", "International shares"),
+    ("property", "Property"),
+    ("infrastructure", "Infrastructure"),
+    ("fixed_income", "Fixed income"),
+    ("cash", "Cash"),
+    ("alternatives", "Alternatives"),
+    ("other", "Other"),
+)
+
+
+def _vocab_rows(s: Session) -> list[tuple[object, ...]]:
+    return [
+        tuple(r)
+        for r in s.execute(
+            text("SELECT id, dimension_key, key, name, position FROM exposure_label ORDER BY id")
+        )
+    ]
+
+
+def _profile_rows(s: Session) -> list[tuple[object, ...]]:
+    return [
+        tuple(r)
+        for r in s.execute(
+            text(
+                "SELECT p.id, p.instrument_id, p.as_at, p.superseded_at, w.dimension_key,"
+                " w.label_key, w.weight_ppm FROM exposure_profile p JOIN exposure_weight w"
+                " ON w.profile_id = p.id ORDER BY p.id, w.id"
+            )
+        )
+    ]
+
+
+def test_a_database_seeded_at_version_1_gains_the_new_dimensions_and_loses_nothing(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Invariant: live data. A start on a database that already holds #83's vocabulary, an owner's
+    edit to a label and real profiles must add region, sector and exposure currency, leave every
+    existing label row and profile exactly as it was, and be a no-op the second time."""
+    with session_factory.begin() as s:  # the state a version-1 start left behind
+        s.execute(
+            text(
+                "INSERT INTO exposure_dimension (key, name, position)"
+                " VALUES ('asset_class', 'Asset class', 0)"
+            )
+        )
+        for position, (key, name) in enumerate(V1_LABELS):
+            s.execute(
+                text(
+                    "INSERT INTO exposure_label (dimension_key, key, name, position)"
+                    " VALUES ('asset_class', :k, :n, :p)"
+                ),
+                {"k": key, "n": name, "p": position},
+            )
+        s.execute(text("UPDATE exposure_label SET name = 'My cash' WHERE key = 'cash'"))
+        s.add(Meta(key=EXPOSURE_VOCAB_VERSION_KEY, value="1"))
+    with session_factory.begin() as s:
+        instrument = inst_svc.create_instrument(
+            s, CTX, InstrumentInput("Sample ETF", "etf", "AUD")
+        ).id
+        svc.record_profile(s, CTX, instrument, _in(_w("australian_shares", "60"), _w("cash", "40")))
+        svc.record_profile(s, CTX, instrument, _in(_w("australian_shares", "100")))  # supersedes
+    with session_factory() as s:
+        vocab_before, profiles_before = _vocab_rows(s), _profile_rows(s)
+    assert len(vocab_before) == 8 and len(profiles_before) == 3
+
+    with session_factory.begin() as s:
+        seed_exposure_vocab(s)  # the version-2 start
+    with session_factory() as s:
+        after = _vocab_rows(s)
+        assert after[: len(vocab_before)] == vocab_before  # ids, names (the edit too), positions
+        assert _profile_rows(s) == profiles_before  # profiles and their weights untouched
+        assert [d.key for d in svc.vocabulary(s)] == [
+            "asset_class",
+            "region",
+            "sector",
+            "exposure_currency",
+        ]
+        assert s.get(Meta, EXPOSURE_VOCAB_VERSION_KEY).value == "2"  # type: ignore[union-attr]
+        assert len(after) > len(vocab_before)
+
+    with session_factory.begin() as s:
+        seed_exposure_vocab(s)  # a re-run changes nothing at all
+    with session_factory() as s:
+        assert _vocab_rows(s) == after
+        assert _profile_rows(s) == profiles_before
 
 
 # --- recording -------------------------------------------------------------------------------
@@ -236,13 +339,71 @@ def test_unknown_dimensions_and_labels_are_rejected_and_other_exists(
             s,
             CTX,
             etf,
-            _in(_w("australian_shares", "50"), _w("galaxies", "30"), _w("cash", "20", "region")),
+            _in(_w("australian_shares", "50"), _w("galaxies", "30"), _w("cash", "20", "mood")),
         )
     errors = _errors(caught)
     assert "not a label" in errors["weights.asset_class.galaxies"]
-    assert "Unknown Dimension" in errors["weights.region.cash"]
+    assert "Unknown Dimension" in errors["weights.mood.cash"]
     with session_factory.begin() as s:  # the manager's own residual is always there
         svc.record_profile(s, CTX, etf, _in(_w("other", "100")))
+
+
+@pytest.mark.parametrize(
+    ("dimension", "wrong", "right"),
+    [
+        ("region", "mars", "australia"),
+        ("region", "usd", "north_america"),  # a label of another Dimension is not one here
+        ("sector", "agriculture", "materials"),
+        ("sector", "north_america", "financials"),
+        ("exposure_currency", "XXX", "usd"),
+        ("exposure_currency", "australia", "eur"),
+    ],
+)
+def test_an_unknown_label_is_rejected_in_every_new_dimension(
+    session_factory: sessionmaker[Session], etf: int, dimension: str, wrong: str, right: str
+) -> None:
+    with session_factory.begin() as s, pytest.raises(ValidationError) as caught:
+        svc.record_profile(s, CTX, etf, _in(_w(right, "70", dimension), _w(wrong, "30", dimension)))
+    assert "not a label" in _errors(caught)[f"weights.{dimension}.{wrong}"]
+    with session_factory() as s:
+        assert svc.list_profiles(s, etf) == []  # nothing was written
+    with session_factory.begin() as s:  # and the right one is accepted, with other as residual
+        svc.record_profile(
+            s, CTX, etf, _in(_w(right, "70", dimension), _w("other", "30", dimension))
+        )
+
+
+def test_a_profile_may_omit_a_dimension_and_each_dimension_is_judged_on_its_own(
+    session_factory: sessionmaker[Session], etf: int
+) -> None:
+    with session_factory.begin() as s:
+        svc.record_profile(
+            s,
+            CTX,
+            etf,
+            _in(
+                _w("australian_shares", "100"),  # asset class exact
+                _w("australia", "60", "region"),
+                _w("north_america", "39.5", "region"),  # region 99.5%: short, accepted
+                # no sector at all
+                _w("usd", "70", "exposure_currency"),
+                _w("aud", "30.9", "exposure_currency"),  # 100.9%: over, accepted
+            ),
+        )
+    with session_factory() as s:
+        [profile] = svc.list_profiles(s, etf)
+        assert {w.dimension_key for w in profile.weights} == {
+            "asset_class",
+            "region",
+            "exposure_currency",
+        }
+        differences = {r.dimension_key: r.difference_ppm for r in svc.resolutions(s, profile)}
+        assert differences == {"asset_class": 0, "region": -5_000, "exposure_currency": 9_000}
+    with session_factory.begin() as s, pytest.raises(ValidationError) as caught:
+        svc.record_profile(
+            s, CTX, etf, _in(_w("australian_shares", "100"), _w("australia", "60", "region"))
+        )
+    assert "Region weights total 60%" in _errors(caught)["weights"]  # judged separately
 
 
 @pytest.mark.parametrize("bad", ["", "abc", "0", "-1", "100.00001", "12.34567", "1e1"])
@@ -342,18 +503,37 @@ def test_the_fixture_loads_profiles_through_the_service_once(
     with session_factory.begin() as s:
         seed_exposure_vocab(s)
         inst_svc.load_fixture_instruments(s, tmp_path)
-        assert svc.load_fixture_exposure_profiles(s, tmp_path) == 3
+        assert svc.load_fixture_exposure_profiles(s, tmp_path) == 4
         assert svc.load_fixture_exposure_profiles(s, tmp_path) == 0  # not twice
     with session_factory() as s:
         by_name = {i.name: svc.list_profiles(s, i.id) for i in inst_svc.list_instruments(s)}
         etf = by_name["Sample Broad Market ETF"][0]
-        assert sum(w.weight_ppm for w in etf.weights) == 995_000  # the tolerance case
+        asset_class = [w.weight_ppm for w in etf.weights if w.dimension_key == "asset_class"]
+        assert sum(asset_class) == 995_000  # the tolerance case
         assert {n: len(p) for n, p in by_name.items()} == {
             "Sample Broad Market ETF": 1,
             "Sample Mining Ltd": 1,
             "Sample Balanced Growth Fund": 1,
+            "Sample Global Equity ETF": 1,
         }
+        # every profile gives all four Dimensions bar one: the fund publishes no sectors
+        dimensions = {
+            name: {w.dimension_key for w in profiles[0].weights}
+            for name, profiles in by_name.items()
+        }
+        every = {"asset_class", "region", "sector", "exposure_currency"}
+        assert dimensions["Sample Broad Market ETF"] == every
+        assert dimensions["Sample Global Equity ETF"] == every
+        assert dimensions["Sample Balanced Growth Fund"] == every - {"sector"}
+        # the AUD-listed global ETF is mostly non-AUD by Exposure currency
+        global_etf = by_name["Sample Global Equity ETF"][0]
+        aud = sum(
+            w.weight_ppm
+            for w in global_etf.weights
+            if (w.dimension_key, w.label_key) == ("exposure_currency", "aud")
+        )
+        assert aud == 80_000
     events = _events(session_factory)
-    assert len(events) == 3 and {e.source for e in events} == {"fixture"}
+    assert len(events) == 4 and {e.source for e in events} == {"fixture"}
     data = json.loads((tmp_path / "household.json").read_text(encoding="utf-8"))
     assert all("exposure_profiles" in i for i in data["instruments"])

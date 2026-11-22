@@ -35,19 +35,25 @@ them through the service layer on first run, so audit and validation apply:
   The top-level `fx_rates` (six invented GBP to AUD rates, Oct 2024 to Aug 2026, some with more than
   two decimal places) are read by `finance360.capabilities.reference.fx_rates.load_fixture_fx_rates`
   only while no FX rate exists. They are audited with source `fixture`.
-  The top-level `instruments` (three invented Instruments: `Sample Broad Market ETF`, `Sample Mining
-  Ltd` and the unlisted `Sample Balanced Growth Fund`, each with invented ticker, yahoo, ISIN,
-  vendor-id and product-name-alias identifiers, all AUD) are read by
+  The top-level `instruments` (four invented Instruments: `Sample Broad Market ETF`, `Sample Mining
+  Ltd`, the unlisted `Sample Balanced Growth Fund` and the AUD-listed `Sample Global Equity ETF`, each with invented ticker, yahoo, ISIN,
+  vendor-id and product-name-alias identifiers where it has them, all AUD) are read by
   `finance360.capabilities.reference.instruments.load_fixture_instruments` only while no Instrument
   exists. They are audited with source `fixture`. The fund has no ticker and no provider symbol, as
   an unlisted fund would not. Each Instrument also carries an `exposure_profiles` list (ADR-0030),
   read by `finance360.capabilities.reference.exposure_profiles.load_fixture_exposure_profiles` only
   while no profile exists, through `record_profile`, audited with source `fixture`: one entry of
   `as_at`, `note` and `weights` (a map of Dimension key to label key to a percent string), all as at
-  2026-06-30. The ETF is 60% Australian shares and 39.5% International shares, a total of 99.5%: the
-  within-tolerance case, whose 0.5% shortfall resolves to Not classified. The mining share is 100%
-  Australian shares. The fund is a diversified mix summing to exactly 100%. The `Sample New Horizons
-  ETF` that an import creates has none, so it shows as No profile.
+  2026-06-30. Every profile gives asset class, region, sector and exposure currency, except that the
+  fund publishes no sectors (that Dimension is left out, so it shows as Not classified). The broad
+  ETF is 60% Australian shares and 39.5% International shares, a total of 99.5%: the within-tolerance
+  case, whose 0.5% shortfall resolves to Not classified. The mining share is 100% Australian shares,
+  Australia and Materials, and 60% USD by exposure currency. The fund is a diversified mix summing to
+  exactly 100%. The `Sample Global Equity ETF` is the acceptance case for Exposure currency: AUD
+  Holding currency, but 92% non-AUD Exposure currency (USD 62%, EUR 13%, JPY 6%, GBP 4%, other 7%,
+  AUD 8%). It is not held by any fixture Account: record an Opening position of it in the sample
+  Account (Prices are in the fixture) to see it in the look-through. The `Sample New Horizons ETF`
+  that an import creates has no profile, so it shows as No profile.
   The top-level `income_streams` (an invented salary for each Member: Alex 120,000.00 gross and
   91,000.00 take-home, Jordan 85,000.00 gross and 66,000.00 take-home; both end at the owner's
   retirement) are read by

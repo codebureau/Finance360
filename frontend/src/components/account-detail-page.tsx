@@ -280,7 +280,12 @@ function AccountDetail({
             asAt={transactions.asat}
             onAsAt={(asat) => onTransactions({ asat })}
           />
-          <LookThroughPanel account={account} asAt={transactions.asat} />
+          <LookThroughPanel
+            account={account}
+            asAt={transactions.asat}
+            dimension={transactions.dimension}
+            onDimension={(dimension) => onTransactions({ dimension })}
+          />
           <HoldingsPanel
             account={account}
             asAt={transactions.asat}

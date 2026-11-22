@@ -4,7 +4,7 @@ import { ArrowLeft, MoreHorizontal, Plus } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { FieldMessage, GeneralError, inputClass } from "@/components/form-fields";
-import { ExposureProfilePanel } from "@/components/exposure-profile-panel";
+import { ExposureCurrencySummary, ExposureProfilePanel } from "@/components/exposure-profile-panel";
 import { InstrumentForm } from "@/components/instruments-page";
 import { PricesPanel } from "@/components/prices-panel";
 import {
@@ -219,7 +219,8 @@ function InstrumentDetail({ instrument, onChange }: { instrument: Instrument; on
         description={
           <span className="flex flex-wrap items-center gap-2">
             <Badge variant="info">{kindLabel(instrument.kind)}</Badge>
-            <Badge variant="closed">{instrument.currency}</Badge>
+            <Badge variant="closed">Holding currency {instrument.currency}</Badge>
+            <ExposureCurrencySummary instrument={instrument} />
             {instrument.notes}
           </span>
         }
