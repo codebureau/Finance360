@@ -540,7 +540,7 @@
       { "key": "retirement_age", "scope_type": "member", "scope_ref": "Jordan Sample", "value": "62" }
     ],
     "spending_phases": [
-      { "anchor": "start", "offset_years": 0, "annual_amount": "100000.00" },
+      { "anchor": "start", "offset_years": 0, "annual_amount": "150000.00" },
       { "anchor": "last_retirement", "offset_years": 0, "annual_amount": "70000.00" },
       { "anchor": "last_retirement", "offset_years": 10, "annual_amount": "55000.00" }
     ],
@@ -554,7 +554,7 @@
           { "key": "return_rate", "scope_type": "category", "scope_ref": "investments", "value": "6.5" }
         ],
         "spending_phases": [
-          { "anchor": "start", "offset_years": 0, "annual_amount": "110000.00" },
+          { "anchor": "start", "offset_years": 0, "annual_amount": "165000.00" },
           { "anchor": "last_retirement", "offset_years": 0, "annual_amount": "85000.00" }
         ]
       },

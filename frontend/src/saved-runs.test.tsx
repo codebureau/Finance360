@@ -251,6 +251,14 @@ test("a saved run shows its stored result and engine, with no re-run when the en
   expect(screen.queryByTestId("engine-notice")).not.toBeInTheDocument();
 });
 
+test("a run saved before the Age Pension was calculated says so", async () => {
+  fakeBackend([header()]);
+  await renderAppAt("/projection/runs/7");
+  expect(await screen.findByTestId("age-pension-used")).toHaveTextContent(
+    "saved before the Age Pension was calculated",
+  );
+});
+
 test("an older engine's run offers a re-run, which saves a new run and opens it", async () => {
   const calls = fakeBackend([header({ engine_version: 1, current_engine: false })]);
   const { router } = await renderAppAt("/projection/runs/7");

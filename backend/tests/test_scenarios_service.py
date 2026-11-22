@@ -473,7 +473,7 @@ def test_the_fixture_sets_defaults_and_custom_scenarios_once(s: Session, tmp_pat
     retire = spending.LAST_RETIREMENT
     start = spending.START  # the working years, for the fixture's salaries (ADR-0017 s5)
     assert resolved.spending_phases == (
-        spending.Phase(start, 0, Money(10_000_000, "AUD")),
+        spending.Phase(start, 0, Money(15_000_000, "AUD")),
         spending.Phase(retire, 0, Money(7_000_000, "AUD")),
         spending.Phase(retire, 10, Money(5_500_000, "AUD")),
     )
@@ -481,7 +481,7 @@ def test_the_fixture_sets_defaults_and_custom_scenarios_once(s: Session, tmp_pat
     _, early = scenarios.resolve_for(s, custom.id)
     # The Scenario's list replaces the default's whole: the default's second phase is not kept.
     assert early.spending_phases == (
-        spending.Phase(start, 0, Money(11_000_000, "AUD")),
+        spending.Phase(start, 0, Money(16_500_000, "AUD")),
         spending.Phase(retire, 0, Money(8_500_000, "AUD")),
     )
     assert early.spending_layer == "scenario" and resolved.spending_layer == "household"

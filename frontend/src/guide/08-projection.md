@@ -39,7 +39,17 @@ Not modelled: deductions, HELP, other income, sacrifice and dependants. Division
 ## The Age Pension
 From each Member's Age Pension age the projection pays the **Age Pension** into that Member's cash, like salary and before any Drawdown. It is calculated from the Rule pack's figures and your [Household facts](/household), never entered: the lower of the income test and the assets test, run each year on the balances the year **opens** with. Two consequences: this year's spending affects next year's pension (a one-year lag), and a year's growth is not yet counted. Cash and Investments count from the start; a Member's super and overseas pensions count from that Member's Age Pension age. Property (other than the home) and Vehicles count at their latest Valuation. A couple is assessed together.
 
-If your Household facts do not fit (for example more than two Members), you own several properties and have not chosen the home, or the pack holds no Age Pension figures for the start year, the projection runs with **no Age Pension** and says why. Not modelled: debt secured on an asset, rent, super already being drawn before Age Pension age, Property growth, tax on the pension and Scenario changes to the Age Pension rules. The per-year working screen is **coming later**.
+If your Household facts do not fit (for example more than two Members), you own several properties and have not chosen the home, or the pack holds no Age Pension figures for the start year, the projection runs with **no Age Pension** and says why. Not modelled: debt secured on an asset, rent, super already being drawn before Age Pension age, Property growth, tax on the pension and Scenario changes to the Age Pension rules.
+
+**Reading the Age Pension.** The year-by-year table has an Age Pension column once someone is eligible, with each year's total a year in today's dollars. Press **Working** beside a year to open how it was reached:
+- the assets read (each Category's opening balance, Property other than the home, Vehicles) and the income read (deeming on the financial assets, and the gross pay of Income streams);
+- the maximum, what the income test alone and the assets test alone would pay, and which of them **bound** (a year where neither reduced the maximum says so);
+- what each Member was paid;
+- the Rule pack figures in force that year, each with its financial year, whether it is shipped or captured, and a **Provisional** mark where it has not been confirmed.
+
+The **Age Pension** card above the table gives the run's inputs once: the Household facts, each labelled **entered** or **default, not entered**; when each Member reaches Age Pension age; the Property and Vehicles assessed, those exempt (the home) and any left out for want of a Valuation; and the simplifications that apply. If no pension was calculated, the card says why and what to change. A saved run keeps all of this exactly as it was; one saved before the Age Pension was calculated says so.
+
+[Compare Scenarios](/projection/compare) has an Age Pension row: the first year each Scenario pays one and how much a year, or that none is paid. A large balance can mean no pension at all, which is the assets test working, not a fault.
 
 ## What it does not do yet
 These are **coming later**: insurance premiums and fund fees (the mechanism that takes an amount from super is built; no premium or fee amounts are entered yet). Tax is only estimated where Tax in the projection is on.

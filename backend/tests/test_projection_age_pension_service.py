@@ -278,6 +278,35 @@ def test_no_pension_figures_for_the_first_financial_year_is_a_stated_state(
     assert pension_rows(p) == []
 
 
+# --- the synthetic household's range of outcomes (issue #70) ---------------------------------
+
+
+def first_year_paid(p: dict[str, Any]) -> int:
+    """What the first year anyone is eligible pays in total, in cents."""
+    return sum(cents(x["amount"]) for x in pension_rows(p)[0]["age_pension"]["paid"])
+
+
+def test_the_sample_household_pays_a_part_pension_likely_and_orders_best_likely_worst(
+    client: TestClient,
+) -> None:
+    best, likely, worst = (first_year_paid(live(client, n)) for n in ("Best", "Likely", "Worst"))
+    # Likely is over the full-pension assets limit but under the cut-off: a part pension. Best is
+    # well over the cut-off and pays nil; Worst has little and gets the most.
+    assert likely > 0
+    assert best <= likely <= worst
+    assert best == 0 and worst > likely
+    # The comparison reports the same first paid year for each Scenario.
+    compared = {
+        c["scenario"]["name"]: c["age_pension"]
+        for c in client.get("/api/projection/compare").json()["scenarios"]
+    }
+    assert compared["Best"]["first_year"] is None and compared["Best"]["status"] == "calculated"
+    for name, expected in (("Likely", likely), ("Worst", worst)):
+        entry = compared[name]
+        assert cents(entry["first_amount"]) == expected and entry["first_year"] is not None
+        assert entry["first_age"] == pension_rows(live(client, name))[0]["age"]
+
+
 # --- saved runs ----------------------------------------------------------------------------
 
 

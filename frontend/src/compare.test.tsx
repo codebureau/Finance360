@@ -36,6 +36,7 @@ const compared = (id: number, name: string, over: Partial<ComparedScenario> = {}
   lasts_beyond_horizon: true,
   sustainable: { annual_spending: "90000.00", capped: false },
   spending: null,
+  age_pension: null,
   provenance: [
     {
       key: "annual_saving",
@@ -192,6 +193,29 @@ test("spending phases get a row, with each Scenario's list, only when the lists 
   expect(text(second)).toEqual([expect.stringContaining("85,000.00")]);
   expect(text(second)[0]).toContain("From the last retirement");
   expect(within(row).getAllByText("Own")).toHaveLength(1); // only the Scenario that states its own
+});
+
+test("the Age Pension row gives each Scenario's first paid year, or says none is paid or not calculated", async () => {
+  const none = { first_year: null, first_age: null, first_amount: null };
+  stub({
+    scenarios: [
+      compared(1, "Best", { age_pension: { status: "calculated", ...none } }),
+      compared(2, "Likely", {
+        age_pension: { status: "calculated", first_year: 26, first_age: 65, first_amount: "15896.96" },
+      }),
+      compared(3, "Worst", { age_pension: { status: "needs_home_choice", ...none } }),
+    ],
+    differing: [],
+    drawdown_differs: false,
+    spending_differs: false,
+  });
+  await renderAppAt("/projection/compare");
+  await screen.findByTestId("comparison-table");
+  expect(within(screen.getByTestId("age-pension-1")).getByText("None paid in the projection")).toBeInTheDocument();
+  const likely = within(screen.getByTestId("age-pension-2"));
+  expect(likely.getByText("15,896.96")).toBeInTheDocument();
+  expect(likely.getByText("First paid in year 26, at age 65")).toBeInTheDocument();
+  expect(within(screen.getByTestId("age-pension-3")).getByText("Not calculated")).toBeInTheDocument();
 });
 
 test("no spending row when every Scenario uses the same phases", async () => {

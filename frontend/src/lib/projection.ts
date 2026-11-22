@@ -28,7 +28,7 @@ export const SIMPLIFICATIONS = [
   "Annual saving is split equally across Members and goes into Investments, except for a Member with a salary stream: they save what their salary leaves after spending.",
   "Salary: take-home pay is the amount entered, unless Tax in the projection is on: then the tax engine estimates it from gross pay and Division 293 is paid a year after the year it is for, from the Member's own super by default. Employer super is the Superannuation Guarantee rate less the flat contributions tax, from the Rule pack. Not modelled: contribution caps, the maximum contribution base, salary sacrifice and fund fees.",
   "The headline age is the youngest Member's.",
-  "Annual steps in today's dollars: returns are nominal and inflation is taken off. No fees or Age Pension, and tax only where Tax in the projection is on.",
+  "Annual steps in today's dollars: returns are nominal and inflation is taken off. No fees. The Age Pension is calculated (see its card), and tax only where Tax in the projection is on.",
 ] as const;
 
 /** What a Life event is called on the timeline. */
