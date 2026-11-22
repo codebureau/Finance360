@@ -3410,8 +3410,33 @@ export interface components {
             /** Unchanged */
             unchanged: number;
         };
+        /** ComparedAgePensionOut */
+        ComparedAgePensionOut: {
+            /**
+             * First Age
+             * @description The youngest Member's age at the start of that year.
+             */
+            first_age: number | null;
+            /**
+             * First Amount
+             * @description What that year pays in total, a year, in today's dollars.
+             */
+            first_amount: string | null;
+            /**
+             * First Year
+             * @description The first projection year (1 is the first) in which an Age Pension is paid; null when none is.
+             */
+            first_year: number | null;
+            /**
+             * Status
+             * @description 'calculated', or why none was: 'needs_home_choice', 'not_modelled' or 'no_figures'.
+             */
+            status: string;
+        };
         /** ComparedScenarioOut */
         ComparedScenarioOut: {
+            /** @description The Age Pension in brief; null when not resolved. */
+            age_pension: components["schemas"]["ComparedAgePensionOut"] | null;
             /**
              * Drawdown Order
              * @description The order Categories fund spending in; empty when not resolved.

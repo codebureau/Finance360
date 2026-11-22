@@ -62,6 +62,23 @@ function Sustainable({ s }: { s: ComparedScenario }) {
   );
 }
 
+/** The first year an Age Pension is paid, or why none is. */
+function AgePensionCell({ s }: { s: ComparedScenario }) {
+  const a = s.age_pension;
+  if (!a) return <span className="text-muted-foreground">—</span>;
+  if (a.status !== "calculated") return <Badge variant="flagged">Not calculated</Badge>;
+  if (a.first_year === null) return <span className="text-xs text-muted-foreground">None paid in the projection</span>;
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="whitespace-nowrap">
+        <Money amount={a.first_amount} />
+        <span className="text-xs text-muted-foreground"> a year</span>
+      </span>
+      <span className="text-xs text-muted-foreground">First paid in year {a.first_year}, at age {a.first_age}</span>
+    </div>
+  );
+}
+
 function valueOf(s: ComparedScenario, slot: Slot) {
   const x = s.provenance.find((p) => slotId(p.key, p.scope_ref) === slot.id);
   if (!x) return <span className="text-muted-foreground">—</span>;
@@ -129,6 +146,14 @@ function ComparisonTable({ data, slots }: { data: Comparison; slots: Slot[] }) {
           {data.scenarios.map((s) => (
             <TableCell key={s.scenario.id} data-testid={`sustainable-${s.scenario.id}`}>
               <Sustainable s={s} />
+            </TableCell>
+          ))}
+        </TableRow>
+        <TableRow>
+          <TableHead scope="row" className="max-w-32 text-left font-normal whitespace-normal">Age Pension, first year paid</TableHead>
+          {data.scenarios.map((s) => (
+            <TableCell key={s.scenario.id} className="align-top" data-testid={`age-pension-${s.scenario.id}`}>
+              <AgePensionCell s={s} />
             </TableCell>
           ))}
         </TableRow>

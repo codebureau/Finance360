@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 
+import { AgePensionCard } from "@/components/age-pension";
 import { GeneralError } from "@/components/form-fields";
 import { DrawdownOrderLine } from "@/components/assumptions-editor";
 import {
@@ -189,6 +190,7 @@ export function SavedRunPage({ runId }: { runId: string }) {
           </CardContent>
         </Card>
       </section>
+      <AgePensionCard p={p} />
       <Simplifications p={p} />
       <YearTable p={p} />
     </div>

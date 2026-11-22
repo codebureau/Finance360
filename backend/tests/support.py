@@ -74,7 +74,7 @@ def without_income_streams(client: TestClient) -> TestClient:
     """The synthetic household as it was before income streams.
 
     The fixture household now has a salary for each Member and a working-years spending phase
-    (100,000.00 from the projection start; 110,000.00 in the custom Scenario's own list). Tests of
+    (150,000.00 from the projection start; 165,000.00 in the custom Scenario's own list). Tests of
     something else (the drawdown order, saved runs, the Rule pack's ages) keep the household they
     were written against: no salaries, and spending only from the last retirement (70,000.00, then
     55,000.00 from ten years on; 85,000.00 in the custom Scenario). Their figures are then exactly

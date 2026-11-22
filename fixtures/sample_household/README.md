@@ -165,12 +165,12 @@ them through the service layer on first run, so audit and validation apply:
   default spending phase and no custom Scenario exists. `defaults` are Household default
   Assumptions layered over the seeded ones (annual saving 20,000.00, retirement age 60 for Alex and
   62 for Jordan; Members are named by name). `spending_phases` is the Household default spending
-  plan: 100,000.00 a year from the projection start (the working years, which a salary requires),
+  plan: 150,000.00 a year from the projection start (the working years, which a salary requires; set high enough that savings stay modest, so the Likely Scenario's assessable assets are below the Age Pension assets limit and it pays a part pension),
   then 70,000.00 a year from the last retirement, then 55,000.00 a year from ten years after it.
   The annual saving of 20,000.00 is not applied to a Member with a salary stream, so with both
   salaries it has no effect. `scenarios` holds two custom
   Scenarios. The first, `Retire early, spend more`, has two overrides (Alex retires at 55, Investments return
-  6.5%), its own whole spending list (110,000.00 a year from the projection start, then 85,000.00 a
+  6.5%), its own whole spending list (165,000.00 a year from the projection start, then 85,000.00 a
   year from the last retirement; a Scenario's list replaces the default as a whole, so it needs its
   own working-years phase) and a
   non-default Drawdown order (Investments, Cash, Superannuation, Overseas pensions). The second,

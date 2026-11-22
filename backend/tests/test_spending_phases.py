@@ -250,14 +250,14 @@ def test_the_fixture_has_the_converted_spending_a_slower_phase_and_a_working_yea
     assert layer == {
         "scenario_id": None,
         "phases": [
-            phase_json("start", 0, "100000.00"),  # the working years: the fixture has salaries
+            phase_json("start", 0, "150000.00"),  # the working years: the fixture has salaries
             phase_json(RETIRE, 0, "70000.00"),
             phase_json(RETIRE, 10, "55000.00"),
         ],
         "overridden_by": [EARLY],
     }
     own = sample.get("/api/spending-phases", params={"scenario_id": ids(sample)[EARLY]}).json()
-    assert own["phases"] == [phase_json("start", 0, "110000.00"), phase_json(RETIRE, 0, "85000.00")]
+    assert own["phases"] == [phase_json("start", 0, "165000.00"), phase_json(RETIRE, 0, "85000.00")]
     listed = {s["name"]: s["spending_is_default"] for s in sample.get("/api/scenarios").json()}
     assert listed == {
         "Best": True,
@@ -283,12 +283,12 @@ def test_the_projection_reports_the_phases_it_used_resolved_to_years(sample: Tes
         )
         for x in p["spending"]["phases"]
     ] == [
-        ("start", 0, "100000.00", 0, last, False),
+        ("start", 0, "150000.00", 0, last, False),
         (RETIRE, 0, "70000.00", last, last + 10, False),
         (RETIRE, 10, "55000.00", last + 10, None, False),
     ]
     # The working years' spending (the salaries fund it) until the last retirement, then 70,000.
-    assert all(r["need"] == "100000.00" for r in p["rows"] if r["t"] < last)
+    assert all(r["need"] == "150000.00" for r in p["rows"] if r["t"] < last)
     assert p["rows"][last]["need"] == "70000.00"
 
 
@@ -340,7 +340,7 @@ def test_putting_a_default_list_replaces_it_whole_and_flags_the_scenario_with_it
     assert projection(sample, "Likely")["spending"]["phases"][0]["anchor"] == "start"
     # The Scenario with its own list did not move.
     assert [x["annual_amount"] for x in projection(sample, EARLY)["spending"]["phases"]] == [
-        "110000.00",
+        "165000.00",
         "85000.00",
     ]
 
@@ -379,7 +379,7 @@ def test_validation_uses_the_shared_error_shape_and_writes_nothing(sample: TestC
         "spending_phases.2.anchor",
     }
     assert [p["annual_amount"] for p in sample.get("/api/spending-phases").json()["phases"]] == [
-        "100000.00",
+        "150000.00",
         "70000.00",
         "55000.00",
     ]

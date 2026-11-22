@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 
+import { agePensionUsed, agePensionYear } from "@/age-pension-fixture";
 import { renderAppAt } from "@/test-utils";
 import type { Layer, SavedAssumptions, Scenario, ScenarioProjection } from "@/lib/scenarios";
 
@@ -199,6 +200,73 @@ function fakeBackend({ project, save }: Handlers = {}) {
 afterEach(() => vi.unstubAllGlobals());
 
 const runs = (calls: Call[]) => calls.filter((c) => c.path.startsWith("/api/projection/scenarios/"));
+
+const withPension = (over: Partial<ScenarioProjection> = {}): ScenarioProjection => {
+  const base = projection();
+  const rows = base.rows.map((r, i) => (i === 1 ? { ...r, age_pension: agePensionYear() } : r));
+  return { ...base, age_pension: agePensionUsed(), rows, ...over };
+};
+
+test("the year table lists the Age Pension of a year and opens its working", async () => {
+  fakeBackend({ project: () => json(withPension()) });
+  await renderAppAt("/projection");
+
+  const table = await screen.findByTestId("projection-table");
+  expect(within(table).getByRole("columnheader", { name: "Age Pension" })).toBeInTheDocument();
+  const row = within(table).getByRole("row", { name: /Year 2/ });
+  expect(within(row).getByText("9,000.50")).toBeInTheDocument();
+  expect(within(table).getAllByRole("button", { name: /Age Pension working/ })).toHaveLength(1);
+
+  fireEvent.click(within(row).getByRole("button", { name: "Age Pension working, year 2" }));
+  const working = await screen.findByTestId("age-pension-working");
+  expect(within(working).getByText("The assets test bound")).toBeInTheDocument();
+  expect(within(working).getByText("Assessable assets")).toBeInTheDocument();
+  expect(within(working).getByText("420,000.00")).toBeInTheDocument();
+  expect(within(working).getByText("Income test pays")).toBeInTheDocument();
+  expect(within(working).getByText("20,001.00")).toBeInTheDocument();
+  expect(within(working).getByText("Assets test pays")).toBeInTheDocument();
+  expect(within(working).getByText("Paid to Alex Sample")).toBeInTheDocument();
+  // Only the figures in force in year index 1: the taper from year 5 is not yet.
+  const rulesInForce = within(screen.getByTestId("age-pension-working-rules"));
+  expect(rulesInForce.getByText("age_pension.max_basic.couple_each")).toBeInTheDocument();
+  expect(rulesInForce.getByText("3%")).toBeInTheDocument();
+  expect(rulesInForce.queryByText("3.5%")).not.toBeInTheDocument();
+  expect(rulesInForce.getByText("Provisional")).toBeInTheDocument();
+  expect(rulesInForce.getByText("Captured")).toBeInTheDocument();
+});
+
+test("the Age Pension card shows the facts with their labels, eligibility, assets and simplifications", async () => {
+  fakeBackend({ project: () => json(withPension()) });
+  await renderAppAt("/projection");
+
+  const facts = within(await screen.findByTestId("age-pension-facts"));
+  expect(facts.getByText("Couple status")).toBeInTheDocument();
+  expect(facts.getByText("default, not entered")).toBeInTheDocument();
+  expect(facts.getByText("Yes")).toBeInTheDocument(); // homeowner "yes"
+  expect(facts.getAllByText("entered")).toHaveLength(2);
+  expect(facts.getByText("Family Home")).toBeInTheDocument(); // the principal home, by name
+  const eligibility = within(screen.getByTestId("age-pension-eligibility"));
+  expect(eligibility.getByText("2027-03-12")).toBeInTheDocument();
+  expect(eligibility.getByText("paid from year 2")).toBeInTheDocument();
+  expect(within(screen.getByTestId("age-pension-assessed")).getByText("Family Car")).toBeInTheDocument();
+  expect(within(screen.getByTestId("age-pension-exempt")).getByText("Family Home")).toBeInTheDocument();
+  expect(within(screen.getByTestId("age-pension-omitted")).getByText(/Old shares/)).toBeInTheDocument();
+  expect(screen.getByTestId("age-pension-simplifications")).toHaveTextContent("No deduction for debt");
+});
+
+test("when no pension is calculated the card says why and the table has no Age Pension column", async () => {
+  const used = agePensionUsed({
+    status: "needs_home_choice",
+    reasons: ["Several Property Accounts and no principal home chosen (invented)."],
+  });
+  fakeBackend({ project: () => json({ ...projection(), age_pension: used }) });
+  await renderAppAt("/projection");
+
+  const card = await screen.findByTestId("age-pension-used");
+  expect(within(card).getByText("Choose the principal home on Household")).toBeInTheDocument();
+  expect(within(card).getByTestId("age-pension-reasons")).toHaveTextContent("no principal home chosen");
+  expect(screen.queryByRole("columnheader", { name: "Age Pension" })).not.toBeInTheDocument();
+});
 
 test("a line debit is listed with what was requested, paid and paid personally, and flagged when unpaid", async () => {
   const base = projection();

@@ -30,4 +30,4 @@ Each question below has one screen. If you are lost, start from the question you
 - The [Audit trail](/audit) lists every change.
 
 ## Not answered yet
-These are **coming later**, so do not look for them: how your investments are spread by region and sector, a screen showing the Age Pension working, starting a Tax estimate from your Income streams, and entering what the tax office assessed. Tax feeding take-home pay into the Projection is available where a Scenario switches it on.
+These are **coming later**, so do not look for them: how your investments are spread by region and sector, starting a Tax estimate from your Income streams, and entering what the tax office assessed. Tax feeding take-home pay into the Projection is available where a Scenario switches it on.

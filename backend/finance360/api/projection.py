@@ -8,6 +8,7 @@ reads the Position and calculates.
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
+from decimal import Decimal
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field, StrictInt
@@ -847,6 +848,23 @@ class ComparisonErrorOut(BaseModel):
     message: str
 
 
+class ComparedAgePensionOut(BaseModel):
+    status: str = Field(
+        description="'calculated', or why none was: 'needs_home_choice', 'not_modelled' or "
+        "'no_figures'."
+    )
+    first_year: int | None = Field(
+        description="The first projection year (1 is the first) in which an Age Pension is paid; "
+        "null when none is."
+    )
+    first_age: int | None = Field(
+        description="The youngest Member's age at the start of that year."
+    )
+    first_amount: str | None = Field(
+        description="What that year pays in total, a year, in today's dollars."
+    )
+
+
 class ComparedScenarioOut(BaseModel):
     scenario: ScenarioRefOut
     resolved: bool = Field(description="False: see errors; no figures are given.")
@@ -864,6 +882,9 @@ class ComparedScenarioOut(BaseModel):
         description="The spending phases used; null when not resolved."
     )
     provenance: list[ProvenanceOut]
+    age_pension: ComparedAgePensionOut | None = Field(
+        description="The Age Pension in brief; null when not resolved."
+    )
 
 
 class DifferingAssumptionOut(BaseModel):
@@ -897,6 +918,25 @@ def _provenance(items: tuple[assumptions.Source, ...]) -> list[ProvenanceOut]:
     ]
 
 
+def _compared_age_pension(p: ProjectionOut) -> ComparedAgePensionOut | None:
+    """The first year the Age Pension is actually paid (above nil), for the comparison."""
+    if p.age_pension is None:
+        return None
+    for row in p.rows:
+        w = row.age_pension
+        paid = sum((Decimal(x.amount) for x in w.paid), Decimal(0)) if w else Decimal(0)
+        if w is not None and paid > 0:
+            return ComparedAgePensionOut(
+                status=p.age_pension.status,
+                first_year=row.t + 1,
+                first_age=row.age,
+                first_amount=f"{paid:.2f}",
+            )
+    return ComparedAgePensionOut(
+        status=p.age_pension.status, first_year=None, first_age=None, first_amount=None
+    )
+
+
 @router.get(
     "/compare",
     response_model=ComparisonOut,
@@ -921,6 +961,7 @@ def compare_scenarios(session: SessionDep, as_at: date | None = None) -> Compari
                     sustainable=None,
                     spending=None,
                     provenance=[],
+                    age_pension=None,
                 )
             )
             continue
@@ -937,6 +978,7 @@ def compare_scenarios(session: SessionDep, as_at: date | None = None) -> Compari
                 sustainable=base.sustainable,
                 spending=base.spending,
                 provenance=_provenance(o.run.provenance),
+                age_pension=_compared_age_pension(base),
             )
         )
     orders = {tuple(c.key for c in s.drawdown_order) for s in out if s.resolved}

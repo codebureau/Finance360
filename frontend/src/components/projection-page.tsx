@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 
+import { AgePensionCard, AgePensionCell } from "@/components/age-pension";
 import { AddScenarioDialog, AssumptionsSheet, DrawdownOrderLine } from "@/components/assumptions-editor";
 import { GeneralError } from "@/components/form-fields";
 import { SaveRunDialog } from "@/components/save-run-dialog";
@@ -128,12 +129,14 @@ export function Simplifications({ p }: { p: ScenarioProjection }) {
 /** Balances at the end of each year by Category, with spending and any shortfall. */
 export function YearTable({ p }: { p: ScenarioProjection }) {
   const first = p.rows[0];
+  const hasPension = p.rows.some((r) => r.age_pension !== null);
   return (
     <section aria-label="Year by year">
       <h2 className="text-base font-semibold">Year by year</h2>
       <p className="mb-2 text-xs text-muted-foreground">
         Balances are at the end of each year. The age is the youngest Member&apos;s at the start of it. The
-        first row marked Short is the year spending is no longer met in full.
+        first row marked Short is the year spending is no longer met in full. The Age Pension is a year&apos;s
+        total; open its working for the year.
       </p>
       <div
         className="max-h-[32rem] overflow-auto rounded-lg border border-border bg-card"
@@ -162,6 +165,11 @@ export function YearTable({ p }: { p: ScenarioProjection }) {
               <th scope="col" className="px-[var(--cell-px)] py-1 font-medium">
                 Total
               </th>
+              {hasPension && (
+                <th scope="col" className="px-[var(--cell-px)] py-1 font-medium">
+                  Age Pension
+                </th>
+              )}
               <th scope="col" className="px-[var(--cell-px)] py-1 font-medium">
                 Spending
               </th>
@@ -184,6 +192,7 @@ export function YearTable({ p }: { p: ScenarioProjection }) {
               <td className="px-[var(--cell-px)] py-[var(--cell-py)] text-right whitespace-nowrap">
                 <Money amount={first.opening} />
               </td>
+              {hasPension && <td />}
               <td />
               <td />
             </tr>
@@ -204,6 +213,11 @@ export function YearTable({ p }: { p: ScenarioProjection }) {
                   <td className="px-[var(--cell-px)] py-[var(--cell-py)] text-right whitespace-nowrap">
                     <Money amount={r.closing} />
                   </td>
+                  {hasPension && (
+                    <td className="px-[var(--cell-px)] py-[var(--cell-py)] text-right whitespace-nowrap">
+                      <AgePensionCell p={p} row={r} />
+                    </td>
+                  )}
                   <td className="px-[var(--cell-px)] py-[var(--cell-py)] text-right whitespace-nowrap">
                     <Money amount={r.need} />
                   </td>
@@ -1002,6 +1016,7 @@ function Runner({
           <Headline p={p} />
           <SpendingCard p={p} scenario={selected} onSaved={saved} />
           <AssumptionsUsed p={p} slots={slots} scenario={selected} members={members} onSaved={saved} />
+          <AgePensionCard p={p} />
           <Simplifications p={p} />
           <YearTable p={p} />
         </>
