@@ -1,5 +1,10 @@
 {
-  "household": { "name": "The Sample Household", "time_zone": "Australia/Melbourne", "effort_level": "steady" },
+  "household": {
+    "name": "The Sample Household",
+    "time_zone": "Australia/Melbourne",
+    "effort_level": "steady",
+    "facts": { "principal_home": "Family Home" }
+  },
   "members": [
     { "name": "Alex Sample", "date_of_birth": "1984-03-12" },
     { "name": "Jordan Sample", "date_of_birth": "1986-09-30" }

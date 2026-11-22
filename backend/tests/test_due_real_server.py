@@ -35,3 +35,32 @@ def test_snoozes_and_the_effort_level_work_over_a_real_server_and_are_read_back_
     assert http.get("/api/due").json()["level"] == "light"
     trail = http.get("/api/audit", params={"entity_type": "due_snooze"}).json()["items"]
     assert [e["action"] for e in trail][::-1] == ["create", "delete"]
+
+
+def test_household_facts_are_written_over_a_real_server_and_read_back_at_once(
+    signed_in: httpx.Client,  # noqa: F811
+) -> None:
+    """The Household facts write route (ADR-0029): a real sign-in and session, committed before the
+    response returns, audited. Lives here because this file already drives the Household over a real
+    server and is a slow file."""
+    http = signed_in
+    before = http.get("/api/household").json()["facts"]
+    assert before["principal_home_name"] == "Family Home"
+    assert before["couple_status"]["label"] == "default, not entered"
+
+    saved = http.put("/api/household/facts", json={"couple_status": "couple", "homeowner": True})
+    assert saved.status_code == 200, saved.text
+    read = http.get("/api/household").json()["facts"]  # committed before the response returned
+    assert read["couple_status"] == {"value": "couple", "source": "entered", "label": "entered"}
+    assert read["homeowner"]["source"] == "entered"
+
+    reset = http.put("/api/household/facts", json={"couple_status": None, "homeowner": None})
+    assert reset.status_code == 200, reset.text
+    assert http.get("/api/household").json()["facts"]["couple_status"]["source"] == "default"
+    trail = http.get("/api/audit", params={"entity_type": "household"}).json()["items"]
+    assert [e["summary"] for e in trail][:4][::-1] == [
+        "Set the Household couple status to couple",
+        "Set the Household homeowner to yes",
+        "Reset the Household couple status to not entered",
+        "Reset the Household homeowner to not entered",
+    ]

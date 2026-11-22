@@ -7,6 +7,10 @@ This is the "keep it current" group in the sidebar: the places where figures go 
 ## Household
 [Household](/household) holds the household's name, its time zone and its Members. Add the Members first, because every Account and Income stream belongs to one. A Member's date of birth drives the ages used in the Projection.
 
+Household also holds three **Household facts**: whether the Members are a **couple** or **single** for pension purposes, whether the household is a **homeowner**, and which Property Account is the **principal home**. They are facts Finance360 cannot work out for itself. Each is listed with its value and whether it was **entered** or is a **default, not entered**: a blank couple status follows the number of Members (two is a couple, one is single), a blank homeowner is yes, and a blank principal home is your only open Property Account when you have exactly one. Press **Change** beside a fact to set it, or choose "Not entered" to go back to the default. Each change is recorded in the [audit trail](/audit).
+
+Two cases are flagged on the card. **Needs a choice of home** means you are a homeowner with several open Property Accounts and have not said which is the home. **Not modelled** means the Household does not fit (more than two Members, or a couple status that disagrees with the number of Members). The facts are stored now; the Age Pension calculation that will use them is coming later, so nothing in the Projection changes yet.
+
 ## Accounts
 An Account is one real thing with a value: a bank account, a super fund, a loan, a property, a brokerage account. On [Accounts](/accounts), add one and choose:
 - its **owner**: one Member, or jointly with shares that add up to 100%;

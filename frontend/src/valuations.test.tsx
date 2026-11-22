@@ -167,6 +167,19 @@ test("removing confirms in an AlertDialog naming it; Cancel changes nothing, con
   expect(calls.some((c) => c.method === "DELETE" && c.path === "/api/valuations/1")).toBe(true);
 });
 
+const NO_FACTS = {
+    couple_status: { value: "single", source: "default", label: "default, not entered" },
+    homeowner: { value: true, source: "default", label: "default, not entered" },
+    principal_home_account_id: { value: null, source: "default", label: "default, not entered" },
+    principal_home_name: null,
+    stored_couple_status: null,
+    stored_homeowner: null,
+    stored_principal_home_account_id: null,
+    state: "ok",
+    reasons: [],
+    property_accounts: [],
+  };
+
 test("the Household page shows the time zone and changes it", async () => {
   const calls: { method: string; body?: Record<string, unknown> }[] = [];
   vi.stubGlobal(
@@ -177,9 +190,9 @@ test("the Household page shows the time zone and changes it", async () => {
       if (request.method === "PUT") {
         if (body?.time_zone === "Mars/Base")
           return json({ errors: [{ field: "time_zone", message: "Enter an IANA time zone name." }] }, 422);
-        return json({ name: "The Sample Household", time_zone: body?.time_zone, members: MEMBERS });
+        return json({ name: "The Sample Household", time_zone: body?.time_zone, members: MEMBERS, facts: NO_FACTS });
       }
-      return json({ name: "The Sample Household", time_zone: "Australia/Melbourne", members: MEMBERS });
+      return json({ name: "The Sample Household", time_zone: "Australia/Melbourne", members: MEMBERS, facts: NO_FACTS });
     }),
   );
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

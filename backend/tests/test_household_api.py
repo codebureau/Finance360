@@ -40,12 +40,16 @@ def _audit(client: TestClient) -> list[tuple[str, str, str]]:
 def test_a_new_instance_has_an_empty_household(client: TestClient) -> None:
     res = client.get("/api/household")
     assert res.status_code == 200
-    assert res.json() == {
+    body = res.json()
+    facts = body.pop("facts")
+    assert body == {
         "name": "My household",
         "time_zone": "Australia/Melbourne",
         "effort_level": "light",  # until the user chooses (ADR-0020)
         "members": [],
     }
+    # No Members: nothing to default the couple status from, so the Household is not modelled.
+    assert facts["state"] == "not_modelled" and facts["property_accounts"] == []
 
 
 def test_add_edit_delete_through_the_api_and_audit_each(client: TestClient) -> None:
@@ -139,8 +143,9 @@ def test_the_review_fixture_is_loaded_on_first_start(tmp_path: Path) -> None:
             audit[:14]
             == [("member", "create", "fixture")] * 2 + [("account", "create", "fixture")] * 12
         )
-        assert audit[14] == ("account_identifier", "create", "fixture")  # the sample PI Account
-        assert {a for a in audit[15:]} == {
+        assert audit[14] == ("household", "update", "fixture")  # the principal home
+        assert audit[15] == ("account_identifier", "create", "fixture")  # the sample PI Account
+        assert {a for a in audit[16:]} == {
             ("valuation", "create", "fixture"),
             ("fx_rate", "create", "fixture"),
             ("instrument", "create", "fixture"),

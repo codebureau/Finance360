@@ -13,6 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -37,8 +38,11 @@ import {
   deleteMember,
   fetchHousehold,
   renameHousehold,
+  setHouseholdFacts,
   setTimeZone,
   updateMember,
+  type HouseholdFacts,
+  type HouseholdFactsInput,
   type Member,
   type MemberInput,
 } from "@/lib/household";
@@ -245,6 +249,187 @@ function SettingRow({
   );
 }
 
+/** One Household fact: its effective value, whether it was entered, and a Dialog to change or reset it. */
+function FactRow({
+  label,
+  shown,
+  source,
+  stored,
+  options,
+  editLabel,
+  field,
+  note,
+  save,
+  onChange,
+}: {
+  label: string;
+  shown: string;
+  source: string;
+  stored: string;
+  options: { value: string; label: string }[];
+  editLabel: string;
+  field: string;
+  note: string;
+  save: (value: string) => Promise<unknown>;
+  onChange: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(stored);
+  const mutation = useMutation({
+    mutationFn: () => save(draft),
+    onSuccess: () => {
+      setOpen(false);
+      onChange();
+    },
+  });
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+      <div className="flex flex-col">
+        <span className="text-muted-foreground">{label}</span>
+        <span>
+          <span className="font-medium">{shown}</span> <span className="text-muted-foreground">({source})</span>
+        </span>
+      </div>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (next) {
+            setDraft(stored);
+            mutation.reset();
+          }
+          setOpen(next);
+        }}
+      >
+        <DialogTrigger asChild>
+          <Button variant="outline">{editLabel}</Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editLabel}</DialogTitle>
+            <DialogDescription>{note}</DialogDescription>
+          </DialogHeader>
+          <form
+            className="flex flex-col gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              mutation.mutate();
+            }}
+          >
+            <label className="flex flex-col gap-1 text-sm">
+              {label}
+              <select className={inputClass} value={draft} onChange={(e) => setDraft(e.target.value)}>
+                <option value="">Not entered (use the default)</option>
+                {options.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <FieldMessage error={mutation.error} field={field} />
+            </label>
+            <GeneralError error={mutation.error} />
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={mutation.isPending}>
+                Save
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+const STATE_TEXT: Record<string, string> = {
+  needs_home_choice: "Needs a choice of home",
+  not_modelled: "Not modelled",
+};
+
+function HouseholdFactsCard({ facts, onChange }: { facts: HouseholdFacts; onChange: () => void }) {
+  const save = (input: HouseholdFactsInput) => setHouseholdFacts(input);
+  const couple = facts.couple_status.value;
+  const homeShown =
+    facts.principal_home_name ??
+    (facts.homeowner.value === false
+      ? "Not applicable"
+      : facts.state === "needs_home_choice"
+        ? "Needs a choice"
+        : "None");
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Household facts</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Facts the Age Pension means test needs and the app cannot work out. Leave one blank to use its
+          default.
+        </p>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {STATE_TEXT[facts.state] && (
+          <div className="flex flex-col gap-1 text-sm">
+            <Badge variant="flagged" className="self-start">
+              {STATE_TEXT[facts.state]}
+            </Badge>
+            {facts.reasons.map((r) => (
+              <span key={r} className="text-muted-foreground">
+                {r}
+              </span>
+            ))}
+          </div>
+        )}
+        <FactRow
+          label="Couple status"
+          shown={couple === "couple" ? "Couple" : couple === "single" ? "Single" : "Not known"}
+          source={facts.couple_status.label}
+          stored={facts.stored_couple_status ?? ""}
+          options={[
+            { value: "single", label: "Single" },
+            { value: "couple", label: "Couple" },
+          ]}
+          editLabel="Change couple status"
+          field="couple_status"
+          note="Couple means the Members are assessed together. It must match the number of Members."
+          save={(v) => save({ couple_status: v === "" ? null : (v as "single" | "couple") })}
+          onChange={onChange}
+        />
+        <FactRow
+          label="Homeowner"
+          shown={facts.homeowner.value ? "Yes" : "No"}
+          source={facts.homeowner.label}
+          stored={facts.stored_homeowner === null ? "" : facts.stored_homeowner ? "yes" : "no"}
+          options={[
+            { value: "yes", label: "Yes" },
+            { value: "no", label: "No" },
+          ]}
+          editLabel="Change homeowner"
+          field="homeowner"
+          note="Whether the Household owns the home it lives in."
+          save={(v) => save({ homeowner: v === "" ? null : v === "yes" })}
+          onChange={onChange}
+        />
+        <FactRow
+          label="Principal home"
+          shown={homeShown}
+          source={facts.principal_home_account_id.label}
+          stored={
+            facts.stored_principal_home_account_id === null ? "" : String(facts.stored_principal_home_account_id)
+          }
+          options={facts.property_accounts.map((a) => ({ value: String(a.id), label: a.name }))}
+          editLabel="Change principal home"
+          field="principal_home_account_id"
+          note="Choose from the open Property Accounts. Ignored when the Household is not a homeowner."
+          save={(v) => save({ principal_home_account_id: v === "" ? null : Number(v) })}
+          onChange={onChange}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
 export function HouseholdPage() {
   const queryClient = useQueryClient();
   const { data, error, isPending } = useQuery({ queryKey: ["household"], queryFn: fetchHousehold });
@@ -296,6 +481,7 @@ export function HouseholdPage() {
                 />
               </CardContent>
             </Card>
+            <HouseholdFactsCard facts={data.facts} onChange={refresh} />
             <section aria-label="Members" className="flex flex-col gap-2">
               <h2 className="text-lg font-semibold">Members</h2>
               {data.members.length === 0 ? (

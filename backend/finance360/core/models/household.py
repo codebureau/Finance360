@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import CheckConstraint, Date, ForeignKey, String
+from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from finance360.core.db import Base
@@ -14,11 +14,18 @@ from finance360.core.localtime import DEFAULT_TIME_ZONE
 #: The one Household row always has this id; a CHECK constraint keeps it that way.
 HOUSEHOLD_ID = 1
 
+#: The values of the ``couple_status`` Household fact (ADR-0029 section 1).
+COUPLE_STATUSES = ("single", "couple")
+
 
 class Household(Base):
     __tablename__ = "household"
     __table_args__ = (
         CheckConstraint(f"id = {HOUSEHOLD_ID}", name="single_row"),
+        CheckConstraint(
+            f"couple_status IN ({', '.join(repr(v) for v in COUPLE_STATUSES)})",
+            name="couple_status_known",
+        ),
         CheckConstraint(
             f"effort_level IN ({', '.join(repr(v) for v in LEVELS)})", name="effort_level_known"
         ),
@@ -32,6 +39,11 @@ class Household(Base):
     )
     #: How much What's due asks (ADR-0020 section 3): light, steady or thorough.
     effort_level: Mapped[str] = mapped_column(String(10), server_default=DEFAULT_LEVEL)
+    #: Household facts (ADR-0029 section 1). Null means "not entered": the service resolves a
+    #: labelled default. Stored and audited; never an Assumption.
+    couple_status: Mapped[str | None] = mapped_column(String(10))
+    homeowner: Mapped[bool | None] = mapped_column(Boolean)
+    principal_home_account_id: Mapped[int | None] = mapped_column(ForeignKey("account.id"))
 
 
 class Member(Base):

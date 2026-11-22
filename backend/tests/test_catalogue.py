@@ -47,7 +47,7 @@ def test_a_fresh_database_gets_every_catalogue_row(session_factory: sessionmaker
         seed.seed_catalogue(s)
     with session_factory() as s:
         assert _count(s, Category) == 7
-        assert _count(s, AccountType) == 11
+        assert _count(s, AccountType) == 12
         classes = {c.key: c.class_ for c in s.scalars(select(Category))}
         assert classes["loans_credit"] == "liability"
         assert {k for k, v in classes.items() if v == "asset"} == {
@@ -62,7 +62,7 @@ def test_reseeding_creates_no_duplicates(session_factory: sessionmaker[Session])
         with session_factory.begin() as s:
             seed.seed_catalogue(s)
     with session_factory() as s:
-        assert (_count(s, Category), _count(s, AccountType), _count(s, Meta)) == (7, 11, 1)
+        assert (_count(s, Category), _count(s, AccountType), _count(s, Meta)) == (7, 12, 1)
 
 
 def test_seeding_is_not_audited(session_factory: sessionmaker[Session]) -> None:

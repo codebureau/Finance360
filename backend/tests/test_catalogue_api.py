@@ -21,7 +21,7 @@ def client(tmp_path: Path) -> Iterator[TestClient]:
 
 def test_a_fresh_instance_lists_classes_categories_and_account_types(client: TestClient) -> None:
     body = client.get("/api/catalogue").json()
-    assert body["version"] == 2
+    assert body["version"] == 3
     assert [c["class"] for c in body["classes"]] == ["asset", "liability"]
     asset, liability = body["classes"]
     assert [c["name"] for c in asset["categories"]] == [
@@ -34,7 +34,7 @@ def test_a_fresh_instance_lists_classes_categories_and_account_types(client: Tes
     ]  # fmt: skip
     assert {t["behaviour_key"] for c in body["classes"] for k in c["categories"]
             for t in k["account_types"]} == {"simple_balance", "holdings_based"}  # fmt: skip
-    assert sum(len(k["account_types"]) for c in body["classes"] for k in c["categories"]) == 11
+    assert sum(len(k["account_types"]) for c in body["classes"] for k in c["categories"]) == 12
 
 
 def test_restarting_does_not_duplicate_the_catalogue(tmp_path: Path) -> None:

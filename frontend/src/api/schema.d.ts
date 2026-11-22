@@ -964,6 +964,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/household/facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Household Facts */
+        put: operations["updateHouseholdFacts"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/household/members": {
         parameters: {
             query?: never;
@@ -3602,6 +3619,18 @@ export interface components {
             /** Errors */
             errors: components["schemas"]["FieldErrorOut"][];
         };
+        /**
+         * FactOut
+         * @description One effective fact. ``source`` is ``entered`` or ``default``; ``label`` is its wording.
+         */
+        FactOut: {
+            /** Label */
+            label: string;
+            /** Source */
+            source: string;
+            /** Value */
+            value: string | boolean | number | null;
+        };
         /** FailedRuleOut */
         FailedRuleOut: {
             /** Name */
@@ -3963,6 +3992,42 @@ export interface components {
             /** Invalid */
             invalid: components["schemas"]["InvalidBalanceOut"][];
         };
+        /**
+         * HouseholdFactsIn
+         * @description Only the facts present are changed; ``null`` resets one to not entered.
+         */
+        HouseholdFactsIn: {
+            /** Couple Status */
+            couple_status?: string | null;
+            /** Homeowner */
+            homeowner?: boolean | null;
+            /** Principal Home Account Id */
+            principal_home_account_id?: number | null;
+        };
+        /**
+         * HouseholdFactsOut
+         * @description The Household facts as a rule may use them (ADR-0029 section 1), with the stored values so
+         *     the screen can offer "reset". ``state`` is ``ok``, ``needs_home_choice`` or ``not_modelled``.
+         */
+        HouseholdFactsOut: {
+            couple_status: components["schemas"]["FactOut"];
+            homeowner: components["schemas"]["FactOut"];
+            principal_home_account_id: components["schemas"]["FactOut"];
+            /** Principal Home Name */
+            principal_home_name: string | null;
+            /** Property Accounts */
+            property_accounts: components["schemas"]["PropertyChoiceOut"][];
+            /** Reasons */
+            reasons: string[];
+            /** State */
+            state: string;
+            /** Stored Couple Status */
+            stored_couple_status: string | null;
+            /** Stored Homeowner */
+            stored_homeowner: boolean | null;
+            /** Stored Principal Home Account Id */
+            stored_principal_home_account_id: number | null;
+        };
         /** HouseholdIn */
         HouseholdIn: {
             /**
@@ -3985,6 +4050,7 @@ export interface components {
         HouseholdOut: {
             /** Effort Level */
             effort_level: string;
+            facts: components["schemas"]["HouseholdFactsOut"];
             /** Members */
             members: components["schemas"]["MemberOut"][];
             /** Name */
@@ -5692,6 +5758,13 @@ export interface components {
             starts_on: string;
             /** T */
             t: number;
+        };
+        /** PropertyChoiceOut */
+        PropertyChoiceOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
         };
         /** ProposalOut */
         ProposalOut: {
@@ -11391,6 +11464,57 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["HouseholdIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HouseholdOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    updateHouseholdFacts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HouseholdFactsIn"];
             };
         };
         responses: {

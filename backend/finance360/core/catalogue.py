@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from finance360.core.models.catalogue import AccountType, Category, Meta
 
-CATALOGUE_VERSION = 2
+CATALOGUE_VERSION = 3
 CATALOGUE_VERSION_KEY = "catalogue_version"
 
 
@@ -65,6 +65,9 @@ ACCOUNT_TYPES = (
     SeedAccountType("vehicle", "Vehicle", "vehicles", "simple_balance"),
     SeedAccountType("home_loan", "Home loan", "loans_credit", "simple_balance"),
     SeedAccountType("credit_card", "Credit card", "loans_credit", "simple_balance"),
+    # Added at catalogue_version 3 (ADR-0029): a Property that is not the home, assessed by the Age
+    # Pension assets test. Appended, so existing rows and their order stay as they were.
+    SeedAccountType("investment_property", "Investment property", "property", "simple_balance"),
 )
 
 

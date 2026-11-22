@@ -300,6 +300,10 @@ MUTATORS: dict[str, tuple[dict[str, bool | str], Exerciser]] = {
         {},
         lambda s, e, i: household.set_effort_level(s, CTX, "steady"),
     ),
+    "household.service.set_household_facts": (
+        {},
+        lambda s, e, i: household.set_household_facts(s, CTX, couple_status="couple"),
+    ),
     "due.service.snooze": (
         {},
         lambda s, e, i: due.snooze(s, CTX, "position.manual_valuation", "account:1@none", "week"),
@@ -658,6 +662,9 @@ MUTATORS: dict[str, tuple[dict[str, bool | str], Exerciser]] = {
 #: are exercised on an empty database (no seeding) with the synthetic fixture file in place.
 LOADERS: dict[str, Exerciser] = {
     "household.service.bootstrap": lambda s, e, i: household.bootstrap(s, e.data_dir),
+    "household.service.load_fixture_facts": lambda s, e, i: household.load_fixture_facts(
+        s, e.data_dir
+    ),
     "position.accounts.load_fixture_accounts": lambda s, e, i: accounts.load_fixture_accounts(
         s, e.data_dir
     ),
@@ -707,6 +714,8 @@ EXPECTED: dict[str, tuple[str, str]] = {
     "household.service.rename_household": ("household", "update"),
     "household.service.set_time_zone": ("household", "update"),
     "household.service.set_effort_level": ("household", "update"),
+    "household.service.set_household_facts": ("household", "update"),
+    "household.service.load_fixture_facts": ("household", "update"),
     "due.service.snooze": ("due_snooze", "create"),
     "due.service.unsnooze": ("due_snooze", "delete"),
     "core.rulepack_store.capture_figure": ("rule_capture", "create"),
@@ -1054,6 +1063,8 @@ NOT_AUDITED: dict[str, str] = {
     "household.service.get_household": "read",
     "household.service.household_today": "read",
     "household.service.list_members": "read",
+    "household.service.effective_facts": "read (resolves the facts and their defaults)",
+    "household.service.open_property_accounts": "read",
     "due.service.whats_due": "read (evaluates the Due rules; nothing is stored)",
     "due.service.current_level": "read",
     "due.service.due_today": "read",
@@ -1297,6 +1308,7 @@ def _exercise_one(name: str, factory: sessionmaker[Session], data_dir: Path) -> 
                     "valuations" in name
                     or "account_identifiers" in name
                     or "super_statements" in name
+                    or "load_fixture_facts" in name
                 ):
                     accounts.load_fixture_accounts(s, data_dir)
                 if "prices" in name:

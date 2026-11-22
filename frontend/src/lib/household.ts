@@ -56,6 +56,20 @@ export async function setTimeZone(name: string, timeZone: string): Promise<House
   return data;
 }
 
+export type HouseholdFacts = Household["facts"];
+/** Each key present is changed; `null` resets that fact to "not entered". */
+export type HouseholdFactsInput = {
+  couple_status?: "single" | "couple" | null;
+  homeowner?: boolean | null;
+  principal_home_account_id?: number | null;
+};
+
+export async function setHouseholdFacts(input: HouseholdFactsInput): Promise<Household> {
+  const { data, error, response } = await client.PUT("/api/household/facts", { body: input });
+  if (!data) throw toApiError(error, response.status);
+  return data;
+}
+
 /** Today's date (YYYY-MM-DD) in an IANA time zone: the Household's "today", not the browser's. */
 export function todayIn(timeZone: string): string {
   return new Intl.DateTimeFormat("en-CA", {

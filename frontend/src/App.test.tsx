@@ -6,6 +6,18 @@ import { renderAppAt } from "./test-utils";
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
+const NO_FACTS = {
+    couple_status: { value: "single", source: "default", label: "default, not entered" },
+    homeowner: { value: true, source: "default", label: "default, not entered" },
+    principal_home_account_id: { value: null, source: "default", label: "default, not entered" },
+    principal_home_name: null,
+    stored_couple_status: null,
+    stored_homeowner: null,
+    stored_principal_home_account_id: null,
+    state: "ok",
+    reasons: [],
+    property_accounts: [],
+  };
 const NO_FIGURES = { household: "0.00", joint: "0.00", members: [] };
 const EMPTY_POSITION = {
   as_at: "2026-10-17",
@@ -53,7 +65,7 @@ function stubBackend(health: Response) {
       if (path === "/api/position") return Promise.resolve(json(EMPTY_POSITION));
       if (path === "/api/catalogue") return Promise.resolve(json({ version: 1, classes: [] }));
       if (path === "/api/instruments") return Promise.resolve(json([]));
-      return Promise.resolve(json({ name: "My household", members: [] }));
+      return Promise.resolve(json({ name: "My household", members: [], facts: NO_FACTS }));
     }),
   );
 }

@@ -21,6 +21,7 @@ deliberately destructive migration and expects the check to reject it.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import sqlite3
 from collections.abc import Callable, Iterator
@@ -28,6 +29,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import pytest
 from alembic import command
@@ -578,6 +580,14 @@ def _seed_tax_lodged_results(session: Session, data_dir: Path) -> None:
     assert lodged.load_fixture_lodged_results(session, data_dir) == 2
 
 
+def _seed_household_facts(session: Session, data_dir: Path) -> None:
+    """Revision 0033 added three nullable Household fact columns: set the fixture's principal home
+    through the real service (the Accounts are already there from the baseline seeder)."""
+    from finance360.capabilities.household import service as household_service
+
+    household_service.load_fixture_facts(session, data_dir)
+
+
 #: revision -> loads the data its migration created tables for. Extend with each schema slice.
 SEEDERS: dict[str, Callable[[Session, Path], None]] = {
     BASELINE: _seed_baseline,
@@ -604,6 +614,7 @@ SEEDERS: dict[str, Callable[[Session, Path], None]] = {
     "0030": _seed_carried_capture,
     "0031": _seed_tax_estimates,
     "0032": _seed_tax_lodged_results,
+    "0033": _seed_household_facts,
 }
 
 
@@ -620,6 +631,7 @@ def _schema_as_it_stood(engine: Engine) -> Iterator[None]:
     """
     have = inspect(engine)
     absent: dict[type, list[str]] = {}
+    missing_columns: dict[str, set[str]] = {}  # table -> columns the old database lacks
     for mapper in Base.registry.mappers:
         table = str(getattr(mapper.local_table, "name", ""))
         if not have.has_table(table):
@@ -628,13 +640,60 @@ def _schema_as_it_stood(engine: Engine) -> Iterator[None]:
         keys = [p.key for p in mapper.column_attrs if not {c.name for c in p.columns} <= present]
         if keys:
             absent[mapper.class_] = keys
+            missing_columns[table] = {
+                c.name for c in mapper.local_table.columns if c.name not in present
+            }
+
+    def drop_absent_from_insert(
+        _conn: object, _cursor: object, statement: str, parameters: Any, _ctx: object, many: bool
+    ) -> tuple[str, Any]:
+        """A nullable column with no default is written as NULL by every ORM INSERT. On a database
+        that does not have it yet, leave it out (its value is always NULL there)."""
+        found = re.match(
+            r"INSERT INTO (\w+) \(([^)]*)\) VALUES (.*?)( RETURNING .*)?$", statement, re.S
+        )
+        if not found or found.group(1) not in missing_columns:
+            return statement, parameters
+        table, names, values, returning = found.groups()
+        cols = [c.strip() for c in names.split(",")]
+        keep = [i for i, c in enumerate(cols) if c not in missing_columns[table]]
+        if len(keep) == len(cols):
+            return statement, parameters
+        groups = re.findall(r"\(([^()]*)\)", values)
+        assert all(g.split(", ").count("?") == len(cols) for g in groups), statement
+
+        def trim(row: tuple[Any, ...]) -> tuple[Any, ...]:
+            assert all(row[i] is None for i in range(len(cols)) if i not in keep)
+            return tuple(row[i] for i in keep)
+
+        rows = (
+            parameters
+            if many
+            else [
+                tuple(parameters[r * len(cols) : (r + 1) * len(cols)]) for r in range(len(groups))
+            ]
+        )
+        trimmed = [trim(tuple(r)) for r in rows]
+        new_values = ", ".join(
+            "(" + ", ".join(g.split(", ")[i] for i in keep) + ")" for g in groups
+        )
+        text = f"INSERT INTO {table} ({', '.join(cols[i] for i in keep)}) VALUES {new_values}"  # noqa: S608
+        flat = trimmed if many else tuple(v for r in trimmed for v in r)
+        return text + (returning or ""), flat
 
     def defer_absent(state: ORMExecuteState) -> object:
         if not state.is_select or state.is_column_load or state.is_relationship_load:
             return None
+        # Only a SELECT of whole entities loads absent columns; select(Household.name) does not.
+        selected = {
+            d["entity"]
+            for d in state.statement.column_descriptions  # type: ignore[union-attr]
+            if d["expr"] is d["entity"]
+        }
         options = [
             defer(getattr(mapper.class_, key))
             for mapper in state.all_mappers
+            if mapper.class_ in selected
             for key in absent.get(mapper.class_, ())
         ]
         if not options:
@@ -651,6 +710,7 @@ def _schema_as_it_stood(engine: Engine) -> Iterator[None]:
     if no_captures:
         rulepack_store.effective_pack = lambda _session, jurisdiction: rulepack.get(jurisdiction)
     event.listen(Session, "do_orm_execute", defer_absent)
+    event.listen(engine, "before_cursor_execute", drop_absent_from_insert, retval=True)
     for cls in absent:
         mappers[cls].eager_defaults = False
     try:
@@ -658,6 +718,7 @@ def _schema_as_it_stood(engine: Engine) -> Iterator[None]:
     finally:
         rulepack_store.effective_pack = real_effective_pack
         event.remove(Session, "do_orm_execute", defer_absent)
+        event.remove(engine, "before_cursor_execute", drop_absent_from_insert)
         for cls, value in saved.items():
             mappers[cls].eager_defaults = value
 
@@ -915,6 +976,9 @@ def test_upgrading_a_populated_database_changes_no_existing_row(tmp_path: Path) 
     household_row = final.tables["household"].rows[0]
     assert household_row[3] == "steady", "the Effort level was set from the fixture"
     assert baseline.tables["household"].rows[0] == household_row[:3]
+    assert household_row[4:6] == (None, None), "couple status and homeowner stay not entered"
+    home = [r for r in final.tables["account"].rows if r[1] == "Family Home"]
+    assert household_row[6] == home[0][0], "the principal home was set from the fixture"
     assert len(final.tables["income_stream_owner"].rows) == 2
     assert final.tables["instrument"].rows, "the step's seeder ran"
     assert final.tables["price"].rows, "the price step's seeder ran"
@@ -1252,6 +1316,24 @@ def test_the_upgraded_database_keeps_both_lodged_results_and_still_refuses_to_ch
         conn.close()
 
 
+def test_downgrading_0033_drops_only_the_household_fact_columns(tmp_path: Path) -> None:
+    upgrade_populated(tmp_path)
+    before = snapshot(tmp_path)
+    household_row = before.tables["household"].rows[0]
+    assert household_row[4:6] == (None, None) and household_row[6] is not None
+    config = alembic_config(tmp_path, MIGRATIONS_DIR)
+    command.downgrade(config, "0032")
+    after = snapshot(tmp_path)
+    names = [c[0] for c in after.tables["household"].columns]
+    assert names == ["id", "name", "time_zone", "effort_level"]
+    assert after.tables["household"].rows == (household_row[:4],)
+    for name, table in after.tables.items():
+        if name != "household":  # compared above
+            assert table.rows == before.tables[name].rows, name
+    command.upgrade(config, "head")
+    command.check(config)
+
+
 def test_downgrading_0032_drops_only_the_lodged_result_table(tmp_path: Path) -> None:
     upgrade_populated(tmp_path)
     before = snapshot(tmp_path)
@@ -1266,7 +1348,8 @@ def test_downgrading_0032_drops_only_the_lodged_result_table(tmp_path: Path) -> 
     }
     for name, table in after.tables.items():
         if name != "audit_event":  # the notices' audit rows stay: the trail is append-only
-            assert table.rows == before.tables[name].rows, name
+            width = len(table.columns)  # household lost 0033's columns
+            assert table.rows == tuple(r[:width] for r in before.tables[name].rows), name
     command.upgrade(config, "head")
     command.check(config)
 
@@ -1286,7 +1369,8 @@ def test_downgrading_0031_drops_only_the_tax_estimate_tables(tmp_path: Path) -> 
     }
     for name, table in after.tables.items():
         if name != "audit_event":  # the estimate's audit rows stay: the trail is append-only
-            assert table.rows == before.tables[name].rows, name
+            width = len(table.columns)  # household lost 0033's columns
+            assert table.rows == tuple(r[:width] for r in before.tables[name].rows), name
     command.upgrade(config, "head")
     command.check(config)
 
@@ -1570,13 +1654,13 @@ def test_a_catalogue_version_bump_adds_only_its_new_account_type(
     monkeypatch.setattr(
         catalogue,
         "ACCOUNT_TYPES",
-        tuple(t for t in catalogue.ACCOUNT_TYPES if t.key != "brokerage_holdings"),
+        tuple(t for t in catalogue.ACCOUNT_TYPES if t.key != "investment_property"),
     )
-    monkeypatch.setattr(catalogue, "CATALOGUE_VERSION", 1)
-    upgrade_populated(tmp_path)  # seeds the baseline with the version 1 catalogue
+    monkeypatch.setattr(catalogue, "CATALOGUE_VERSION", 2)
+    upgrade_populated(tmp_path)  # seeds the baseline with the version 2 catalogue
     before = snapshot(tmp_path)
     monkeypatch.undo()
-    assert catalogue.CATALOGUE_VERSION == 2
+    assert catalogue.CATALOGUE_VERSION == 3
 
     engine = make_engine(db_path(tmp_path))
     try:
@@ -1595,14 +1679,14 @@ def test_a_catalogue_version_bump_adds_only_its_new_account_type(
     assert before.tables["audit_event"].rows, "the populated database has audit rows"
     # exactly one new account_type row, appended after every existing one, unchanged
     old_types, new_types = before.tables["account_type"].rows, after.tables["account_type"].rows
-    assert len(old_types) == 10 and new_types[: len(old_types)] == old_types
+    assert len(old_types) == 11 and new_types[: len(old_types)] == old_types
     [added] = new_types[len(old_types) :]
     columns = [c[0] for c in after.tables["account_type"].columns]
     row = dict(zip(columns, added, strict=True))
     assert (row["key"], row["name"], row["behaviour_key"], row["seeded"]) == (
-        "brokerage_holdings",
-        "Brokerage account (holdings)",
-        "holdings_based",
+        "investment_property",
+        "Investment property",
+        "simple_balance",
         1,
     )
     # the catalogue version is the only meta value that moved
@@ -1611,7 +1695,7 @@ def test_a_catalogue_version_bump_adds_only_its_new_account_type(
     new_meta = {r[meta_columns.index("key")]: r for r in after.tables["meta"].rows}
     assert old_meta.keys() == new_meta.keys()
     assert {k for k in old_meta if old_meta[k] != new_meta[k]} == {"catalogue_version"}
-    assert new_meta["catalogue_version"][meta_columns.index("value")] == "2"
+    assert new_meta["catalogue_version"][meta_columns.index("value")] == "3"
     assert after.triggers == before.triggers and after.indexes == before.indexes
 
 
