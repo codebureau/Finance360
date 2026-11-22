@@ -38,6 +38,12 @@ with best/likely/worst Scenarios. Read these before substantive work:
    - **Never use floating point for money, quantities or prices**, including SQLite `Numeric`,
      which silently becomes a float.
    - Currency is always attached to an amount.
+   - **Exact arithmetic, tolerant judgments.** Matching every cent is not the goal outside tax:
+     real-world inputs (a factsheet summing to 99.9%, an out-of-date statement) need allowance.
+     Validation, flags and warnings use a named tolerance constant and send any residual to an
+     explicit line, so totals still add up exactly; they don't reject or flag on rounding. Never
+     normalise silently. The tax engine is the exception: a Tax estimate matches a lodged return
+     to the cent (ADR-0030).
 4. **AI proposes, deterministic code disposes.** No AI output writes figures directly. AI
    proposals pass through human confirmation or deterministic validation. Every AI call the app
    makes goes through the AI gateway (redaction + local log). An owner-initiated export over MCP

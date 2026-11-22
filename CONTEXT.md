@@ -140,7 +140,8 @@ _Avoid_: Annual statement (on its own), Statement (a Valuation source or a PDF),
 
 **Investment option**:
 One option a super fund holds the Account's money in, with its units, unit price and value on a date, as
-stated on a Super statement. The option mix is the set of them.
+stated on a Super statement. The option mix is the set of them. For look-through, an option name is
+mapped per Account to an Instrument, which holds its Exposure profile (ADR-0030).
 _Avoid_: Fund (that is the provider), Portfolio, Holding (that is an Instrument in an Account)
 
 **Import**:
@@ -247,10 +248,62 @@ reports it; it never guesses one.
 _Avoid_: Starting balance, Initial holdings
 
 **Exposure profile**:
-A dated breakdown of an Instrument across look-through dimensions (asset class, region, sector,
-exposure currency) as percentage weights. A fund-of-funds' profile references its underlying funds'
-profiles and is resolved recursively.
+A dated breakdown of one Instrument across the Dimensions as exact percentage weights (parts per
+million), each stated Dimension summing to 100% within a stated tolerance, with its source (`manual`, a Provider, or
+`ai` confirmed by the owner) and retrieval date. Corrections supersede. A fund-of-funds' profile
+references other Instruments by weight, possibly beside direct weights, and is resolved recursively;
+a super Investment option gets one through the Instrument it is mapped to (ADR-0030).
 _Avoid_: Allocation (that is a target or a mix), Composition, Holdings list
+
+**Dimension**:
+One axis of look-through: asset class, region, sector or exposure currency. Dimensions and their
+Exposure labels are seeded data, not code (ADR-0030).
+_Avoid_: Axis, Facet, Category (that is a roll-up of Accounts)
+
+**Exposure label**:
+One entry in a Dimension's vocabulary, such as `fixed_income` in asset class. Every Dimension has an
+`other` label for the residual a manager publishes. A weight names one label (ADR-0030).
+_Avoid_: Tag, Bucket, Class (on its own)
+
+**Asset class**:
+The Dimension for the kind of underlying exposure (shares, fixed income, property, cash and so on).
+It is **not** a synonym for Category: a Superannuation Account belongs to one Category but spans many
+asset classes. Return Assumptions may be stated per asset class (ADR-0030).
+_Avoid_: Category, Sector (that is another Dimension)
+
+**Glide path**:
+An Instrument's set of Exposure profiles by the owning Member's age, as a lifecycle option has: age
+bands from a starting age, the last open-ended. An age below the first band uses it, and says so
+(ADR-0030).
+_Avoid_: Lifecycle profile, Age mix
+
+**No profile**:
+The look-through line for value whose Instrument has no Exposure profile on the date (or an unmapped
+Investment option, or an underlying a fund-of-funds cannot resolve). Shown, never hidden (ADR-0030).
+_Avoid_: Unknown, Missing
+
+**Not classified**:
+The look-through line, in one Dimension, for value that is profiled but has no weights in that
+Dimension (a bond fund's sector; an Account's cash by region), plus a profile's shortfall from 100%
+within tolerance (ADR-0030).
+_Avoid_: Other (that is a published Exposure label), Unknown
+
+**Unallocated**:
+The look-through line for an Account's Position value less the value of its parts (Holdings and cash,
+or Investment options). Negative when the parts exceed the Account value. Always shown, never absorbed
+into the other lines, and flagged only when it is beyond tolerance (ADR-0030).
+_Avoid_: Remainder (on its own), Balancing item, Unreconciled (that is Income reconciliation)
+
+**Not analysed**:
+An Account with no look-through (a cash or property Account, or a super Account with no Super
+statement), listed with its value so roll-ups reconcile to the Position (ADR-0030).
+_Avoid_: Excluded, Ignored
+
+**Target allocation**:
+The Household's intended mix by asset class, one set summing to 100%, compared with the actual mix as
+a gap in percentage points and AUD. A Household-level record, not an Assumption: no Scenario varies it
+(ADR-0030).
+_Avoid_: Model portfolio, Benchmark, Allocation (on its own)
 
 ### Projection
 
@@ -545,10 +598,3 @@ They are deliberately not terms yet; see [`docs/catalogue.md`](docs/catalogue.md
 - **Reversionary** amounts on Income streams.
 - **Dated terms** on loans (announced vs effective).
 - **Redraw** as liquidity on a loan.
-
-## Known but not adopted
-
-**Asset class**:
-In investment usage, the kind of underlying exposure (equities, fixed income, property, cash), used
-as a *look-through analytics* dimension. It is **not** a synonym for Category: a Superannuation
-Account belongs to one Category but spans many asset classes.
