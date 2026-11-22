@@ -17,8 +17,14 @@ visible for investment-platform and super Accounts, with fund-of-funds resolved.
 - **Definition of Done:** the epic's acceptance criteria hold on the synthetic household: exposure by
   the four dimensions at Account, Category, Member and Household level; a fund-of-funds resolves to
   its underlying funds; an unallocated remainder is shown, not absorbed.
-- **Remaining:** split #5 into sub-issues before any Developer pass. #6 (super option allocations,
-  including an age-based lifecycle glide path) is the only one filed so far.
+- **Sub-issues of [#5](https://github.com/codebureau/Finance360/issues/5), in order:** #82 ADR
+  (Exposure profile storage and sourcing, fund-of-funds, the unallocated remainder, the glide path,
+  target allocation and asset-class returns); #83 asset-class exposure for one Account (first
+  screen); #84 region, sector and exposure currency; #85 fund-of-funds and #86 super options with the
+  unallocated remainder; #87 the Analytics view by Category, Member and Household; #88 concentration
+  and target gap; #6 the lifecycle glide path; #89 asset-class returns in the projection (last).
+- **Not in M4:** AI-assisted factsheet extraction (#90), a candidate after it. Profiles are entered
+  by hand in M4.
 
 **In flight alongside:**
 - **Orientation** (inserted 2026-11-03): someone can open Finance360 cold and know why
@@ -75,6 +81,9 @@ visible for investment-platform and super Accounts, with fund-of-funds resolved.
 - Property valuation
 - Overseas pensions (partial transfer, a foreign-jurisdiction Rule pack)
 - Age Pension in full
+- Question-first navigation: the Guide, Ask and What's due built around the questions (#72, with #24)
+- Tax: provisional figures and document parsing (#56)
+- Factsheet Importer: Exposure profiles proposed from fund factsheets (#90)
 - Monte Carlo engine
 - Investment accounting (cost base, CGT, performance)
 - Representative budget (AI)
