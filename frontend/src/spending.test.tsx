@@ -60,6 +60,7 @@ const projection = (id: number): ScenarioProjection => ({
   super_access: [],
   income: null,
   tax: null,
+  age_pension: null,
   spending:
     id === 3
       ? {
@@ -93,6 +94,7 @@ const projection = (id: number): ScenarioProjection => ({
       shortfall: "0.00",
       debits: [],
       paid_personally: "0.00",
+      age_pension: null,
     },
   ],
   scenario: { id, key: scenarios[id - 1].key, name: scenarios[id - 1].name },

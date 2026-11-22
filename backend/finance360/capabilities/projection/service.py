@@ -19,6 +19,11 @@ The simplifications below are the owner's, accepted for the first slice and stat
    and Division 293 is paid a year after the year it is for (ADR-0019 s1 and s10), by the
    Member's own super as a line debit by default or by the household (ADR-0028).
 5. The headline age is the youngest Member's.
+6. The Age Pension (ADR-0029) is a calculated Income stream, never a row. The means test reads the
+   opening balances each year (a one-year lag) and is credited to the eligible Member's cash line.
+   Property and Vehicles are assessed as fixed per-year amounts, not projected. Not modelled, and
+   flagged in the working: debt secured on an assessed asset, rent, super drawn before Age Pension
+   age, growth or sale of Property.
 """
 
 from __future__ import annotations
@@ -29,9 +34,12 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
+from finance360.capabilities.household import facts as household_facts
 from finance360.capabilities.household import service as household
 from finance360.capabilities.position import service as position
 from finance360.capabilities.projection import (
+    age_pension,
+    age_pension_used,
     assumptions,
     engine,
     income,
@@ -46,6 +54,9 @@ from finance360.capabilities.projection import (
 from finance360.capabilities.projection.input import (
     INPUT_VERSION,
     MAX_YEARS,
+    AgePensionInput,
+    AgePensionMember,
+    AgePensionSpan,
     Inflow,
     InputError,
     Line,
@@ -57,8 +68,8 @@ from finance360.capabilities.projection.input import (
 from finance360.core import rulepack, rulepack_store
 from finance360.core.errors import FieldError, ValidationError
 from finance360.core.models.scenario import Scenario
-from finance360.core.money import BASE_CURRENCY, Money, MoneyError, allocate, parse_amount
-from finance360.core.rate import Rate, RateError
+from finance360.core.money import BASE_CURRENCY, Money, MoneyError, allocate, parse_amount, scale
+from finance360.core.rate import PPM, Rate, RateError
 
 #: The Categories projected, in the fixed default drawdown order (ADR-0015 s8). A Scenario's own
 #: Drawdown policy (ADR-0016 s3) resolves into the same ``drawdown_order`` field; null means this.
@@ -152,6 +163,9 @@ class Prepared:
     #: The line debits in ``input`` that tax produced, with their sources (ADR-0028 s5). None for a
     #: run saved by engine 1, which had none.
     debits: tuple[tax_income.DebitUsed, ...] | None = None
+    #: What the Age Pension calculation used, or why none was calculated (ADR-0029). None for a run
+    #: saved by engine 2 or earlier.
+    age_pension: age_pension_used.AgePensionUsed | None = None
 
     @property
     def fixed_outflows(self) -> tuple[Outflow, ...]:
@@ -306,7 +320,7 @@ def _rate_years(
     }
     first_fy = rulepack.fy_of(as_at)
     try:
-        spans = rulepack.materialise(pack, first_fy, years, request.inflation, overrides)
+        spans = rulepack.materialise(pack, first_fy, years, request.inflation, overrides, keys=keys)
     except rulepack.RulePackError as error:
         raise _fail("body", f"Superannuation can't be projected from this date: {error}") from None
     by_year: dict[str, list[Rate]] = {k: [] for k in keys}
@@ -397,6 +411,179 @@ def _payer_of(request: ProjectionRequest, member_id: int) -> tax_income.PayerUse
     return tax_income.PayerUsed(member_id, assumptions.DEFAULT_PAYER, "default")
 
 
+PROPERTY_KEY = "property"
+VEHICLES_KEY = "vehicles"
+
+
+def _age_pension(
+    session: Session,
+    request: ProjectionRequest,
+    pack: rulepack.RulePack,
+    pos: position.Position,
+    events: Sequence[life_events.LifeEvent],
+    streams: Sequence[income.Stream],
+    spans: Sequence[income.Span],
+    member_ids: Sequence[int],
+    as_at: date,
+    years: int,
+) -> tuple[AgePensionInput | None, age_pension_used.AgePensionUsed]:
+    """Resolve the Household facts, rule figures and fixed per-year amounts into the input's
+    ``age_pension`` (ADR-0029 sections 1, 2 and 5), or say why none is calculated."""
+    facts = household.effective_facts(session, as_at)
+    accounts = [
+        (category.key, line)
+        for class_node in pos.classes
+        for category in class_node.categories
+        if category.key in (PROPERTY_KEY, VEHICLES_KEY)
+        for line in category.accounts
+    ]
+    home_id = facts.principal_home_account_id.value
+    home_name = next((a.name for _, a in accounts if a.account_id == home_id), None)
+    fact_rows = (
+        age_pension_used.FactUsed(
+            "couple_status", facts.couple_status.value or "unknown", facts.couple_status.source
+        ),
+        age_pension_used.FactUsed(
+            "homeowner", "yes" if facts.homeowner.value else "no", facts.homeowner.source
+        ),
+        age_pension_used.FactUsed(
+            "principal_home", home_name or "none", facts.principal_home_account_id.source
+        ),
+    )
+    if facts.state != household_facts.STATE_OK:
+        return None, age_pension_used.AgePensionUsed(facts.state, facts.reasons, fact_rows)
+
+    first_fy = rulepack.fy_of(as_at)
+    held = {p.key for p in pack.params}
+    carried = {
+        key: rulepack.carried_value(pack, key, first_fy, request.inflation) if key in held else None
+        for key in age_pension.KEY_FIELDS
+    }
+    missing = [key for key, value in carried.items() if value is None]
+    if len(missing) == len(carried):
+        reason = (
+            f"The Rule pack holds no Age Pension figures for FY {rulepack.fy_label(first_fy)}, "
+            "so the projection runs with no Age Pension."
+        )
+        return None, age_pension_used.AgePensionUsed(
+            age_pension_used.NO_FIGURES, (reason,), fact_rows
+        )
+    if missing:
+        raise _fail(
+            "body",
+            "The Age Pension figures are incomplete for FY "
+            f"{rulepack.fy_label(first_fy)}: missing {', '.join(missing)}.",
+        )
+    try:
+        param_spans = rulepack.materialise(
+            pack, first_fy, years, request.inflation, None, keys=age_pension.KEY_FIELDS.keys()
+        )
+        input_spans = tuple(
+            AgePensionSpan(span.first_t, age_pension.params_from_values(span.values))
+            for span in param_spans
+        )
+    except (rulepack.RulePackError, MoneyError) as error:
+        raise _fail(
+            "body", f"The Age Pension cannot be projected from this date: {error}"
+        ) from None
+    rule_rows: list[age_pension_used.RuleFigureUsed] = []
+    for span in param_spans:
+        fy = first_fy + span.first_t
+        for key in age_pension.KEY_FIELDS:
+            found = rulepack.carried_value(pack, key, fy, request.inflation)
+            if found is None:  # pragma: no cover - materialise has just succeeded for this key
+                continue
+            value = span.values[key]
+            if not isinstance(value, Money | Rate):
+                raise TypeError(f"Rule pack value {key!r} is not money or a rate")
+            capture = pack.capture_of(found.source_fy, key)
+            rule_rows.append(
+                age_pension_used.RuleFigureUsed(
+                    key,
+                    span.first_t,
+                    found.source_fy,
+                    value,
+                    age_pension_used.ORIGIN_CAPTURED
+                    if capture
+                    else age_pension_used.ORIGIN_SHIPPED,
+                    capture.id if capture else None,
+                    pack.provisional_note(found.source_fy, key),
+                )
+            )
+
+    # Eligibility: the year of each Member's Age Pension age Life event.
+    eligible = {e.member_id: e for e in events if e.kind == life_events.AGE_PENSION_AGE}
+
+    # Other income: the stored streams' gross pay in each year in force, both Members.
+    zero = Money.zero(BASE_CURRENCY)
+    other = [zero] * years
+    for stream, span in zip(streams, spans, strict=True):
+        growth = request.real_wage_growth.get(stream.member_id, request.default_wage_growth)
+        until = years if span.until_year is None else min(span.until_year, years)
+        for t in range(span.from_year, until):
+            other[t] = other[t] + income.grown(stream.gross_annual, growth, t)
+
+    # Property and Vehicles at their latest Valuation as at the start; the principal home exempt.
+    assessed: list[age_pension_used.AssetUsed] = []
+    left_out: list[age_pension_used.LeftOut] = []
+    property_total = vehicle_total = zero
+    for category_key, line in accounts:
+        if line.value is None or line.valuation_as_at is None:
+            left_out.append(
+                age_pension_used.LeftOut(line.account_id, line.name, category_key, line.status)
+            )
+            continue
+        exempt = category_key == PROPERTY_KEY and line.account_id == home_id
+        assessed.append(
+            age_pension_used.AssetUsed(
+                line.account_id,
+                line.name,
+                category_key,
+                line.value,
+                line.valuation_as_at,
+                age_pension_used.ROLE_EXEMPT_HOME if exempt else age_pension_used.ROLE_ASSESSED,
+            )
+        )
+        if exempt:
+            continue
+        if category_key == PROPERTY_KEY:
+            property_total = property_total + line.value
+        else:
+            vehicle_total = vehicle_total + line.value
+    inflation = PPM + request.inflation.ppm
+    vehicles = tuple(scale(vehicle_total, PPM**t, inflation**t) for t in range(years))
+
+    counted = [a for a in assessed if a.role == age_pension_used.ROLE_ASSESSED]
+    notes = [age_pension_used.RETIREMENT_SUPER_BEFORE_AGE]
+    if counted:
+        notes.insert(0, age_pension_used.NO_DEBT_DEDUCTION)
+    if any(a.category_key == PROPERTY_KEY for a in counted):
+        notes.extend((age_pension_used.RENT_NOT_COUNTED, age_pension_used.PROPERTY_HELD_CONSTANT))
+    used = age_pension_used.AgePensionUsed(
+        age_pension_used.CALCULATED,
+        (),
+        fact_rows,
+        tuple(
+            age_pension_used.EligibilityUsed(m, eligible[m].on, eligible[m].year)
+            for m in member_ids
+        ),
+        tuple(rule_rows),
+        tuple(assessed),
+        tuple(left_out),
+        tuple(notes),
+    )
+    ap = AgePensionInput(
+        couple=facts.couple_status.value == "couple",
+        homeowner=facts.homeowner.value is True,
+        members=tuple(AgePensionMember(m, eligible[m].year) for m in member_ids),
+        other_income=tuple(other),
+        property_assets=(property_total,) * years,
+        vehicle_assets=vehicles,
+        spans=input_spans,
+    )
+    return ap, used
+
+
 def build_input(session: Session, request: ProjectionRequest) -> Prepared:
     """Resolve the request and the Position into a Projection input (and the run's context)."""
     as_at = request.as_at or household.household_today(session)
@@ -485,6 +672,9 @@ def build_input(session: Session, request: ProjectionRequest) -> Prepared:
     if tax_used is not None:
         outflows.extend(tax_used.outflows())
         debits_used = tax_used.debits()
+    age_pension_input, age_pension_note = _age_pension(
+        session, request, pack, pos, events, streams, spans, [m.id for m in members], as_at, years
+    )
 
     try:
         projection_input = ProjectionInput(
@@ -499,6 +689,7 @@ def build_input(session: Session, request: ProjectionRequest) -> Prepared:
             outflows=tuple(outflows),
             drawdown_order=order,
             debits=tuple(d.debit for d in debits_used),
+            age_pension=age_pension_input,
         )
     except InputError as error:
         raise _fail("body", str(error)) from None
@@ -517,6 +708,7 @@ def build_input(session: Session, request: ProjectionRequest) -> Prepared:
         income_used,
         tax_used,
         debits_used,
+        age_pension_note,
     )
 
 

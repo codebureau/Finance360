@@ -105,7 +105,8 @@ def test_year_zero_opens_on_the_positions_figures_by_category(sample: TestClient
 
 
 def test_the_headline_is_the_youngest_members_age(sample: TestClient) -> None:
-    out = run(sample)
+    # 70,000.00 a year now lasts to the horizon with the Age Pension paid from 67, so spend more.
+    out = run(sample, annual_spending="110000.00")
     assert out["reference_member"] == {
         "id": JORDAN,
         "name": "Jordan Sample",
@@ -113,7 +114,7 @@ def test_the_headline_is_the_youngest_members_age(sample: TestClient) -> None:
         "retirement_year": 20,
     }
     assert out["years"] == 55 and len(out["rows"]) == 55
-    assert (out["engine_version"], out["input_version"]) == (2, 2)
+    assert (out["engine_version"], out["input_version"]) == (3, 3)
     first_short = next(r for r in out["rows"] if cents(r["shortfall"]) > 0)
     assert out["funds_last_to_age"] == first_short["age"] and not out["lasts_beyond_horizon"]
     assert all(cents(r["shortfall"]) == 0 for r in out["rows"] if r["t"] < first_short["t"])

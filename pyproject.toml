@@ -114,6 +114,7 @@ source_modules = [
     "finance360.capabilities.projection.spending",
     "finance360.capabilities.projection.income",
     "finance360.capabilities.projection.age_pension",
+    "finance360.capabilities.projection.age_pension_used",
 ]
 forbidden_modules = [
     "finance360.core.db",

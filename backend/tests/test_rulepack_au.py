@@ -122,7 +122,7 @@ def test_the_sg_rate_and_contributions_tax_are_the_legislated_steps_for_each_yea
 def test_the_sg_rate_steps_up_on_1_july_and_stays_at_12_percent_after_the_last_year() -> None:
     # A projection starting in FY 2023-24 (2023-10-25) sees 11%, 11.5% from 1 July 2024 (its
     # second year), 12% from 1 July 2025 and then 12% for ever (a cpi parameter carries forward).
-    spans = materialise(PACK, 2024, 8, Rate.zero())
+    spans = materialise(PACK, 2024, 8, Rate.zero(), keys={"sg_rate", "contributions_tax_rate"})
     assert [(sp.first_t, sp.values["sg_rate"]) for sp in spans] == [
         (0, Rate.from_percent("11")),
         (1, Rate.from_percent("11.5")),
@@ -209,12 +209,19 @@ def test_a_later_year_carries_each_age_pension_figure_under_its_declared_policy(
         assert carried.value == PACK.years[2027][key]  # cpi repeats the last figure
 
 
-def test_the_age_pension_keys_do_not_disturb_the_projection_materialise_or_overrides() -> None:
-    # Read for an exact year by their own calculation, like tax. keys (not projected yet).
+def test_the_age_pension_keys_materialise_but_are_not_scenario_overridable() -> None:
+    # ADR-0029 section 5: materialised for a projection (one span, every key is cpi), but not yet
+    # in the overridable keys, as tax. keys never are.
     assert not any(k.startswith("age_pension.") for k in PACK.keys)
-    (span,) = materialise(PACK, 2027, 3, Rate.zero())
-    assert not any(k.startswith("age_pension.") for k in span.values)
-    assert materialise(PACK, 2024, 2, Rate.zero())  # a year before the Age Pension figures
+    (span,) = materialise(PACK, 2027, 3, Rate.zero(), keys=AGE_PENSION_KEYS)
+    assert set(span.values) == AGE_PENSION_KEYS
+    assert all(span.values[k] == PACK.years[2027][k] for k in AGE_PENSION_KEYS)
+    (everything,) = materialise(PACK, 2027, 3, Rate.zero())
+    assert AGE_PENSION_KEYS <= set(everything.values)
+    assert not any(k.startswith("tax.") for k in everything.values)  # tax stays unmaterialised
+    # Asked only for the SG keys, a year before the Age Pension figures needs none of them.
+    sg = materialise(PACK, 2024, 2, Rate.zero(), keys={"sg_rate"})
+    assert all(set(span.values) == {"sg_rate"} for span in sg)
 
 
 # --- the pin -------------------------------------------------------------------------------

@@ -14,7 +14,13 @@ import json
 from typing import Any
 
 from finance360.capabilities.projection import input as pinput
-from finance360.capabilities.projection.engine import DebitRow, LineYear, ProjectionResult, YearRow
+from finance360.capabilities.projection.engine import (
+    AgePensionYear,
+    DebitRow,
+    LineYear,
+    ProjectionResult,
+    YearRow,
+)
 from finance360.capabilities.projection.input import InputError
 from finance360.capabilities.projection.sustainable import SustainableSpending
 from finance360.core.money import Money
@@ -61,6 +67,28 @@ def _debit_payload(debit: DebitRow) -> dict[str, Any]:
     }
 
 
+def _age_pension_payload(year: AgePensionYear | None) -> dict[str, Any] | None:
+    if year is None:
+        return None
+    return {
+        "assets": pinput.money_out(year.assets),
+        "assets_test": pinput.money_out(year.assets_test),
+        "bound": year.bound,
+        "categories": [[key, pinput.money_out(amount)] for key, amount in year.categories],
+        "couple": year.couple,
+        "deemed_income": pinput.money_out(year.deemed_income),
+        "financial_assets": pinput.money_out(year.financial_assets),
+        "homeowner": year.homeowner,
+        "income_test": pinput.money_out(year.income_test),
+        "maximum": pinput.money_out(year.maximum),
+        "other_income": pinput.money_out(year.other_income),
+        "paid": [[member_id, pinput.money_out(amount)] for member_id, amount in year.paid],
+        "property_assets": pinput.money_out(year.property_assets),
+        "total": pinput.money_out(year.total),
+        "vehicle_assets": pinput.money_out(year.vehicle_assets),
+    }
+
+
 def result_payload(result: ProjectionResult) -> dict[str, Any]:
     return {
         "engine_version": result.engine_version,
@@ -70,6 +98,7 @@ def result_payload(result: ProjectionResult) -> dict[str, Any]:
         "reference_member_id": result.reference_member_id,
         "years": [
             {
+                "age_pension": _age_pension_payload(row.age_pension),
                 "ages": [[member_id, age] for member_id, age in row.ages],
                 "debits": [_debit_payload(d) for d in row.debits],
                 "lines": [_line_payload(line) for line in row.lines],
@@ -119,6 +148,52 @@ def _debit_in(raw: object) -> DebitRow:
     )
 
 
+def _pairs(raw: object, what: str) -> list[tuple[object, object]]:
+    pairs: list[tuple[object, object]] = []
+    for item in pinput.as_list(raw, what):
+        pair = pinput.as_list(item, what)
+        if len(pair) != 2:
+            raise InputError(f"{what} must be [key, amount] pairs.")
+        pairs.append((pair[0], pair[1]))
+    return pairs
+
+
+def _age_pension_in(raw: object) -> AgePensionYear | None:
+    if raw is None:  # also a run saved by engine 2 or earlier: none was calculated
+        return None
+    body = pinput.as_obj(raw, "age_pension")
+    return AgePensionYear(
+        tuple(
+            (pinput.as_int(key, "member_id"), pinput.money_in(amount, "paid"))
+            for key, amount in _pairs(body.get("paid"), "paid")
+        ),
+        _bool(body, "couple"),
+        _bool(body, "homeowner"),
+        tuple(
+            (pinput.as_text(key, "category_key"), pinput.money_in(amount, "category"))
+            for key, amount in _pairs(body.get("categories"), "categories")
+        ),
+        _money(body, "property_assets"),
+        _money(body, "vehicle_assets"),
+        _money(body, "assets"),
+        _money(body, "financial_assets"),
+        _money(body, "other_income"),
+        _money(body, "deemed_income"),
+        _money(body, "maximum"),
+        _money(body, "income_test"),
+        _money(body, "assets_test"),
+        pinput.as_text(body.get("bound"), "bound"),
+        _money(body, "total"),
+    )
+
+
+def _bool(body: Any, field: str) -> bool:
+    value = body.get(field)
+    if not isinstance(value, bool):
+        raise InputError(f"{field} must be true or false.")
+    return value
+
+
 def _ages_in(raw: object) -> tuple[tuple[int, int], ...]:
     ages: list[tuple[int, int]] = []
     for item in pinput.as_list(raw, "ages"):
@@ -141,6 +216,8 @@ def _row_in(raw: object) -> YearRow:
         _money(row, "shortfall"),
         # Missing in a run saved by engine 1: no debits.
         tuple(_debit_in(x) for x in pinput.as_list(row.get("debits", []), "debits")),
+        # Missing in a run saved by engine 2 or earlier: no Age Pension was calculated.
+        _age_pension_in(row.get("age_pension")),
     )
 
 

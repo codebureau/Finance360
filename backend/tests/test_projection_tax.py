@@ -430,7 +430,7 @@ def test_a_saved_run_records_each_debit_with_its_source(sample: TestClient) -> N
         assert f"FY{pay['for_financial_year']}" in entry["ref"]
         row = saved["rows"][entry["year"]]["debits"]
         assert f"{entry['amount']['minor'] / 100:.2f}" in [d["requested"] for d in row]
-    assert saved["engine_version"] == 2 and saved["input_version"] == 2
+    assert saved["engine_version"] == 3 and saved["input_version"] == 3
 
 
 def test_an_unknown_payer_is_refused(sample: TestClient) -> None:

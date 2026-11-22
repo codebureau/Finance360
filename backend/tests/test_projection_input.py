@@ -215,7 +215,7 @@ def test_a_past_version_loads_through_its_upcaster(monkeypatch: pytest.MonkeyPat
     monkeypatch.setitem(pinput._UPCASTERS, INPUT_VERSION - 1, upcast)  # pyright: ignore[reportPrivateUsage]
     assert pinput.from_payload(old) == sample()
     with pytest.raises(InputError):
-        pinput.from_payload(old | {"input_version": INPUT_VERSION - 2})
+        pinput.from_payload(old | {"input_version": INPUT_VERSION - 3})
     with pytest.raises(InputError):
         pinput.from_payload(current | {"input_version": INPUT_VERSION + 1})
 

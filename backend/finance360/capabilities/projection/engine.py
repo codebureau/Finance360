@@ -5,10 +5,17 @@ No I/O. It reads no clock, database, setting or Rule pack, and it imports only `
 
 One annual step, year ``t`` (flows at the end of the year, in real terms):
 
+0. **Age Pension** (ADR-0029 section 3), when the input asks for it. The means test reads the
+   **opening** balances (the closing balances of year ``t - 1``, or the starting Position), plus the
+   input's fixed per-year amounts, before growth, credits or withdrawals. Opening balances are
+   fixed before the year begins, so the pension depends only on the past and never on the
+   Drawdown it funds: deterministic and non-circular. The cost, accepted: a one-year lag. The
+   pension is credited to each eligible Member's ``cash`` line in step 2, before withdrawals.
 1. **Growth.** Each line's opening balance becomes ``scale(balance, 10**6 + r, 10**6 + i)``: the
    exact real factor ``(1 + r) / (1 + i)``, rounded once, half to even. Growth is on the opening
    balance only.
-2. **Cash flows.** Active inflows are credited to their lines. The year's *need* is the sum of the
+2. **Cash flows.** Active inflows (and the Age Pension of step 0) are credited to their lines.
+   The year's *need* is the sum of the
    active outflows.
 2b. **Line debits** (ADR-0028). Each debit for the year, in canonical order, is paid
    ``min(amount, balance still on the line)`` from ``grown + credited``, so a line never goes
@@ -34,8 +41,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
+from finance360.capabilities.projection.age_pension import AgePensionWorking, assess
 from finance360.capabilities.projection.input import (
+    AGE_PENSION_CREDIT,
     INPUT_VERSION,
+    AgePensionInput,
     ProjectionInput,
     age_on,
     anniversary,
@@ -43,7 +53,7 @@ from finance360.capabilities.projection.input import (
 from finance360.core.money import Money, allocate, scale
 from finance360.core.rate import PPM
 
-ENGINE_VERSION = 2
+ENGINE_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -85,6 +95,39 @@ class DebitRow:
     unpaid: Money
 
 
+#: Categories assessed from year 0, and those assessed from their owner's Age Pension age year
+#: (ADR-0029 section 2). A projected Category in neither list is not assessed.
+ASSESSED_FROM_START = ("cash", "investments")
+ASSESSED_FROM_ELIGIBILITY = ("superannuation", "overseas_pensions")
+
+
+@dataclass(frozen=True)
+class AgePensionYear:
+    """One year's Age Pension and its working (ADR-0029 section 4), stored in the result so that
+    traceability never needs a re-run. Present only in a year some Member was eligible."""
+
+    #: ``(member_id, amount)``: what each Member's ``cash`` line was credited this year.
+    paid: tuple[tuple[int, Money], ...]
+    couple: bool
+    homeowner: bool
+    #: ``(category_key, amount)``: each projected Category's opening balance counted, in order.
+    categories: tuple[tuple[str, Money], ...]
+    #: The fixed per-year inputs, not projected: non-home Property and Vehicles.
+    property_assets: Money
+    vehicle_assets: Money
+    assets: Money
+    financial_assets: Money
+    other_income: Money
+    deemed_income: Money
+    maximum: Money
+    income_test: Money
+    assets_test: Money
+    #: ``income``, ``assets`` or ``none`` (see ``age_pension.BOUND_*``).
+    bound: str
+    #: The assessed household's whole pension, before it is split between Members.
+    total: Money
+
+
 @dataclass(frozen=True)
 class YearRow:
     t: int
@@ -98,6 +141,8 @@ class YearRow:
     shortfall: Money
     #: Every debit of the year, in canonical order.
     debits: tuple[DebitRow, ...] = ()
+    #: The Age Pension of the year and its working; None when none was assessed.
+    age_pension: AgePensionYear | None = None
 
 
 @dataclass(frozen=True)
@@ -141,6 +186,58 @@ def category_totals(row: YearRow, order: tuple[str, ...]) -> tuple[CategoryYear,
     return tuple(totals)
 
 
+def _assess_age_pension(
+    i: ProjectionInput,
+    ap: AgePensionInput,
+    t: int,
+    balances: dict[tuple[int, str], Money],
+) -> AgePensionYear | None:
+    """Step 0: the means test on the opening ``balances``, or None when no Member is eligible."""
+    eligible_from = {m.member_id: m.eligible_from_year for m in ap.members}
+    eligible = sorted(m for m, year in eligible_from.items() if year <= t)
+    if not eligible:
+        return None
+    zero = Money.zero(i.currency)
+    counted: dict[str, Money] = {}
+    for line in i.lines:  # canonical order
+        key = line.category_key
+        if key in ASSESSED_FROM_START or (
+            key in ASSESSED_FROM_ELIGIBILITY and eligible_from.get(line.member_id, i.years) <= t
+        ):
+            counted[key] = counted.get(key, zero) + balances[(line.member_id, key)]
+    financial = sum(counted.values(), zero)
+    assets = financial + ap.property_assets[t] + ap.vehicle_assets[t]
+    working: AgePensionWorking = assess(
+        ap.params_for(t),
+        couple=ap.couple,
+        homeowner=ap.homeowner,
+        assets=assets,
+        financial_assets=financial,
+        other_income=ap.other_income[t],
+    )
+    # One eligible Member of a couple: half the couple's total (one partner's rate less half the
+    # combined reduction). Both: the total split in half, largest remainder.
+    shares = allocate(working.pension, {m.member_id: 1 for m in ap.members})
+    paid = tuple((member_id, shares[member_id]) for member_id in eligible)
+    return AgePensionYear(
+        paid,
+        ap.couple,
+        ap.homeowner,
+        tuple(counted.items()),
+        ap.property_assets[t],
+        ap.vehicle_assets[t],
+        working.assets,
+        working.financial_assets,
+        working.other_income,
+        working.deemed_income,
+        working.maximum,
+        working.income_test,
+        working.assets_test,
+        working.bound,
+        working.pension,
+    )
+
+
 def project(projection_input: ProjectionInput) -> ProjectionResult:
     """Run the projection. Pure and deterministic."""
     i = projection_input
@@ -153,6 +250,9 @@ def project(projection_input: ProjectionInput) -> ProjectionResult:
     rows: list[YearRow] = []
     first_shortfall: int | None = None
     for t in range(i.years):
+        pension = (
+            None if i.age_pension is None else _assess_age_pension(i, i.age_pension, t, balances)
+        )
         grown = {
             (line.member_id, line.category_key): scale(
                 balances[(line.member_id, line.category_key)],
@@ -167,6 +267,11 @@ def project(projection_input: ProjectionInput) -> ProjectionResult:
             if inflow.from_year <= t < until:
                 key = (inflow.member_id, inflow.category_key)
                 credited[key] = credited[key] + inflow.amount
+
+        if pension is not None:
+            for member_id, amount in pension.paid:
+                key = (member_id, AGE_PENSION_CREDIT)
+                credited[key] = credited[key] + amount
 
         need = zero
         for outflow in i.outflows:
@@ -244,6 +349,7 @@ def project(projection_input: ProjectionInput) -> ProjectionResult:
                 need,
                 remaining,
                 tuple(paid_rows),
+                pension,
             )
         )
         if first_shortfall is None and remaining.amount_minor > 0:

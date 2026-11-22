@@ -16,7 +16,7 @@ from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 from test_projection_engine import aud, projection_inputs
 
-from finance360.capabilities.projection import engine, result_json
+from finance360.capabilities.projection import engine, result_json, runs
 from finance360.capabilities.projection import input as pinput
 from finance360.capabilities.projection.engine import project
 from finance360.capabilities.projection.input import InputError, ProjectionInput
@@ -462,8 +462,11 @@ def test_a_run_saved_before_spending_phases_reopens_and_reruns_the_same(
 
 def _saved_by_engine_1(client: TestClient, run_id: int) -> int:
     """Store a copy of a run as engine 1 saved it (ADR-0028 s4): input version 1 without
-    ``debits``, a result without ``debited`` or per-year ``debits``, and no provenance ``debits``.
-    Inserted, not updated: runs are append-only."""
+    ``debits`` (and no ``age_pension``), a result without ``debited``, per-year ``debits`` or
+    ``age_pension``, and no provenance ``debits``. Engine 1 paid no Age Pension, so its result and
+    sustainable spending are the current engine's on that input with none (the engine with no
+    pension input is the old engine: its golden tests are unchanged). Inserted, not updated: runs
+    are append-only."""
     import json
 
     with factory_of(client).begin() as session:
@@ -471,15 +474,26 @@ def _saved_by_engine_1(client: TestClient, run_id: int) -> int:
         assert row is not None
         stored = json.loads(row.input_json)
         stored.pop("debits")
+        stored.pop("age_pension")
         stored["input_version"] = 1
-        result = json.loads(row.result_json)
+        old_input = pinput.from_json(json.dumps(stored))
+        assert old_input.age_pension is None
+        old_result = project(old_input)
+        result = result_json.result_payload(old_result)
         result["engine_version"], result["input_version"] = 1, 1
         for year in result["years"]:
             year.pop("debits")
+            year.pop("age_pension")
             for line in year["lines"]:
                 line.pop("debited")
         provenance = json.loads(row.provenance_json)
         provenance.pop("debits", None)
+        provenance.pop("age_pension")
+        prepared = runs._prepared_from(provenance, old_input)  # pyright: ignore[reportPrivateUsage]
+        assert prepared.spending is not None
+        most = sustainable_spending(
+            old_input, prepared.spending, prepared.last_retirement_year, prepared.fixed_outflows
+        )
         legacy = ProjectionRun(
             created_at=row.created_at,
             label="Saved by engine 1",
@@ -490,27 +504,30 @@ def _saved_by_engine_1(client: TestClient, run_id: int) -> int:
             rule_pack_version=row.rule_pack_version,
             input_json=json.dumps(stored, sort_keys=True),
             result_json=json.dumps(result, sort_keys=True),
-            sustainable_json=row.sustainable_json,
+            sustainable_json=result_json.sustainable_to_json(most),
             provenance_json=json.dumps(provenance, sort_keys=True),
-            funds_last_to_age=row.funds_last_to_age,
-            lasts_beyond_horizon=row.lasts_beyond_horizon,
+            funds_last_to_age=old_result.funds_last_to_age,
+            lasts_beyond_horizon=old_result.lasts_beyond_horizon,
         )
         session.add(legacy)
         session.flush()
         return legacy.id
 
 
-def test_a_run_saved_by_engine_1_displays_as_computed_and_reruns_to_engine_2(
+def test_a_run_saved_by_engine_1_displays_as_computed_and_reruns_to_engine_3(
     sample: TestClient,
 ) -> None:
     saved = save(sample, "Retire early, spend more")
     legacy_id = _saved_by_engine_1(sample, saved["id"])
     legacy = detail(sample, legacy_id)
     original = detail(sample, saved["id"])
-    # Shown as engine 1 computed it: no debits, nothing debited, the same figures.
+    # Shown as engine 1 computed it: no debits, nothing debited, no Age Pension (the current run
+    # pays one from the first Age Pension age year, so only the years before it are the same).
     assert (legacy["engine_version"], legacy["input_version"]) == (1, 1)
     assert legacy["run"]["current_engine"] is False
-    assert legacy["rows"] == original["rows"]
+    first_paid = next(i for i, r in enumerate(original["rows"]) if r["age_pension"] is not None)
+    assert legacy["rows"][:first_paid] == original["rows"][:first_paid]
+    assert legacy["age_pension"] is None and all(r["age_pension"] is None for r in legacy["rows"])
     assert all(r["debits"] == [] and r["paid_personally"] == "0.00" for r in legacy["rows"])
     assert all(c["debited"] == "0.00" for r in legacy["rows"] for c in r["categories"])
 
@@ -519,14 +536,14 @@ def test_a_run_saved_by_engine_1_displays_as_computed_and_reruns_to_engine_2(
     new = again.json()
     assert (new["engine_version"], new["current_engine"]) == (engine.ENGINE_VERSION, True)
     redone = detail(sample, new["id"])
-    assert (redone["engine_version"], redone["input_version"]) == (2, 2)
+    assert (redone["engine_version"], redone["input_version"]) == (3, 3)
     assert redone["rows"] == legacy["rows"] and redone["sustainable"] == legacy["sustainable"]
     with factory_of(sample)() as session:
         a, b = (session.get(ProjectionRun, i) for i in (legacy_id, new["id"]))
         assert a is not None and b is not None
         assert (a.engine_version, a.input_version) == (1, 1)  # the old row is untouched
-        assert (b.engine_version, b.input_version) == (2, 2)
-        assert '"debits":[]' in b.input_json and '"input_version":2' in b.input_json
+        assert (b.engine_version, b.input_version) == (3, 3)
+        assert '"debits":[]' in b.input_json and '"input_version":3' in b.input_json
 
 
 def test_errors_keep_the_shared_shape(sample: TestClient) -> None:

@@ -89,11 +89,12 @@ def test_the_ages_are_not_in_the_stored_input(sample: TestClient) -> None:
     sample.post("/api/projection/runs", json={"scenario_id": scenario_id(sample), "as_at": AS_AT})
     with factory_of(sample)() as session:
         row = session.scalars(select(ProjectionRun)).one()
-        assert "preservation" not in row.input_json and "age_pension" not in row.input_json
+        assert "preservation" not in row.input_json and "age_pension_age" not in row.input_json
         stored = json.loads(row.input_json)
-    # The input keeps exactly the fields it had before B10 (no rules block until B12), plus the
-    # line debits of input version 2 (ADR-0028).
+    # The ages are not in the input. It keeps the fields it had before B10, plus the line debits of
+    # input version 2 (ADR-0028) and the Age Pension block of version 3 (ADR-0029).
     assert set(stored) == {
+        "age_pension",
         "as_at",
         "currency",
         "debits",
@@ -210,9 +211,12 @@ def test_a_scenario_override_replaces_an_age_for_every_member_and_is_labelled(
     assert {v[2] for v in other.values()} == {"rule_pack"}  # the rest stay the pack's
     likely = live(sample, "Likely")  # another Scenario is not affected
     assert {v[:2] for k, v in ages_of(likely).items() if k[1] == "age_pension_age"} == {(67, 0)}
-    # An override changes no projected figure in B10 (B6 will use the ages).
-    assert p["rows"] == figures_before["rows"]
-    assert p["sustainable"] == figures_before["sustainable"]
+    # The age moves when super opens and when the Age Pension starts (ADR-0029), so the years
+    # before the first Member's original eligibility are unchanged; the pension then starts later.
+    first = min(e["year"] for e in figures_before["age_pension"]["eligibility"])
+    assert p["rows"][:first] == figures_before["rows"][:first]
+    assert figures_before["rows"][first]["age_pension"] is not None
+    assert p["rows"][first]["age_pension"] is None
 
 
 def test_a_household_default_override_applies_unless_a_scenario_states_its_own(

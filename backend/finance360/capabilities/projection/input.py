@@ -20,10 +20,17 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any, cast
 
+from finance360.capabilities.projection.age_pension import (
+    KEY_FIELDS,
+    RATE_FIELDS,
+    AgePensionParams,
+)
 from finance360.core.money import Money, MoneyError, exponent, opaque
 from finance360.core.rate import Rate, RateError
 
-INPUT_VERSION = 2
+INPUT_VERSION = 3
+#: The Category the Age Pension is credited to, on each paid Member's own line (ADR-0029 s3).
+AGE_PENSION_CREDIT = "cash"
 MIN_YEARS = 1
 MAX_YEARS = 120
 #: Why an amount leaves a line (ADR-0028 s1). A tag for display and traceability only: no code
@@ -123,6 +130,56 @@ def debit_order(debit: LineDebit) -> tuple[int, int, str, str, str, int]:
     )
 
 
+@dataclass(frozen=True)
+class AgePensionMember:
+    """A Member the Age Pension can be paid to, from the projection year their Age Pension age
+    (a Life event, ADR-0017) falls in. A year at or past ``years`` means never within the run."""
+
+    member_id: int
+    eligible_from_year: int
+
+
+@dataclass(frozen=True)
+class AgePensionSpan:
+    """The means test's figures from projection year ``first_year`` until the next span."""
+
+    first_year: int
+    params: AgePensionParams
+
+
+@dataclass(frozen=True)
+class AgePensionInput:
+    """Everything the engine needs to calculate the Age Pension (ADR-0029 section 5), already
+    resolved: the Household facts, each Member's eligibility, the per-year amounts the engine does
+    not project (other income, Property, Vehicles) and the rules as per-span parameters.
+
+    The projected balances (Cash, Investments, Super, Overseas pensions) are assessed by the
+    engine from its own lines; the three per-year tuples here are the rest, one amount per
+    projection year.
+    """
+
+    #: The Household is a pension couple (two Members assessed together) or a single person.
+    couple: bool
+    #: The Household owns the home it lives in: selects the assets-test threshold.
+    homeowner: bool
+    members: tuple[AgePensionMember, ...]
+    #: Gross pay of the stored Income streams in force each year, both Members of a couple.
+    other_income: tuple[Money, ...]
+    #: Non-home Property at its latest Valuation as at the start, constant in real terms.
+    property_assets: tuple[Money, ...]
+    #: Vehicles at their latest Valuation, flat in nominal terms (so falling in real terms).
+    vehicle_assets: tuple[Money, ...]
+    spans: tuple[AgePensionSpan, ...]
+
+    def params_for(self, t: int) -> AgePensionParams:
+        """The figures in force in projection year ``t``."""
+        found = self.spans[0].params
+        for span in self.spans:
+            if span.first_year <= t:
+                found = span.params
+        return found
+
+
 def _is_int(value: object) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
 
@@ -140,6 +197,9 @@ class ProjectionInput:
     outflows: tuple[Outflow, ...]
     drawdown_order: tuple[str, ...]
     debits: tuple[LineDebit, ...] = ()
+    #: None: no Age Pension is calculated (the Household facts do not fit, or the pack holds no
+    #: figures). The run says which, in its provenance.
+    age_pension: AgePensionInput | None = None
 
     def __post_init__(self) -> None:
         if self.input_version != INPUT_VERSION:
@@ -193,6 +253,9 @@ class ProjectionInput:
             if not isinstance(debit.ref, str) or not 1 <= len(debit.ref) <= REF_MAX:  # pyright: ignore[reportUnnecessaryIsInstance]
                 raise InputError(f"a debit's ref must be 1 to {REF_MAX} characters.")
 
+        if self.age_pension is not None:
+            self._check_age_pension(self.age_pension, keys)
+
         rank = {key: i for i, key in enumerate(order)}
         object.__setattr__(self, "debits", tuple(sorted(self.debits, key=debit_order)))
         object.__setattr__(self, "members", tuple(sorted(self.members, key=lambda m: m.member_id)))
@@ -234,6 +297,38 @@ class ProjectionInput:
             ),
         )
 
+    def _check_age_pension(self, ap: AgePensionInput, keys: list[tuple[int, str]]) -> None:
+        member_ids = [m.member_id for m in self.members]
+        paid = [m.member_id for m in ap.members]
+        if not ap.members or len(set(paid)) != len(paid) or not set(paid) <= set(member_ids):
+            raise InputError("Age Pension members must be unique Members of the projection.")
+        if len(ap.members) != (2 if ap.couple else 1):
+            raise InputError("An Age Pension couple has two Members, a single person one.")
+        for member in ap.members:
+            if not _is_int(member.eligible_from_year) or member.eligible_from_year < 0:
+                raise InputError("eligible_from_year must be a whole number, 0 or more.")
+            if (member.member_id, AGE_PENSION_CREDIT) not in keys:
+                raise InputError("every Age Pension Member needs a cash line to credit.")
+        for name, series in (
+            ("other_income", ap.other_income),
+            ("property_assets", ap.property_assets),
+            ("vehicle_assets", ap.vehicle_assets),
+        ):
+            if len(series) != self.years:
+                raise InputError(f"Age Pension {name} needs one amount for each year.")
+            for money in series:
+                self._money(money, f"Age Pension {name}", allow_zero=True)
+        if not ap.spans or ap.spans[0].first_year != 0:
+            raise InputError("Age Pension spans must start at year 0.")
+        starts = [x.first_year for x in ap.spans]
+        if starts != sorted(set(starts)) or starts[-1] >= self.years:
+            raise InputError("Age Pension spans must ascend and fall within the projection.")
+        for span in ap.spans:
+            if not isinstance(opaque(span.params), AgePensionParams):
+                raise InputError("Age Pension span params must be AgePensionParams.")
+            for money in span.params.money_fields():
+                self._money(money, "an Age Pension figure", allow_zero=True)
+
     def _money(self, money: Money, what: str, *, allow_zero: bool = False) -> None:
         if not isinstance(opaque(money), Money) or money.currency != self.currency:
             raise InputError(f"{what} must be Money in {self.currency}.")
@@ -255,9 +350,36 @@ def money_out(money: Money) -> dict[str, Any]:
     return {"ccy": money.currency, "minor": money.amount_minor}
 
 
+def _params_out(params: AgePensionParams) -> dict[str, Any]:
+    return {
+        name: (
+            getattr(params, name).to_percent()
+            if name in RATE_FIELDS
+            else money_out(getattr(params, name))
+        )
+        for name in KEY_FIELDS.values()
+    }
+
+
+def _age_pension_out(ap: AgePensionInput) -> dict[str, Any]:
+    return {
+        "couple": ap.couple,
+        "homeowner": ap.homeowner,
+        "members": [
+            {"eligible_from_year": m.eligible_from_year, "member_id": m.member_id}
+            for m in ap.members
+        ],
+        "other_income": [money_out(m) for m in ap.other_income],
+        "property_assets": [money_out(m) for m in ap.property_assets],
+        "spans": [{"first_year": x.first_year, "params": _params_out(x.params)} for x in ap.spans],
+        "vehicle_assets": [money_out(m) for m in ap.vehicle_assets],
+    }
+
+
 def to_payload(value: ProjectionInput) -> dict[str, Any]:
     """The input as plain JSON-ready data (no floats), in canonical order."""
     return {
+        "age_pension": None if value.age_pension is None else _age_pension_out(value.age_pension),
         "as_at": value.as_at.isoformat(),
         "currency": value.currency,
         "debits": [
@@ -364,10 +486,56 @@ def _until(raw: object, what: str) -> int | None:
     return None if raw is None else as_int(raw, what)
 
 
-def _v2(payload: Mapping[str, Any]) -> ProjectionInput:
+def _bool_in(raw: object, what: str) -> bool:
+    if not isinstance(raw, bool):
+        raise InputError(f"{what} must be true or false.")
+    return raw
+
+
+def _params_in(raw: object) -> AgePensionParams:
+    body = as_obj(raw, "Age Pension params")
+    fields: dict[str, Any] = {}
+    for name in KEY_FIELDS.values():
+        fields[name] = (
+            _rate_in(body.get(name), name)
+            if name in RATE_FIELDS
+            else money_in(body.get(name), name)
+        )
+    return AgePensionParams(**fields)
+
+
+def _age_pension_in(raw: object) -> AgePensionInput | None:
+    if raw is None:
+        return None
+    body = as_obj(raw, "age_pension")
+
+    def series(name: str) -> tuple[Money, ...]:
+        return tuple(money_in(x, name) for x in as_list(body.get(name), name))
+
+    return AgePensionInput(
+        _bool_in(body.get("couple"), "couple"),
+        _bool_in(body.get("homeowner"), "homeowner"),
+        tuple(
+            AgePensionMember(
+                as_int(m.get("member_id"), "member_id"),
+                as_int(m.get("eligible_from_year"), "eligible_from_year"),
+            )
+            for m in (as_obj(x, "a member") for x in as_list(body.get("members"), "members"))
+        ),
+        series("other_income"),
+        series("property_assets"),
+        series("vehicle_assets"),
+        tuple(
+            AgePensionSpan(as_int(x.get("first_year"), "first_year"), _params_in(x.get("params")))
+            for x in (as_obj(y, "a span") for y in as_list(body.get("spans"), "spans"))
+        ),
+    )
+
+
+def _v3(payload: Mapping[str, Any]) -> ProjectionInput:
     try:
         return ProjectionInput(
-            input_version=2,
+            input_version=3,
             as_at=as_date(payload.get("as_at"), "as_at"),
             currency=as_text(payload.get("currency"), "currency"),
             members=tuple(
@@ -425,6 +593,7 @@ def _v2(payload: Mapping[str, Any]) -> ProjectionInput:
                 )
                 for x in (as_obj(y, "a debit") for y in as_list(payload.get("debits"), "debits"))
             ),
+            age_pension=_age_pension_in(payload.get("age_pension")),
         )
     except (TypeError, MoneyError, RateError) as error:
         raise InputError(str(error)) from None
@@ -435,10 +604,16 @@ def _upcast_v1_to_v2(payload: Mapping[str, Any]) -> Mapping[str, Any]:
     return {**payload, "input_version": 2, "debits": []}
 
 
+def _upcast_v2_to_v3(payload: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Version 3 added ``age_pension`` (ADR-0029 s5); a version 2 snapshot calculated none."""
+    return {**payload, "input_version": 3, "age_pension": None}
+
+
 #: One pure upcaster per past version, oldest first, each returning the next version's payload, so
 #: a saved run's snapshot always loads.
 _UPCASTERS: dict[int, Callable[[Mapping[str, Any]], Mapping[str, Any]]] = {
     1: _upcast_v1_to_v2,
+    2: _upcast_v2_to_v3,
 }
 
 
@@ -467,7 +642,7 @@ def from_payload(payload: object) -> ProjectionInput:
         version += 1
     if version != INPUT_VERSION:
         raise InputError(f"Unsupported input_version {version}.")
-    return _v2(body)
+    return _v3(body)
 
 
 def no_float(text: str) -> Any:
