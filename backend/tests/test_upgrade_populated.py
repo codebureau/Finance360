@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 from alembic import command
@@ -37,6 +38,8 @@ from alembic.script import ScriptDirectory
 from sqlalchemy import Engine, event, inspect
 from sqlalchemy.orm import ORMExecuteState, Session, defer
 
+from finance360.capabilities.household import service as household_service
+from finance360.capabilities.household.facts import EffectiveFacts, StoredFacts, resolve_facts
 from finance360.capabilities.household.service import bootstrap
 from finance360.capabilities.imports import account_identifiers
 from finance360.capabilities.position import accounts as position_accounts
@@ -303,6 +306,15 @@ def _seed_spending_phases(session: Session, data_dir: Path) -> None:
     at this revision, so the run made from phases is saved by the 0020 seeder instead."""
 
 
+def _facts_before_revision_0033(session: Session, today: date | None = None) -> EffectiveFacts:
+    """The Household facts as a database from before revision 0033 holds them: none is stored, so
+    each is the labelled default. The projection reads them for the Age Pension (ADR-0029), and the
+    real reader would select columns this old database does not have yet."""
+    members = len(household_service.list_members(session))
+    open_homes = frozenset(a.id for a in household_service.open_property_accounts(session, today))
+    return resolve_facts(StoredFacts(), members, open_homes)
+
+
 def _seed_income_streams(session: Session, data_dir: Path) -> None:
     """Revision 0020 created ``income_stream`` and ``income_stream_owner``: a salary for each
     Member, through the real service (the fixture's, so they carry its invented amounts)."""
@@ -314,7 +326,8 @@ def _seed_income_streams(session: Session, data_dir: Path) -> None:
     # First a run of Likely, through the real services, made from phases and before any salary
     # exists, so a run sits beside the old rows as the 0019 step intended.
     likely = session.scalars(select(Scenario).where(Scenario.key == "likely")).one()
-    runs.save_run(session, scenarios.FIXTURE_CONTEXT, likely.id, "Upgrade check phases")
+    with patch.object(household_service, "effective_facts", _facts_before_revision_0033):
+        runs.save_run(session, scenarios.FIXTURE_CONTEXT, likely.id, "Upgrade check phases")
     income_streams.load_fixture_income_streams(session, data_dir)
 
 
@@ -1014,11 +1027,14 @@ GOLDEN_BEFORE_PHASES = {
 
 
 def _without_streams(data_dir: Path) -> None:
-    """The conversion goldens are of the household before salaries: drop the 0020 seeder's two."""
+    """The conversion goldens are of the household before salaries and before the Age Pension: drop
+    the 0020 seeder's two salaries, and state a couple status that does not fit the two Members, so
+    the projection runs with no Age Pension (ADR-0029: not modelled, never a failed run)."""
     conn = sqlite3.connect(db_path(data_dir))
     try:
         conn.execute("DELETE FROM income_stream_owner")
         conn.execute("DELETE FROM income_stream")
+        conn.execute("UPDATE household SET couple_status = 'single'")
         conn.commit()
     finally:
         conn.close()
@@ -1039,6 +1055,7 @@ def _projection_digest(session: Session, scenario_id: int) -> str:
     # drops the new fields: with no debits every figure must still be exactly as it was.
     for row in core["rows"]:
         assert row.pop("debits") == [] and row.pop("paid_personally") == "0.00"
+        assert row.pop("age_pension") is None  # engine 3 (ADR-0029); none with the facts as set
         for category in row["categories"]:
             assert category.pop("debited") == "0.00"
     return hashlib.sha256(json.dumps(core, sort_keys=True).encode()).hexdigest()

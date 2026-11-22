@@ -121,6 +121,7 @@ const saved = (run: RunHeader): SavedRun => ({
   super_access: superAccess(),
   income: null,
   tax: null,
+  age_pension: null,
   spending: run.rule_pack_version === null ? null : phases(),
   rows: [
     {
@@ -134,6 +135,7 @@ const saved = (run: RunHeader): SavedRun => ({
       shortfall: "0.00",
       debits: [],
       paid_personally: "0.00",
+      age_pension: null,
     },
   ],
   scenario: { id: run.scenario_id, key: null, name: run.scenario_name },

@@ -97,6 +97,7 @@ const projection = (over: Partial<ScenarioProjection> = {}): ScenarioProjection 
   super_access: superAccess(),
   income: null,
   tax: null,
+  age_pension: null,
   spending: {
     layer: "household",
     phases: [
@@ -116,6 +117,7 @@ const projection = (over: Partial<ScenarioProjection> = {}): ScenarioProjection 
       shortfall: "0.00",
       debits: [],
       paid_personally: "0.00",
+      age_pension: null,
     },
     {
       t: 1,
@@ -128,6 +130,7 @@ const projection = (over: Partial<ScenarioProjection> = {}): ScenarioProjection 
       shortfall: "300.00",
       debits: [],
       paid_personally: "0.00",
+      age_pension: null,
     },
   ],
   scenario: { id: 2, key: "likely", name: "Likely" },

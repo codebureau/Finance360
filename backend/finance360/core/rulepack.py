@@ -16,8 +16,9 @@ services look a pack up here by jurisdiction key and never import ``rulepacks/``
 * ``materialise`` returns a step function: a new span only where a value changes.
 * **Tax keys** (prefix ``tax.``, ADR-0019) belong to the Tax capability, which reads exact
   financial years from the pack. They are never materialised for a projection and are not
-  Scenario-overridable. The ``age_pension.`` keys (B11) are treated the same until the engine
-  slice that reads them.
+  Scenario-overridable. The ``age_pension.`` keys (B11) are materialised for a projection like any
+  other key (every one is ``cpi``, so a run gets one span), but are not Scenario-overridable yet
+  (ADR-0029 section 5).
 * A year's entry may mark a key **provisional** (announced, not yet law) with a note. The marker is
   in the content hash, so setting or clearing it needs a ``revision`` bump.
 * **Captured figures** (ADR-0022) layer over the shipped pack: ``layer`` is a pure function from a
@@ -30,7 +31,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime
 from typing import Any, cast
@@ -56,13 +57,19 @@ OVERRIDE_PREFIX = "rule."
 #: Keys of the Tax capability's rules (ADR-0019 section 4).
 TAX_PREFIX = "tax."
 
-#: Keys of the Age Pension means test (B11). Like ``tax.`` keys they are read for an exact
-#: financial year by their own calculation, not projected year by year and not yet overridable.
+#: Keys of the Age Pension means test (B11). Materialised for a projection (ADR-0029 section 5) but
+#: not yet Scenario-overridable.
 AGE_PENSION_PREFIX = "age_pension."
 
 
-def is_exact_year_key(key: str) -> bool:
+def is_unmaterialised_key(key: str) -> bool:
     """A key read for an exact FY by its own calculation, never materialised for a projection."""
+    return key.startswith(TAX_PREFIX)
+
+
+def is_exact_year_key(key: str) -> bool:
+    """A key a Scenario may not override: ``tax.`` and ``age_pension.`` keys (ADR-0029 section 5).
+    Allowing the latter later is dropping its prefix here; ``materialise`` takes overrides."""
     return key.startswith((TAX_PREFIX, AGE_PENSION_PREFIX))
 
 
@@ -623,6 +630,7 @@ def materialise(
     years: int,
     inflation: Rate,
     overrides: Mapping[str, Value] | None = None,
+    keys: Collection[str] | None = None,
 ) -> tuple[Span, ...]:
     """The pack's parameters for projection years ``0 .. years - 1`` as a step function.
 
@@ -630,6 +638,8 @@ def materialise(
     at the FY that publishes it; beyond the last known FY of that parameter its policy carries it
     forward. ``overrides`` (key to value) replace a parameter for every year. A new span starts
     only where some value differs from the year before, so a ``cpi``-only pack yields one span.
+    ``keys`` limits the answer to those parameters (a caller that reads only some, so a key it does
+    not read never has to hold a figure for the first year).
     """
     if years < 1:
         raise RulePackError("Materialise at least one year.")
@@ -641,8 +651,10 @@ def materialise(
         fy = first_fy + t
         values: dict[str, Value] = {}
         for param in pack.params:
-            if is_exact_year_key(param.key):
-                continue  # read for an exact FY (Tax, Age Pension), never projected
+            if is_unmaterialised_key(param.key):
+                continue  # read for an exact FY (Tax), never projected
+            if keys is not None and param.key not in keys:
+                continue
             if param.key in overrides:
                 values[param.key] = overrides[param.key]
                 continue

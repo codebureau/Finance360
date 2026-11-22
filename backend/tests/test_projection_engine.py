@@ -77,7 +77,7 @@ def closings(result: ProjectionResult, member_id: int, category: str) -> list[in
 
 #: The version the golden answers below were computed with. Changing a golden answer, or anything
 #: else that moves a figure, forces a deliberate bump of ENGINE_VERSION in the same change.
-GOLDEN_ENGINE_VERSION = 2
+GOLDEN_ENGINE_VERSION = 3
 
 
 def test_golden_answers_were_computed_with_this_engine_version() -> None:

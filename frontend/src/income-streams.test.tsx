@@ -277,6 +277,7 @@ const projection = (): ScenarioProjection => ({
   super_access: [],
   spending: null,
   tax: null,
+  age_pension: null,
   income: {
     streams: [
       {
@@ -350,6 +351,7 @@ const projection = (): ScenarioProjection => ({
     shortfall: "0.00",
     debits: [],
     paid_personally: "0.00",
+    age_pension: null,
   })),
   scenario: { id: 2, key: "likely", name: "Likely" },
   provenance: [],

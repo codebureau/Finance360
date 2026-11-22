@@ -14,7 +14,9 @@ from pydantic import BaseModel, Field, StrictInt
 
 from finance360.api.household import ERRORS, ContextDep, SessionDep
 from finance360.api.scenarios import SpendingPhaseIn, SpendingPhaseOut
+from finance360.capabilities.household import facts as household_facts
 from finance360.capabilities.projection import (
+    age_pension_used,
     assumptions,
     engine,
     income,
@@ -28,6 +30,7 @@ from finance360.capabilities.projection import (
 from finance360.capabilities.projection.input import anniversary
 from finance360.core import rulepack
 from finance360.core.money import Money, format_amount
+from finance360.core.rate import Rate
 
 router = APIRouter(prefix="/api/projection", tags=["projection"])
 
@@ -105,6 +108,47 @@ class ProjectionDebitOut(BaseModel):
     )
 
 
+class AgePensionPaidOut(BaseModel):
+    member_id: int
+    amount: str = Field(description="Credited to this Member's own cash line, before Drawdown.")
+
+
+class AgePensionCategoryOut(BaseModel):
+    category_key: str
+    amount: str = Field(description="The Category's opening balance that was counted.")
+
+
+class AgePensionYearOut(BaseModel):
+    """The working of one year's Age Pension (ADR-0029 section 4): what the means test read, what
+    each test gave, which one bound. Assessed on the OPENING balances of the year."""
+
+    paid: list[AgePensionPaidOut]
+    total: str = Field(description="The assessed household's whole pension, before it is split.")
+    couple: bool
+    homeowner: bool
+    categories: list[AgePensionCategoryOut] = Field(
+        description="Each projected Category counted, at its opening balance: Cash and "
+        "Investments from year 0, Super and Overseas pensions from their owner's Age Pension age."
+    )
+    property_assets: str = Field(
+        description="Non-home Property: a fixed input, not projected (constant in real terms)."
+    )
+    vehicle_assets: str = Field(
+        description="Vehicles: a fixed input, not projected (flat in nominal terms)."
+    )
+    assets: str = Field(description="Assessable assets: the Categories plus Property and Vehicles.")
+    financial_assets: str = Field(description="The deemed part of the assets.")
+    other_income: str = Field(description="Gross pay of the stored Income streams this year.")
+    deemed_income: str = Field(description="Deemed income on the financial assets, a year.")
+    maximum: str
+    income_test: str = Field(description="The pension the income test alone would pay.")
+    assets_test: str = Field(description="The pension the assets test alone would pay.")
+    bound: str = Field(
+        description="'income' or 'assets': the test that paid less. 'none': neither reduced the "
+        "maximum."
+    )
+
+
 class ProjectionYearOut(BaseModel):
     t: int
     starts_on: date
@@ -118,6 +162,10 @@ class ProjectionYearOut(BaseModel):
         description="The year's line debits, empty for a run saved by engine 1."
     )
     paid_personally: str = Field(description="The sum of the unpaid parts of the year's debits.")
+    age_pension: AgePensionYearOut | None = Field(
+        description="The Age Pension of the year and its working. Null when no Member was "
+        "eligible, none is calculated for the run, or the run was saved by engine 2 or earlier."
+    )
 
 
 class ProjectionSustainableOut(BaseModel):
@@ -295,6 +343,72 @@ class TaxUsedOut(BaseModel):
     )
 
 
+class AgePensionFactOut(BaseModel):
+    key: str = Field(description="'couple_status', 'homeowner' or 'principal_home'.")
+    value: str
+    source: str = Field(description="'entered' or 'default'.")
+    label: str = Field(description="'entered' or 'default, not entered'.")
+
+
+class AgePensionEligibilityOut(BaseModel):
+    member_id: int
+    on: date = Field(description="The date the Member reaches Age Pension age.")
+    year: int = Field(description="The projection year it became: paid from this year.")
+
+
+class AgePensionRuleOut(BaseModel):
+    key: str
+    from_year: int = Field(description="The projection year this value applies from.")
+    financial_year: str = Field(description="The financial year whose published figure it is.")
+    value: str = Field(
+        description="A decimal amount (as published: money is per fortnight where the key says "
+        "so) or a percent."
+    )
+    origin: str = Field(description="'shipped', or 'captured' (a figure the household captured).")
+    capture_id: int | None
+    provisional: bool = Field(description="True when announced but not yet law.")
+    provisional_note: str | None
+
+
+class AgePensionAssetOut(BaseModel):
+    account_id: int
+    name: str
+    category_key: str
+    value: str
+    valued_on: date = Field(description="The Valuation date the value is from.")
+    role: str = Field(description="'assessed', or 'exempt_home' (valued but not counted).")
+
+
+class AgePensionLeftOutOut(BaseModel):
+    account_id: int
+    name: str
+    category_key: str
+    status: str = Field(description="no_valuation or no_rate: not counted.")
+
+
+class AgePensionSimplificationOut(BaseModel):
+    key: str
+    text: str
+
+
+class AgePensionUsedOut(BaseModel):
+    status: str = Field(
+        description="'calculated', or why not: 'needs_home_choice', 'not_modelled' or "
+        "'no_figures'. In each of those the run has no Age Pension and says why (reasons)."
+    )
+    reasons: list[str]
+    facts: list[AgePensionFactOut]
+    eligibility: list[AgePensionEligibilityOut]
+    rules: list[AgePensionRuleOut]
+    assets: list[AgePensionAssetOut] = Field(
+        description="Each Property and Vehicle Account with its latest Valuation as at the start."
+    )
+    left_out: list[AgePensionLeftOutOut]
+    simplifications: list[AgePensionSimplificationOut] = Field(
+        description="The simplifications that apply to this run."
+    )
+
+
 class ProjectionOut(BaseModel):
     engine_version: int
     input_version: int
@@ -335,6 +449,11 @@ class ProjectionOut(BaseModel):
     tax: TaxUsedOut | None = Field(
         description="The tax estimate behind take-home pay and Division 293, with the tax engine "
         "and Rule pack versions. Null when tax is off, and for a run saved before it was built."
+    )
+    age_pension: AgePensionUsedOut | None = Field(
+        description="What the Age Pension calculation used (Household facts, eligibility, each "
+        "rule value, each Property and Vehicle), or why none was calculated. Null for a run saved "
+        "by engine 2 or earlier."
     )
 
 
@@ -490,6 +609,84 @@ def _tax_out(used: tax_income.TaxUsed | None) -> TaxUsedOut | None:
     )
 
 
+def _age_pension_year_out(year: engine.AgePensionYear | None) -> AgePensionYearOut | None:
+    if year is None:
+        return None
+    return AgePensionYearOut(
+        paid=[AgePensionPaidOut(member_id=m, amount=format_amount(a)) for m, a in year.paid],
+        total=format_amount(year.total),
+        couple=year.couple,
+        homeowner=year.homeowner,
+        categories=[
+            AgePensionCategoryOut(category_key=k, amount=format_amount(a))
+            for k, a in year.categories
+        ],
+        property_assets=format_amount(year.property_assets),
+        vehicle_assets=format_amount(year.vehicle_assets),
+        assets=format_amount(year.assets),
+        financial_assets=format_amount(year.financial_assets),
+        other_income=format_amount(year.other_income),
+        deemed_income=format_amount(year.deemed_income),
+        maximum=format_amount(year.maximum),
+        income_test=format_amount(year.income_test),
+        assets_test=format_amount(year.assets_test),
+        bound=year.bound,
+    )
+
+
+def _age_pension_out(used: age_pension_used.AgePensionUsed | None) -> AgePensionUsedOut | None:
+    if used is None:
+        return None
+    return AgePensionUsedOut(
+        status=used.status,
+        reasons=list(used.reasons),
+        facts=[
+            AgePensionFactOut(
+                key=f.key, value=f.value, source=f.source, label=household_facts.LABELS[f.source]
+            )
+            for f in used.facts
+        ],
+        eligibility=[
+            AgePensionEligibilityOut(member_id=e.member_id, on=e.on, year=e.year)
+            for e in used.eligibility
+        ],
+        rules=[
+            AgePensionRuleOut(
+                key=r.key,
+                from_year=r.from_year,
+                financial_year=rulepack.fy_label(r.fy),
+                value=r.value.to_percent() if isinstance(r.value, Rate) else format_amount(r.value),
+                origin=r.origin,
+                capture_id=r.capture_id,
+                provisional=r.provisional_note is not None,
+                provisional_note=r.provisional_note,
+            )
+            for r in used.rules
+        ],
+        assets=[
+            AgePensionAssetOut(
+                account_id=a.account_id,
+                name=a.name,
+                category_key=a.category_key,
+                value=format_amount(a.value),
+                valued_on=a.valued_on,
+                role=a.role,
+            )
+            for a in used.assets
+        ],
+        left_out=[
+            AgePensionLeftOutOut(
+                account_id=x.account_id, name=x.name, category_key=x.category_key, status=x.status
+            )
+            for x in used.left_out
+        ],
+        simplifications=[
+            AgePensionSimplificationOut(key=k, text=age_pension_used.SIMPLIFICATIONS[k])
+            for k in used.simplifications
+        ],
+    )
+
+
 def _spending_out(prepared: service.Prepared, layer: str | None) -> SpendingUsedOut | None:
     if prepared.spending is None:
         return None
@@ -554,6 +751,7 @@ def _out(run: service.ProjectionRun, spending_layer: str | None = None) -> Proje
                 paid_personally=format_amount(
                     sum((d.unpaid for d in row.debits), Money.zero(row.need.currency))
                 ),
+                age_pension=_age_pension_year_out(row.age_pension),
             )
         )
     return ProjectionOut(
@@ -590,6 +788,7 @@ def _out(run: service.ProjectionRun, spending_layer: str | None = None) -> Proje
         spending=_spending_out(prepared, spending_layer),
         income=_income_out(prepared.income),
         tax=_tax_out(prepared.tax),
+        age_pension=_age_pension_out(prepared.age_pension),
     )
 
 

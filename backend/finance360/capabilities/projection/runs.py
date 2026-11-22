@@ -22,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from finance360.capabilities.projection import (
+    age_pension_used,
     assumptions,
     engine,
     income,
@@ -157,6 +158,8 @@ def _provenance_payload(
         payload["tax"] = _tax_payload(prepared.tax)
     if prepared.debits is not None:  # absent in runs saved by engine 1 (ADR-0028 s4)
         payload["debits"] = _debits_payload(prepared.debits)
+    if prepared.age_pension is not None:  # absent in runs saved by engine 2 or earlier
+        payload["age_pension"] = age_pension_used.to_payload(prepared.age_pension)
     if prepared.rules is not None:  # absent in runs saved before B10
         payload["rules"] = _rules_payload(prepared.rules)
     if prepared.life_events is not None:  # absent in runs saved before B6
@@ -398,6 +401,11 @@ def _income_from(provenance: Mapping[str, Any]) -> income.IncomeUsed | None:
     return income.IncomeUsed(streams, rates)
 
 
+def _age_pension_from(provenance: Mapping[str, Any]) -> age_pension_used.AgePensionUsed | None:
+    raw = provenance.get("age_pension")
+    return None if raw is None else age_pension_used.from_payload(raw)
+
+
 def _life_events_from(provenance: Mapping[str, Any]) -> tuple[life_events.LifeEvent, ...] | None:
     raw = provenance.get("life_events")
     if raw is None:
@@ -495,6 +503,7 @@ def _prepared_from(
         _income_from(provenance),
         _tax_from(provenance),
         _debits_from(provenance),
+        _age_pension_from(provenance),
     )
 
 

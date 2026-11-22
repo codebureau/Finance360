@@ -28,9 +28,11 @@ monotone: more assets or income can never raise the pension.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Any
 
-from finance360.core.money import CurrencyMismatchError, Money, MoneyError, round_div
+from finance360.core.money import CurrencyMismatchError, Money, MoneyError, opaque, round_div
 from finance360.core.rate import PPM, Rate
 
 FORTNIGHTS_PER_YEAR = 26
@@ -97,7 +99,37 @@ def maximum_annual(params: AgePensionParams, *, couple: bool) -> Money:
     return Money(fortnight * FORTNIGHTS_PER_YEAR, currency)
 
 
-def age_pension_annual(
+#: Which test bound the pension: the income test or the assets test paid less, or ``none`` when
+#: neither reduced the maximum.
+BOUND_INCOME = "income"
+BOUND_ASSETS = "assets"
+BOUND_NONE = "none"
+
+
+@dataclass(frozen=True, slots=True)
+class AgePensionWorking:
+    """The means test's working for one assessment (ADR-0029 section 4): what was tested, what each
+    test gave and which one bound. ``pension`` is the household's total (a couple's both partners).
+
+    ``income_test`` and ``assets_test`` are each test's pension, from 0 up to ``maximum``, rounded
+    once. Rounding is monotone, so ``pension`` is exactly the lower of the two.
+    """
+
+    couple: bool
+    homeowner: bool
+    assets: Money
+    financial_assets: Money
+    other_income: Money
+    #: Deemed income on ``financial_assets`` (a year), for display; ``other_income`` is separate.
+    deemed_income: Money
+    maximum: Money
+    income_test: Money
+    assets_test: Money
+    bound: str
+    pension: Money
+
+
+def assess(
     params: AgePensionParams,
     *,
     couple: bool,
@@ -105,9 +137,8 @@ def age_pension_annual(
     assets: Money,
     financial_assets: Money,
     other_income: Money,
-) -> Money:
-    """The Age Pension for a year: the lower of the income test and the assets test, never below
-    zero and never above the maximum.
+) -> AgePensionWorking:
+    """The means test with its working. ``age_pension_annual`` is a thin wrapper over this.
 
     ``assets`` is the household's total assessable assets (the home excluded for a homeowner);
     ``financial_assets`` is the part of it that is deemed and must not exceed it; ``other_income``
@@ -122,11 +153,8 @@ def age_pension_annual(
     threshold = params.deeming_threshold_couple if couple else params.deeming_threshold_single
     below = min(financial_assets.amount_minor, threshold.amount_minor)
     above = financial_assets.amount_minor - below
-    income = (
-        other_income.amount_minor * PPM
-        + below * params.deeming_rate_lower.ppm
-        + above * params.deeming_rate_upper.ppm
-    )
+    deemed = below * params.deeming_rate_lower.ppm + above * params.deeming_rate_upper.ppm
+    income = other_income.amount_minor * PPM + deemed
     free = params.income_free_area_couple if couple else params.income_free_area_single
     excess_income = max(0, income - free.amount_minor * FORTNIGHTS_PER_YEAR * PPM)
     # cents * PPM * PPM
@@ -150,5 +178,92 @@ def age_pension_annual(
         maximum * PPM - FORTNIGHTS_PER_YEAR * params.assets_taper.ppm * excess_assets
     ) * PPM
 
-    scaled = max(0, min(by_income, by_assets, maximum * PPM * PPM))
-    return Money(round_div(scaled, PPM * PPM), currency)
+    cap = maximum * PPM * PPM
+    income_test = round_div(max(0, min(by_income, cap)), PPM * PPM)
+    assets_test = round_div(max(0, min(by_assets, cap)), PPM * PPM)
+    if income_test == maximum and assets_test == maximum:
+        bound = BOUND_NONE
+    elif income_test <= assets_test:
+        bound = BOUND_INCOME
+    else:
+        bound = BOUND_ASSETS
+    return AgePensionWorking(
+        couple,
+        homeowner,
+        assets,
+        financial_assets,
+        other_income,
+        Money(round_div(deemed, PPM), currency),
+        Money(maximum, currency),
+        Money(income_test, currency),
+        Money(assets_test, currency),
+        bound,
+        Money(min(income_test, assets_test), currency),
+    )
+
+
+def age_pension_annual(
+    params: AgePensionParams,
+    *,
+    couple: bool,
+    homeowner: bool,
+    assets: Money,
+    financial_assets: Money,
+    other_income: Money,
+) -> Money:
+    """The Age Pension for a year: the lower of the income test and the assets test, never below
+    zero and never above the maximum (see ``assess`` for the arguments and the working)."""
+    return assess(
+        params,
+        couple=couple,
+        homeowner=homeowner,
+        assets=assets,
+        financial_assets=financial_assets,
+        other_income=other_income,
+    ).pension
+
+
+#: The pack keys the means test reads, and the ``AgePensionParams`` field each fills (ADR-0029
+#: section 5). The caller reads the Rule pack; this module only maps keys to fields.
+KEY_FIELDS: dict[str, str] = {
+    "age_pension.max_basic.single": "max_basic_single",
+    "age_pension.max_basic.couple_each": "max_basic_couple_each",
+    "age_pension.pension_supplement.single": "pension_supplement_single",
+    "age_pension.pension_supplement.couple_each": "pension_supplement_couple_each",
+    "age_pension.income_free_area.single": "income_free_area_single",
+    "age_pension.income_free_area.couple": "income_free_area_couple",
+    "age_pension.income_taper": "income_taper",
+    "age_pension.assets_threshold.homeowner_single": "assets_threshold_homeowner_single",
+    "age_pension.assets_threshold.homeowner_couple": "assets_threshold_homeowner_couple",
+    "age_pension.assets_threshold.non_homeowner_single": "assets_threshold_non_homeowner_single",
+    "age_pension.assets_threshold.non_homeowner_couple": "assets_threshold_non_homeowner_couple",
+    "age_pension.assets_taper": "assets_taper",
+    "age_pension.deeming.threshold_single": "deeming_threshold_single",
+    "age_pension.deeming.threshold_couple": "deeming_threshold_couple",
+    "age_pension.deeming.rate_lower": "deeming_rate_lower",
+    "age_pension.deeming.rate_upper": "deeming_rate_upper",
+}
+
+
+def params_from_values(values: Mapping[str, object]) -> AgePensionParams:
+    """``AgePensionParams`` from pack key to value (``Money`` or ``Rate``). A key missing or of the
+    wrong kind raises ``MoneyError`` naming it."""
+    fields: dict[str, Any] = {}
+    for key, name in KEY_FIELDS.items():
+        if key not in values:
+            raise MoneyError(f"The Age Pension figure {key!r} is missing")
+        fields[name] = values[key]
+    try:
+        params = AgePensionParams(**fields)
+    except TypeError as error:  # pragma: no cover - the keys above are the whole field set
+        raise MoneyError(str(error)) from None
+    for key, name in KEY_FIELDS.items():
+        want = Rate if name in RATE_FIELDS else Money
+        if not isinstance(opaque(getattr(params, name)), want):
+            raise MoneyError(f"The Age Pension figure {key!r} must be a {want.__name__}")
+    return params
+
+
+RATE_FIELDS = frozenset(
+    {"income_taper", "assets_taper", "deeming_rate_lower", "deeming_rate_upper"}
+)

@@ -2580,6 +2580,237 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** AgePensionAssetOut */
+        AgePensionAssetOut: {
+            /** Account Id */
+            account_id: number;
+            /** Category Key */
+            category_key: string;
+            /** Name */
+            name: string;
+            /**
+             * Role
+             * @description 'assessed', or 'exempt_home' (valued but not counted).
+             */
+            role: string;
+            /** Value */
+            value: string;
+            /**
+             * Valued On
+             * Format: date
+             * @description The Valuation date the value is from.
+             */
+            valued_on: string;
+        };
+        /** AgePensionCategoryOut */
+        AgePensionCategoryOut: {
+            /**
+             * Amount
+             * @description The Category's opening balance that was counted.
+             */
+            amount: string;
+            /** Category Key */
+            category_key: string;
+        };
+        /** AgePensionEligibilityOut */
+        AgePensionEligibilityOut: {
+            /** Member Id */
+            member_id: number;
+            /**
+             * On
+             * Format: date
+             * @description The date the Member reaches Age Pension age.
+             */
+            on: string;
+            /**
+             * Year
+             * @description The projection year it became: paid from this year.
+             */
+            year: number;
+        };
+        /** AgePensionFactOut */
+        AgePensionFactOut: {
+            /**
+             * Key
+             * @description 'couple_status', 'homeowner' or 'principal_home'.
+             */
+            key: string;
+            /**
+             * Label
+             * @description 'entered' or 'default, not entered'.
+             */
+            label: string;
+            /**
+             * Source
+             * @description 'entered' or 'default'.
+             */
+            source: string;
+            /** Value */
+            value: string;
+        };
+        /** AgePensionLeftOutOut */
+        AgePensionLeftOutOut: {
+            /** Account Id */
+            account_id: number;
+            /** Category Key */
+            category_key: string;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @description no_valuation or no_rate: not counted.
+             */
+            status: string;
+        };
+        /** AgePensionPaidOut */
+        AgePensionPaidOut: {
+            /**
+             * Amount
+             * @description Credited to this Member's own cash line, before Drawdown.
+             */
+            amount: string;
+            /** Member Id */
+            member_id: number;
+        };
+        /** AgePensionRuleOut */
+        AgePensionRuleOut: {
+            /** Capture Id */
+            capture_id: number | null;
+            /**
+             * Financial Year
+             * @description The financial year whose published figure it is.
+             */
+            financial_year: string;
+            /**
+             * From Year
+             * @description The projection year this value applies from.
+             */
+            from_year: number;
+            /** Key */
+            key: string;
+            /**
+             * Origin
+             * @description 'shipped', or 'captured' (a figure the household captured).
+             */
+            origin: string;
+            /**
+             * Provisional
+             * @description True when announced but not yet law.
+             */
+            provisional: boolean;
+            /** Provisional Note */
+            provisional_note: string | null;
+            /**
+             * Value
+             * @description A decimal amount (as published: money is per fortnight where the key says so) or a percent.
+             */
+            value: string;
+        };
+        /** AgePensionSimplificationOut */
+        AgePensionSimplificationOut: {
+            /** Key */
+            key: string;
+            /** Text */
+            text: string;
+        };
+        /** AgePensionUsedOut */
+        AgePensionUsedOut: {
+            /**
+             * Assets
+             * @description Each Property and Vehicle Account with its latest Valuation as at the start.
+             */
+            assets: components["schemas"]["AgePensionAssetOut"][];
+            /** Eligibility */
+            eligibility: components["schemas"]["AgePensionEligibilityOut"][];
+            /** Facts */
+            facts: components["schemas"]["AgePensionFactOut"][];
+            /** Left Out */
+            left_out: components["schemas"]["AgePensionLeftOutOut"][];
+            /** Reasons */
+            reasons: string[];
+            /** Rules */
+            rules: components["schemas"]["AgePensionRuleOut"][];
+            /**
+             * Simplifications
+             * @description The simplifications that apply to this run.
+             */
+            simplifications: components["schemas"]["AgePensionSimplificationOut"][];
+            /**
+             * Status
+             * @description 'calculated', or why not: 'needs_home_choice', 'not_modelled' or 'no_figures'. In each of those the run has no Age Pension and says why (reasons).
+             */
+            status: string;
+        };
+        /**
+         * AgePensionYearOut
+         * @description The working of one year's Age Pension (ADR-0029 section 4): what the means test read, what
+         *     each test gave, which one bound. Assessed on the OPENING balances of the year.
+         */
+        AgePensionYearOut: {
+            /**
+             * Assets
+             * @description Assessable assets: the Categories plus Property and Vehicles.
+             */
+            assets: string;
+            /**
+             * Assets Test
+             * @description The pension the assets test alone would pay.
+             */
+            assets_test: string;
+            /**
+             * Bound
+             * @description 'income' or 'assets': the test that paid less. 'none': neither reduced the maximum.
+             */
+            bound: string;
+            /**
+             * Categories
+             * @description Each projected Category counted, at its opening balance: Cash and Investments from year 0, Super and Overseas pensions from their owner's Age Pension age.
+             */
+            categories: components["schemas"]["AgePensionCategoryOut"][];
+            /** Couple */
+            couple: boolean;
+            /**
+             * Deemed Income
+             * @description Deemed income on the financial assets, a year.
+             */
+            deemed_income: string;
+            /**
+             * Financial Assets
+             * @description The deemed part of the assets.
+             */
+            financial_assets: string;
+            /** Homeowner */
+            homeowner: boolean;
+            /**
+             * Income Test
+             * @description The pension the income test alone would pay.
+             */
+            income_test: string;
+            /** Maximum */
+            maximum: string;
+            /**
+             * Other Income
+             * @description Gross pay of the stored Income streams this year.
+             */
+            other_income: string;
+            /** Paid */
+            paid: components["schemas"]["AgePensionPaidOut"][];
+            /**
+             * Property Assets
+             * @description Non-home Property: a fixed input, not projected (constant in real terms).
+             */
+            property_assets: string;
+            /**
+             * Total
+             * @description The assessed household's whole pension, before it is split.
+             */
+            total: string;
+            /**
+             * Vehicle Assets
+             * @description Vehicles: a fixed input, not projected (flat in nominal terms).
+             */
+            vehicle_assets: string;
+        };
         /** AiLogOut */
         AiLogOut: {
             /** Cache Read Tokens */
@@ -5638,6 +5869,8 @@ export interface components {
         };
         /** ProjectionOut */
         ProjectionOut: {
+            /** @description What the Age Pension calculation used (Household facts, eligibility, each rule value, each Property and Vehicle), or why none was calculated. Null for a run saved by engine 2 or earlier. */
+            age_pension: components["schemas"]["AgePensionUsedOut"] | null;
             /**
              * As At
              * Format: date
@@ -5728,6 +5961,8 @@ export interface components {
              * @description The youngest Member's age at the start of the year.
              */
             age: number;
+            /** @description The Age Pension of the year and its working. Null when no Member was eligible, none is calculated for the run, or the run was saved by engine 2 or earlier. */
+            age_pension: components["schemas"]["AgePensionYearOut"] | null;
             /** Categories */
             categories: components["schemas"]["ProjectionCategoryYearOut"][];
             /** Closing */
@@ -6020,6 +6255,8 @@ export interface components {
         };
         /** SavedRunOut */
         SavedRunOut: {
+            /** @description What the Age Pension calculation used (Household facts, eligibility, each rule value, each Property and Vehicle), or why none was calculated. Null for a run saved by engine 2 or earlier. */
+            age_pension: components["schemas"]["AgePensionUsedOut"] | null;
             /**
              * As At
              * Format: date
@@ -6138,6 +6375,8 @@ export interface components {
         };
         /** ScenarioProjectionOut */
         ScenarioProjectionOut: {
+            /** @description What the Age Pension calculation used (Household facts, eligibility, each rule value, each Property and Vehicle), or why none was calculated. Null for a run saved by engine 2 or earlier. */
+            age_pension: components["schemas"]["AgePensionUsedOut"] | null;
             /**
              * As At
              * Format: date

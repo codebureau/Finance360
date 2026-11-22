@@ -36,8 +36,13 @@ Not modelled: deductions, HELP, other income, sacrifice and dependants. Division
 - **Save run** keeps a result exactly as computed, with its inputs and versions, so you can open it later: [Saved runs](/projection/runs).
 - [Compare Scenarios](/projection/compare) projects them side by side.
 
+## The Age Pension
+From each Member's Age Pension age the projection pays the **Age Pension** into that Member's cash, like salary and before any Drawdown. It is calculated from the Rule pack's figures and your [Household facts](/household), never entered: the lower of the income test and the assets test, run each year on the balances the year **opens** with. Two consequences: this year's spending affects next year's pension (a one-year lag), and a year's growth is not yet counted. Cash and Investments count from the start; a Member's super and overseas pensions count from that Member's Age Pension age. Property (other than the home) and Vehicles count at their latest Valuation. A couple is assessed together.
+
+If your Household facts do not fit (for example more than two Members), you own several properties and have not chosen the home, or the pack holds no Age Pension figures for the start year, the projection runs with **no Age Pension** and says why. Not modelled: debt secured on an asset, rent, super already being drawn before Age Pension age, Property growth, tax on the pension and Scenario changes to the Age Pension rules. The per-year working screen is **coming later**.
+
 ## What it does not do yet
-These are **coming later**: the Age Pension, insurance premiums and fund fees (the mechanism that takes an amount from super is built; no premium or fee amounts are entered yet). Tax is only estimated where Tax in the projection is on.
+These are **coming later**: insurance premiums and fund fees (the mechanism that takes an amount from super is built; no premium or fee amounts are entered yet). Tax is only estimated where Tax in the projection is on.
 
 ## Ignore at first
 Saved runs, Compare and custom Scenarios. Pick Likely, check the Assumptions and read the headline.
