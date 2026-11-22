@@ -22,6 +22,7 @@ from finance360.api import (
     catalogue,
     documents,
     due,
+    exposure_profiles,
     fetch,
     fx_rates,
     health,
@@ -30,6 +31,7 @@ from finance360.api import (
     income_streams,
     instruments,
     library,
+    look_through,
     position,
     prices,
     projection,
@@ -75,6 +77,7 @@ from finance360.capabilities.position import valuations as position_valuations
 from finance360.capabilities.projection import income_streams as projection_income_streams
 from finance360.capabilities.projection import scenarios as projection_scenarios
 from finance360.capabilities.projection.seed import seed_assumptions
+from finance360.capabilities.reference import exposure_profiles as reference_exposure_profiles
 from finance360.capabilities.reference import fetch as reference_fetch
 from finance360.capabilities.reference import fx_rates as reference_fx_rates
 from finance360.capabilities.reference import instruments as reference_instruments
@@ -93,6 +96,7 @@ from finance360.core import due as core_due
 from finance360.core import rulepack_store
 from finance360.core.catalogue import check_behaviour_keys, seed_catalogue
 from finance360.core.db import db_path, make_engine, make_session_factory
+from finance360.core.exposure_vocab import seed_exposure_vocab
 from finance360.core.migrate import migrate
 from finance360.core.rulepack import register as register_rule_pack
 from finance360.jobs.scheduler import backup_loop, fetch_datasets, fetch_loop
@@ -206,6 +210,7 @@ def create_app(
         try:
             with app.state.session_factory.begin() as session:
                 seed_catalogue(session)  # idempotent; inserts only missing Categories/types
+                seed_exposure_vocab(session)  # idempotent; inserts only missing labels (ADR-0030)
                 check_behaviour_keys(session, REGISTRY.keys())  # fail fast on a bad key
                 # Evidence files moved from documents/tax/ to documents/library/ (ADR-0026):
                 # idempotent, verified, and a bad file is logged, never dropped or fatal.
@@ -234,6 +239,9 @@ def create_app(
                 reference_fx_rates.load_fixture_fx_rates(session, settings.data_dir)
                 reference_instruments.load_fixture_instruments(session, settings.data_dir)
                 reference_prices.load_fixture_prices(session, settings.data_dir)
+                reference_exposure_profiles.load_fixture_exposure_profiles(
+                    session, settings.data_dir
+                )
                 rulepack_store.load_fixture_rule_figures(
                     session, settings.data_dir, today=household_today(session)
                 )
@@ -333,6 +341,8 @@ def create_app(
     app.include_router(fx_rates.router, dependencies=signed_in)
     app.include_router(instruments.router, dependencies=signed_in)
     app.include_router(prices.router, dependencies=signed_in)
+    app.include_router(exposure_profiles.router, dependencies=signed_in)
+    app.include_router(look_through.router, dependencies=signed_in)
     app.include_router(fetch.router, dependencies=signed_in)
     app.include_router(imports.router, dependencies=signed_in)
     app.include_router(transactions.router, dependencies=signed_in)

@@ -155,6 +155,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/accounts/{account_id}/look-through": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Look Through
+         * @description An investment Account's value on a date split by an Exposure Dimension (asset class), from
+         *     its Holdings' manually entered Exposure profiles. The lines, including No profile, Not
+         *     classified and Unallocated, sum exactly to the Account's value in the Position. ``on``
+         *     defaults to the latest date the Account's Streams' Coverage reaches (at most today), as the
+         *     Derived value does; ``applies`` is false when the value is not built from Holdings.
+         */
+        get: operations["getLookThrough"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/accounts/{account_id}/opening-positions": {
         parameters: {
             query?: never;
@@ -813,6 +837,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/exposure/vocabulary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vocabulary
+         * @description Each Dimension with its Exposure labels, in seed order.
+         */
+        get: operations["listExposureVocabulary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/fetch/run": {
         parameters: {
             query?: never;
@@ -1321,6 +1365,31 @@ export interface paths {
         /** Update Instrument */
         put: operations["updateInstrument"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/instruments/{instrument_id}/exposure-profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Profiles
+         * @description The whole history by date, superseded versions included (status says which).
+         */
+        get: operations["listExposureProfiles"];
+        put?: never;
+        /**
+         * Record Profile
+         * @description Record a manual profile. One already current at the same ``as_at`` is superseded and stays
+         *     in the history. A Dimension total more than one point from 100% is rejected (422).
+         */
+        post: operations["recordExposureProfile"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3771,6 +3840,18 @@ export interface components {
             /** Scope Ref */
             scope_ref: string;
         };
+        /** DimensionOut */
+        DimensionOut: {
+            /** Key */
+            key: string;
+            /**
+             * Labels
+             * @description In seed order.
+             */
+            labels: components["schemas"]["LabelOut"][];
+            /** Name */
+            name: string;
+        };
         /** Div293PaymentOut */
         Div293PaymentOut: {
             /** Amount */
@@ -4774,6 +4855,13 @@ export interface components {
              */
             on: string;
         };
+        /** LabelOut */
+        LabelOut: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+        };
         /** LayerOut */
         LayerOut: {
             /** Rows */
@@ -5097,6 +5185,93 @@ export interface components {
              * @default false
              */
             trust_device: boolean;
+        };
+        /** LookThroughLineOut */
+        LookThroughLineOut: {
+            amount: components["schemas"]["MoneyOut"];
+            /**
+             * Instrument Id
+             * @description The Instrument a No profile line asks for.
+             */
+            instrument_id: number | null;
+            /**
+             * Key
+             * @description The Exposure label key of a label line.
+             */
+            key: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "label" | "no_profile" | "not_classified" | "unallocated";
+            /** Name */
+            name: string;
+            /**
+             * Percent
+             * @description Of the Account value, two decimal places; display only.
+             */
+            percent: string | null;
+        };
+        /** LookThroughOut */
+        LookThroughOut: {
+            /**
+             * Applies
+             * @description False when the Account's value is not built from Holdings.
+             */
+            applies: boolean;
+            /**
+             * As At
+             * Format: date
+             */
+            as_at: string;
+            /** Dimension Key */
+            dimension_key: string;
+            /** Dimension Name */
+            dimension_name: string;
+            /**
+             * Flagged
+             * @description Unallocated is beyond the reconcile tolerance.
+             */
+            flagged: boolean;
+            /** Lines */
+            lines: components["schemas"]["LookThroughLineOut"][];
+            /** Parts */
+            parts: components["schemas"]["LookThroughPartOut"][];
+            /** Reason */
+            reason: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "not_analysed";
+            tolerance: components["schemas"]["MoneyOut"] | null;
+            /** @description The Account's value in the Position. */
+            total: components["schemas"]["MoneyOut"] | null;
+        };
+        /** LookThroughPartOut */
+        LookThroughPartOut: {
+            amount: components["schemas"]["MoneyOut"];
+            /**
+             * Dated After
+             * @description The profile used is dated after the as-at date.
+             */
+            dated_after: boolean;
+            /** Instrument Id */
+            instrument_id: number | null;
+            /** Name */
+            name: string;
+            /** Profile As At */
+            profile_as_at: string | null;
+            /**
+             * Shortfall Percent
+             * @description A within-tolerance shortfall, in Not classified.
+             */
+            shortfall_percent: string;
+            /**
+             * Trimmed
+             * @description Trimmed from the largest weight (over 100).
+             */
+            trimmed: components["schemas"]["TrimmedOut"][];
         };
         /** MapIn */
         MapIn: {
@@ -5670,6 +5845,61 @@ export interface components {
              */
             zero_in_sums: boolean;
         };
+        /** ProfileIn */
+        ProfileIn: {
+            /**
+             * As At
+             * Format: date
+             */
+            as_at: string;
+            /** Provenance Note */
+            provenance_note?: string | null;
+            /**
+             * Weights
+             * @default []
+             */
+            weights: components["schemas"]["WeightIn"][];
+        };
+        /** ProfileOut */
+        ProfileOut: {
+            /**
+             * As At
+             * Format: date
+             */
+            as_at: string;
+            /** Id */
+            id: number;
+            /** Instrument Id */
+            instrument_id: number;
+            /** Provenance Note */
+            provenance_note: string | null;
+            /**
+             * Recorded At
+             * Format: date-time
+             * @description UTC.
+             */
+            recorded_at: string;
+            /** Resolutions */
+            resolutions: components["schemas"]["ResolutionOut"][];
+            /**
+             * Retrieved On
+             * Format: date
+             */
+            retrieved_on: string;
+            /** Source */
+            source: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "current" | "corrected";
+            /** Superseded At */
+            superseded_at: string | null;
+            /** Superseded By Id */
+            superseded_by_id: number | null;
+            /** Weights */
+            weights: components["schemas"]["WeightOut"][];
+        };
         /** ProfileSectionOut */
         ProfileSectionOut: {
             /** End */
@@ -6155,6 +6385,33 @@ export interface components {
             profile_key: string | null;
             /** Profile Version */
             profile_version: number | null;
+        };
+        /** ResolutionOut */
+        ResolutionOut: {
+            /**
+             * Difference Percent
+             * @description Total minus 100: negative is a shortfall.
+             */
+            difference_percent: string;
+            /** Dimension Key */
+            dimension_key: string;
+            /**
+             * Not Classified Percent
+             * @description A shortfall that resolves to Not classified.
+             */
+            not_classified_percent: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "exact" | "short" | "over";
+            /** Total Percent */
+            total_percent: string;
+            /**
+             * Trimmed
+             * @description Trimmed from the largest weight when over 100.
+             */
+            trimmed: components["schemas"]["TrimmedOut"][];
         };
         /** RevealedOut */
         RevealedOut: {
@@ -8843,6 +9100,13 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** TrimmedOut */
+        TrimmedOut: {
+            /** Label Key */
+            label_key: string;
+            /** Percent */
+            percent: string;
+        };
         /** TurnIn */
         TurnIn: {
             /**
@@ -8966,6 +9230,37 @@ export interface components {
             code: string;
             /** Message */
             message: string;
+        };
+        /** WeightIn */
+        WeightIn: {
+            /**
+             * Dimension Key
+             * @default
+             */
+            dimension_key: string;
+            /**
+             * Label Key
+             * @default
+             */
+            label_key: string;
+            /**
+             * Percent
+             * @description Percent, at most 4 decimal places.
+             * @default
+             */
+            percent: string;
+        };
+        /** WeightOut */
+        WeightOut: {
+            /** Dimension Key */
+            dimension_key: string;
+            /** Label Key */
+            label_key: string;
+            /**
+             * Percent
+             * @description Exact percent string, e.g. 62.5.
+             */
+            percent: string;
         };
         /** WhatsDueOut */
         WhatsDueOut: {
@@ -9681,6 +9976,58 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RevealedOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    getLookThrough: {
+        parameters: {
+            query?: {
+                on?: string | null;
+                dimension?: string;
+            };
+            header?: never;
+            path: {
+                account_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LookThroughOut"];
                 };
             };
             /** @description Not Found */
@@ -11354,6 +11701,26 @@ export interface operations {
             };
         };
     };
+    listExposureVocabulary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DimensionOut"][];
+                };
+            };
+        };
+    };
     runFetch: {
         parameters: {
             query?: never;
@@ -12979,6 +13346,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstrumentOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    listExposureProfiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instrument_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    recordExposureProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instrument_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"];
                 };
             };
             /** @description Not Found */

@@ -27,6 +27,9 @@ How often depends on your Effort level (Light, Steady or Thorough). Add each Val
 ## On each export
 - **Investment platform files** (investments, whole picture). Add the trade file and the cash file on [Imports](/imports), review what is staged, then commit. A later export that overlaps an earlier one replaces it for the dates it covers, and the earlier rows stay retrievable.
 
+## When you first hold an Instrument, then when its mix changes
+- **An exposure profile for each Instrument you hold** (investments, whole picture). Open the Instrument's page, choose Enter exposure profile, and type the fund's published split across asset classes from its factsheet, with the date it is as at and where it came from. Once when you first hold it, then again when the fund publishes a new mix (a quarterly or yearly update is plenty). Weights within one point of 100% are accepted as printed. Without one, the Holding appears as "No profile" in its Account's look-through, and nothing else is affected. Not listed in What's due yet; a reminder for a stale profile is **coming later**. See [Accounts and imports](/guide/accounts-and-imports).
+
 ## As it happens
 - **Tax records and their Documents** (tax, whole picture). Add a record when you pay a deductible cost or receive income, and add the receipt under Documents on the record's page. See [Tax](/guide/tax) and [Library](/guide/library).
 - **Depreciating assets** (tax). When you buy something you will use for work or a business over several years, add it as a Tax record of type depreciating asset: cost, start date and effective life. It adds a deduction to its Return label each year without you re-entering it. If you tick *claim in full*, check the asset is eligible first. See [Tax](/guide/tax).

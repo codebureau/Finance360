@@ -56,6 +56,7 @@ export const ENTITY_TYPES = [
   { key: "fx_rate", label: "FX rate" },
   { key: "instrument", label: "Instrument" },
   { key: "price", label: "Price" },
+  { key: "exposure_profile", label: "Exposure profile" },
   { key: "scenario", label: "Scenario" },
   { key: "assumption", label: "Assumption" },
   { key: "spending_phase", label: "Spending phase" },

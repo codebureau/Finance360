@@ -14,6 +14,7 @@ import {
 import { DerivedValuePanel } from "@/components/derived-value-panel";
 import { HoldingsPanel } from "@/components/holdings-panel";
 import { LinkedDocuments } from "@/components/linked-documents";
+import { LookThroughPanel } from "@/components/look-through-panel";
 import { SuperStatementsPanel } from "@/components/super-statements-panel";
 import { TransactionsPanel } from "@/components/transactions-panel";
 import { ValuationsPanel } from "@/components/valuations-panel";
@@ -279,6 +280,7 @@ function AccountDetail({
             asAt={transactions.asat}
             onAsAt={(asat) => onTransactions({ asat })}
           />
+          <LookThroughPanel account={account} asAt={transactions.asat} />
           <HoldingsPanel
             account={account}
             asAt={transactions.asat}

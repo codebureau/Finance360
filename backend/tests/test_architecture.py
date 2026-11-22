@@ -54,7 +54,7 @@ VIOLATIONS = [
     (
         "capabilities/household/bad.py",
         "import finance360.capabilities.position",
-        "projection > tax > position > library > documents > household",
+        "projection > tax | lookthrough > position > library > documents > household",
     ),
     (
         "capabilities/reference/bad.py",
@@ -107,17 +107,17 @@ VIOLATIONS = [
     (
         "capabilities/position/bad.py",
         "import finance360.capabilities.projection",
-        "projection > tax > position > library > documents > household",
+        "projection > tax | lookthrough > position > library > documents > household",
     ),
     (
         "capabilities/position/bad.py",
         "import finance360.capabilities.tax",
-        "projection > tax > position > library > documents > household",
+        "projection > tax | lookthrough > position > library > documents > household",
     ),
     (
         "capabilities/tax/service.py",
         "import finance360.capabilities.projection",
-        "projection > tax > position > library > documents > household",
+        "projection > tax | lookthrough > position > library > documents > household",
     ),
     (
         "capabilities/tax/engine.py",

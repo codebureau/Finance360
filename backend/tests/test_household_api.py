@@ -150,6 +150,7 @@ def test_the_review_fixture_is_loaded_on_first_start(tmp_path: Path) -> None:
             ("fx_rate", "create", "fixture"),
             ("instrument", "create", "fixture"),
             ("price", "create", "fixture"),
+            ("exposure_profile", "create", "fixture"),
             ("scenario", "create", "fixture"),
             ("scenario", "update", "fixture"),
             ("assumption", "create", "fixture"),

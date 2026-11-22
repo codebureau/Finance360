@@ -4,6 +4,7 @@ import { ArrowLeft, MoreHorizontal, Plus } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { FieldMessage, GeneralError, inputClass } from "@/components/form-fields";
+import { ExposureProfilePanel } from "@/components/exposure-profile-panel";
 import { InstrumentForm } from "@/components/instruments-page";
 import { PricesPanel } from "@/components/prices-panel";
 import {
@@ -258,12 +259,13 @@ function InstrumentDetail({ instrument, onChange }: { instrument: Instrument; on
         }
       />
       <IdentifiersSection instrument={instrument} onChange={onChange} />
+      <ExposureProfilePanel instrument={instrument} />
       <PricesPanel instrument={instrument} />
     </div>
   );
 }
 
-/** One Instrument at `/instruments/$instrumentId`: identifiers and Prices as sections. */
+/** One Instrument at `/instruments/$instrumentId`: identifiers, Exposure profile and Prices as sections. */
 export function InstrumentDetailPage({ instrumentId }: { instrumentId: string }) {
   const queryClient = useQueryClient();
   const instruments = useQuery({ queryKey: ["instruments"], queryFn: fetchInstruments });

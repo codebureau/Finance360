@@ -6,12 +6,14 @@ For when you want to see what you own, and how it has moved. This is one common 
 - The Household and its Members, once.
 - Each Account, once, then a new Valuation when its figure changes (monthly is plenty for cash, super and loans).
 - For investment platform Accounts, the exported files. Finance360 works out the value from them.
+- An exposure profile for each Instrument you hold (its split by asset class, from the fund's factsheet), once, to see what an Account is made of.
 
 ## Screens that matter
 - [Accounts](/accounts) and [Imports](/imports): where figures go in.
 - [Position](/position): what you own and owe, today and over time.
+- [Instruments](/instruments): open one to enter its exposure profile. An investment Account's page then has its look-through by asset class.
 - [Reference data](/reference-data): whether Prices and FX rates are arriving.
-- Read [Position](/guide/position) and [Accounts and imports](/guide/accounts-and-imports).
+- Read [Position](/guide/position) and [Accounts and imports](/guide/accounts-and-imports) (which also explains exposure profiles).
 
 ## Ignore for now
 Tax, Income streams, the Projection and Assumptions.

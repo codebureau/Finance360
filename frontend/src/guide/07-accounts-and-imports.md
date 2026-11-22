@@ -47,6 +47,20 @@ There are two files per Account, for trades and for cash, and each is its own St
 
 The one Importer Finance360 has today reads Vanguard Personal Investor files. Other providers are **coming later**.
 
+## Exposure profiles: seeing what an investment Account is made of
+An Instrument says what you hold; its **exposure profile** says what it holds. On the Instrument's page (open it from [Instruments](/instruments)), choose Enter exposure profile and type the fund's published split by **asset class**: Australian shares, International shares, Property, Infrastructure, Fixed income, Cash, Alternatives and Other (the fund's own leftover). Add the date it is as at and where it came from, and leave a weight blank for none. The form keeps a running total as you type and says how it will be treated:
+- **Within one percentage point of 100%** is accepted exactly as you typed it. A total that is short (say 99.5%) puts the missing 0.5% in a line called **Not classified**. A total that is over (say 100.5%) takes the excess off the largest weight, and the profile says which one and by how much.
+- **Further from 100%** is refused, with the difference given, so a typo cannot get through.
+
+Correct a profile with Correct: the original stays in the history under Earlier versions, marked superseded. Every change is in the [audit trail](/audit).
+
+An investment Account built from its Holdings then has **Look-through by asset class** on its page. It splits the Account's value by asset class, using each Holding's latest Price and the Instrument's profile on the date shown (the profile as at on or before it; if there is none, the earliest later one, and the panel says so). It has a few lines you should know:
+- **No profile**: a Holding whose Instrument has no profile yet. It links to its page to enter one, and is never hidden.
+- **Not classified**: value a profile does not place in an asset class, including a profile's shortfall from 100%.
+- **Unallocated**: the Account's value less its Holdings and cash. It is zero when the value is built from Holdings; it appears when you record a newer Valuation, and it is flagged only when it is more than the larger of 1% of the value and A$50.
+
+The lines always add up to the Account's value. Only asset class is available so far: region, sector and currency, funds that hold other funds, super options and a combined view across Accounts are **coming later**.
+
 ## Prices and FX rates
 A brokerage Account's value needs a Price for each Instrument and, for a foreign currency, an FX rate. See [What to provide, when](/guide/what-to-provide): they are fetched daily if a provider is set up, and can always be entered by hand. A figure you enter yourself wins over a fetched one for the same date. The Account page flags a Price that is stale.
 
