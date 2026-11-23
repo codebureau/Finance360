@@ -3,7 +3,7 @@ import { afterEach, expect, test, vi } from "vitest";
 
 import type { IncomeStream } from "@/lib/income-streams";
 import type { Scenario, ScenarioProjection } from "@/lib/scenarios";
-import { renderAppAt } from "@/test-utils";
+import { openAllWorking, renderAppAt } from "@/test-utils";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -374,6 +374,7 @@ function projectionBackend(run: () => Response) {
 test("the Projection lists the streams it used with their years and the Rule pack rates", async () => {
   projectionBackend(() => json(projection()));
   await renderAppAt("/projection");
+  await openAllWorking();
   const used = await screen.findByTestId("income-used");
   const alexRow = within(used).getByTestId("income-stream-1");
   expect(alexRow).toHaveTextContent("91,000.00");
@@ -394,6 +395,7 @@ test("the Projection lists the streams it used with their years and the Rule pac
 test("a run saved before income streams says so", async () => {
   projectionBackend(() => json({ ...projection(), income: null }));
   await renderAppAt("/projection");
+  await openAllWorking();
   expect(await screen.findByTestId("income-used")).toHaveTextContent("saved before income streams were recorded");
 });
 
@@ -461,6 +463,7 @@ const taxUsed = (): NonNullable<ScenarioProjection["tax"]> => ({
 test("a run with tax on shows the versions, the carry-forward and Division 293 with its inputs", async () => {
   projectionBackend(() => json({ ...projection(), tax: taxUsed() }));
   await renderAppAt("/projection");
+  await openAllWorking();
   const used = await screen.findByTestId("tax-used");
   expect(used).toHaveTextContent("version 2, Rule pack au/2026-27/r7");
   const carry = within(used).getByTestId("tax-carry");
@@ -478,6 +481,7 @@ test("a run with tax on shows the versions, the carry-forward and Division 293 w
 test("with tax off the working says take-home pay is the stated amount", async () => {
   projectionBackend(() => json({ ...projection(), tax: null }));
   await renderAppAt("/projection");
+  await openAllWorking();
   expect(await screen.findByTestId("tax-used")).toHaveTextContent("Tax is off: take-home pay is each Income stream");
 });
 
@@ -507,6 +511,7 @@ test("a salary with no working-years spending is a named error with the way to f
 test("the simplifications state what salary leaves out", async () => {
   projectionBackend(() => json(projection()));
   await renderAppAt("/projection");
+  await openAllWorking();
   const box = await screen.findByTestId("simplifications");
   expect(box).toHaveTextContent("Division 293");
   expect(box).toHaveTextContent("maximum contribution base");

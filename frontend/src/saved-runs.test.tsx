@@ -3,7 +3,7 @@ import { afterEach, expect, test, vi } from "vitest";
 
 import type { RunHeader, SavedRun } from "@/lib/projection-runs";
 import type { Scenario } from "@/lib/scenarios";
-import { renderAppAt } from "@/test-utils";
+import { openAllWorking, renderAppAt } from "@/test-utils";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -208,6 +208,7 @@ test("Save run keeps the projection with an optional label, then links to the sa
 test("an empty label is sent as no label", async () => {
   const calls = fakeBackend();
   await renderAppAt("/projection");
+  await openAllWorking();
   fireEvent.click(await screen.findByRole("button", { name: "Save run" }));
   fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Save run" }));
   await screen.findByTestId("run-saved");
@@ -240,6 +241,7 @@ test("with no saved runs the list says how to save one", async () => {
 test("a saved run shows its stored result and engine, with no re-run when the engine is current", async () => {
   fakeBackend([header()]);
   await renderAppAt("/projection/runs/7");
+  await openAllWorking();
   expect(await screen.findByRole("heading", { name: "Baseline" })).toBeInTheDocument();
   const headline = await screen.findByTestId("headline");
   expect(within(headline).getByText(/Funds last to age 41/)).toBeInTheDocument();
@@ -251,9 +253,22 @@ test("a saved run shows its stored result and engine, with no re-run when the en
   expect(screen.queryByTestId("engine-notice")).not.toBeInTheDocument();
 });
 
+test("a saved run leads with the same balances chart, ahead of its working", async () => {
+  fakeBackend([header()]);
+  await renderAppAt("/projection/runs/7");
+  const chart = await screen.findByTestId("balances-chart");
+  expect(screen.getByRole("heading", { name: "How the balances move" })).toBeInTheDocument();
+  expect(chart).toHaveAttribute("data-form", "stacked-area");
+  expect(chart.compareDocumentPosition(screen.getByTestId("assumptions-used")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.queryByTestId("projection-table")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Show working: Year by year" }));
+  expect(await screen.findByTestId("projection-table")).toBeInTheDocument();
+});
+
 test("a run saved before the Age Pension was calculated says so", async () => {
   fakeBackend([header()]);
   await renderAppAt("/projection/runs/7");
+  await openAllWorking();
   expect(await screen.findByTestId("age-pension-used")).toHaveTextContent(
     "saved before the Age Pension was calculated",
   );
@@ -274,6 +289,7 @@ test("an older engine's run offers a re-run, which saves a new run and opens it"
 test("a saved run shows the Rule pack ages it recorded", async () => {
   fakeBackend([header()]);
   await renderAppAt("/projection/runs/7");
+  await openAllWorking();
 
   const panel = await screen.findByTestId("rules-used");
   expect(within(panel).getByText("au/2026-27/r1")).toBeInTheDocument();
@@ -284,6 +300,7 @@ test("a saved run shows the Rule pack ages it recorded", async () => {
 test("a run saved before Rule packs were recorded still renders, saying it has no ages", async () => {
   fakeBackend([header({ rule_pack_version: null })]);
   await renderAppAt("/projection/runs/7");
+  await openAllWorking();
 
   expect(await screen.findByTestId("headline")).toBeInTheDocument();
   expect(screen.getByTestId("rules-used")).toHaveTextContent(/saved before Rule packs were recorded/);
@@ -293,6 +310,7 @@ test("a run saved before Rule packs were recorded still renders, saying it has n
 test("a run saved before income streams were recorded still renders, saying it has none", async () => {
   fakeBackend([header()]); // the fake run carries income: null, as one saved before income streams
   await renderAppAt("/projection/runs/7");
+  await openAllWorking();
 
   expect(await screen.findByTestId("headline")).toBeInTheDocument();
   expect(screen.getByTestId("income-used")).toHaveTextContent(/saved before income streams were recorded/);
@@ -301,6 +319,7 @@ test("a run saved before income streams were recorded still renders, saying it h
 test("a saved run shows the Life events it recorded and the super access date it used", async () => {
   fakeBackend([header()]);
   await renderAppAt("/projection/runs/7");
+  await openAllWorking();
 
   const alex = within(await screen.findByTestId("life-events-member-1"));
   expect(alex.getByText(/Preservation age/)).toBeInTheDocument();
@@ -311,6 +330,7 @@ test("a saved run shows the Life events it recorded and the super access date it
 test("a run saved before Life events were recorded says so and still shows when super opens", async () => {
   fakeBackend([header({ rule_pack_version: null })]);
   await renderAppAt("/projection/runs/7");
+  await openAllWorking();
 
   const panel = await screen.findByTestId("life-events");
   expect(panel).toHaveTextContent(/saved before Life events were recorded/);
@@ -321,6 +341,7 @@ test("a run saved before Life events were recorded says so and still shows when 
 test("a saved run shows the spending phases it used, as ages, with where they came from", async () => {
   fakeBackend([header()]);
   await renderAppAt("/projection/runs/7");
+  await openAllWorking();
 
   const panel = await screen.findByTestId("spending-phases");
   expect(within(panel).getByText("Household default")).toBeInTheDocument();
@@ -336,6 +357,7 @@ test("a saved run shows the spending phases it used, as ages, with where they ca
 test("a run saved before spending phases still renders, with the annual spending it stored", async () => {
   fakeBackend([header({ rule_pack_version: null })]);
   await renderAppAt("/projection/runs/7");
+  await openAllWorking();
 
   expect(await screen.findByTestId("headline")).toBeInTheDocument();
   expect(screen.getByTestId("spending-phases")).toHaveTextContent(/saved before spending phases were recorded/);

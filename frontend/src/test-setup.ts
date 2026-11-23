@@ -1,6 +1,13 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
+import { createElement } from "react";
 import { afterEach, beforeEach, vi } from "vitest";
+
+// jsdom has no canvas: every test gets a stand-in for the ECharts host. A test that inspects the
+// option it was given mocks "@/components/echart" itself (position.test.tsx, exposure.test.tsx).
+vi.mock("@/components/echart", () => ({
+  default: ({ label }: { label: string }) => createElement("div", { "data-testid": "mock-echart", role: "img", "aria-label": label }),
+}));
 
 // Newer Node versions ship an experimental global localStorage that shadows jsdom's; use a
 // plain in-memory Storage so tests behave the same everywhere.

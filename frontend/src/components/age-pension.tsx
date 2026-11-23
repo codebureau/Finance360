@@ -1,6 +1,5 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -317,25 +316,5 @@ export function AgePensionCell({ p, row }: { p: ScenarioProjection; row: Row }) 
         </DialogContent>
       </Dialog>
     </span>
-  );
-}
-
-/** The Age Pension card for run screens, beside the other "what was used" lists. */
-export function AgePensionCard({ p }: { p: ScenarioProjection }) {
-  return (
-    <section aria-label="Age Pension" data-testid="age-pension-card">
-      <Card>
-        <CardHeader>
-          <CardTitle>Age Pension</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Calculated each year from the Rule pack&apos;s figures and your Household facts, never entered. Open a
-            year&apos;s working from the year-by-year table.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <AgePensionPanel p={p} />
-        </CardContent>
-      </Card>
-    </section>
   );
 }

@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryHistory } from "@tanstack/react-router";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 import App from "@/App";
 import { createAppRouter } from "@/routes";
@@ -20,4 +20,10 @@ export async function renderAppAt(
   // The router loads asynchronously; wait for the shell before a test starts querying.
   await screen.findByTestId("content");
   return { router, history };
+}
+
+/** Opens every closed "Show working" disclosure on the page, once the result has loaded. */
+export async function openAllWorking() {
+  const buttons = await screen.findAllByRole("button", { name: /^Show working/ });
+  for (const button of buttons) fireEvent.click(button);
 }

@@ -1,9 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
-import { AgePensionCard, AgePensionCell } from "@/components/age-pension";
+import { AgePensionCell, AgePensionPanel } from "@/components/age-pension";
+import { BalancesChart } from "@/components/balances-chart";
 import { AddScenarioDialog, AssumptionsSheet, DrawdownOrderLine } from "@/components/assumptions-editor";
 import { GeneralError } from "@/components/form-fields";
 import { SaveRunDialog } from "@/components/save-run-dialog";
@@ -13,6 +14,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Money } from "@/components/ui/money";
 import { PageHeader } from "@/components/ui/page-header";
+import { WorkingGroup, WorkingSection } from "@/components/working-section";
 import { ApiError, fetchHousehold, type Member } from "@/lib/household";
 import { CATEGORY_LABEL, DEBIT_REASON_LABEL, formatAge, LIFE_EVENT_LABEL, SIMPLIFICATIONS } from "@/lib/projection";
 import type { RunHeader } from "@/lib/projection-runs";
@@ -90,39 +92,32 @@ export function Headline({ p }: { p: ScenarioProjection }) {
 
 export function Simplifications({ p }: { p: ScenarioProjection }) {
   return (
-    <section aria-label="Simplifications" data-testid="simplifications">
-      <Card>
-        <CardHeader>
-          <CardTitle>What this projection assumes</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-            {SIMPLIFICATIONS.map((text) => (
-              <li key={text}>{text}</li>
+    <div className="flex flex-col gap-3" data-testid="simplifications">
+      <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+        {SIMPLIFICATIONS.map((text) => (
+          <li key={text}>{text}</li>
+        ))}
+      </ul>
+      {p.flagged.length > 0 && (
+        <div data-testid="flagged-accounts" className="text-sm">
+          <p className="font-medium text-warning">
+            {p.flagged.length} {p.flagged.length === 1 ? "Account is" : "Accounts are"} not in the starting
+            balances:
+          </p>
+          <ul className="list-disc pl-5">
+            {p.flagged.map((f) => (
+              <li key={f.account_id}>
+                {f.name}{" "}
+                <span className="text-muted-foreground">
+                  ({CATEGORY_LABEL[f.category_key] ?? f.category_key},{" "}
+                  {f.status === "no_valuation" ? "no Valuation" : "no FX rate"} on or before {p.as_at})
+                </span>
+              </li>
             ))}
           </ul>
-          {p.flagged.length > 0 && (
-            <div data-testid="flagged-accounts" className="text-sm">
-              <p className="font-medium text-warning">
-                {p.flagged.length} {p.flagged.length === 1 ? "Account is" : "Accounts are"} not in the starting
-                balances:
-              </p>
-              <ul className="list-disc pl-5">
-                {p.flagged.map((f) => (
-                  <li key={f.account_id}>
-                    {f.name}{" "}
-                    <span className="text-muted-foreground">
-                      ({CATEGORY_LABEL[f.category_key] ?? f.category_key},{" "}
-                      {f.status === "no_valuation" ? "no Valuation" : "no FX rate"} on or before {p.as_at})
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </section>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -131,8 +126,7 @@ export function YearTable({ p }: { p: ScenarioProjection }) {
   const first = p.rows[0];
   const hasPension = p.rows.some((r) => r.age_pension !== null);
   return (
-    <section aria-label="Year by year">
-      <h2 className="text-base font-semibold">Year by year</h2>
+    <div data-testid="year-by-year">
       <p className="mb-2 text-xs text-muted-foreground">
         Balances are at the end of each year. The age is the youngest Member&apos;s at the start of it. The
         first row marked Short is the year spending is no longer met in full. The Age Pension is a year&apos;s
@@ -240,7 +234,7 @@ export function YearTable({ p }: { p: ScenarioProjection }) {
         </table>
       </div>
       <LineDebits p={p} />
-    </section>
+    </div>
   );
 }
 
@@ -392,29 +386,23 @@ function SpendingCard({
   onSaved: (review: Review[]) => void;
 }) {
   return (
-    <section aria-label="Spending" data-testid="spending-used">
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <CardTitle>Spending in {scenario.name}</CardTitle>
-            <SpendingButtons scenario={scenario} onSaved={onSaved} />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {scenario.spending_is_default
-              ? `${scenario.name} states no spending phases of its own: it uses the Household default list.`
-              : `${scenario.name} states its own spending phases; they replace the Household default list as a whole.`}
-          </p>
-        </CardHeader>
-        <CardContent>
-          <SpendingPhasesUsed
-            spending={p.spending}
-            referenceAge={p.reference_member.age_now}
-            years={p.years}
-            scenarioName={scenario.name}
-          />
-        </CardContent>
-      </Card>
-    </section>
+    <WorkingSection
+      title={`Spending in ${scenario.name}`}
+      testId="spending-used"
+      actions={<SpendingButtons scenario={scenario} onSaved={onSaved} />}
+      note={
+        scenario.spending_is_default
+          ? `${scenario.name} states no spending phases of its own: it uses the Household default list.`
+          : `${scenario.name} states its own spending phases; they replace the Household default list as a whole.`
+      }
+    >
+      <SpendingPhasesUsed
+        spending={p.spending}
+        referenceAge={p.reference_member.age_now}
+        years={p.years}
+        scenarioName={scenario.name}
+      />
+    </WorkingSection>
   );
 }
 
@@ -680,9 +668,9 @@ export function RulesUsed({ p, scenarioName }: { p: ScenarioProjection; scenario
   const label = Object.fromEntries(rules.parameters.map((x) => [x.key, x.label]));
   return (
     <div className="flex flex-col gap-2" data-testid="rules-used">
-      <h3 className="text-sm font-medium">
-        Rule pack ages <span className="font-mono text-xs text-muted-foreground">{rules.pack_version}</span>
-      </h3>
+      <p className="text-xs text-muted-foreground">
+        Rule pack <span className="font-mono">{rules.pack_version}</span>
+      </p>
       <ul className="divide-y divide-border rounded-lg border border-border bg-card text-sm">
         {p.members.map((m) => (
           <li key={m.id} className="px-3 py-[var(--cell-py)]" data-testid={`rules-member-${m.id}`}>
@@ -721,7 +709,6 @@ export function LifeEventsTimeline({ p, scenarioName }: { p: ScenarioProjection;
   const events = p.life_events;
   return (
     <div className="flex flex-col gap-2" data-testid="life-events">
-      <h3 className="text-sm font-medium">Life events</h3>
       {!events && (
         <p className="text-sm text-muted-foreground">
           This run was saved before Life events were recorded, so it has no dates.
@@ -799,30 +786,88 @@ function AssumptionsUsed({
   onSaved: (review: Review[]) => void;
 }) {
   return (
-    <section aria-label="Assumptions used" data-testid="assumptions-used">
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <CardTitle>Assumptions in {scenario.name}</CardTitle>
-            <EditButtons scenario={scenario} members={members} onSaved={onSaved} />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {scenario.override_count === 0
-              ? `${scenario.name} states nothing of its own: every value is the Household default.`
-              : `${scenario.name} states ${scenario.override_count} ${scenario.override_count === 1 ? "value" : "values"} of its own; the rest are the Household defaults.`}{" "}
-            The starting rates are illustrative placeholders, not advice: change them to your own view.
-          </p>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <DrawdownOrderLine categories={p.categories} />
-          <ProvenanceList p={p} slots={slots} scenarioName={scenario.name} />
-          <IncomeUsedList p={p} scenarioName={scenario.name} />
-          <TaxUsedList p={p} />
-          <RulesUsed p={p} scenarioName={scenario.name} />
-          <LifeEventsTimeline p={p} scenarioName={scenario.name} />
-        </CardContent>
-      </Card>
-    </section>
+    <WorkingSection
+      title="Assumptions in use"
+      testId="assumptions-used"
+      actions={<EditButtons scenario={scenario} members={members} onSaved={onSaved} />}
+      note={
+        <>
+          {scenario.override_count === 0
+            ? `${scenario.name} states nothing of its own: every value is the Household default.`
+            : `${scenario.name} states ${scenario.override_count} ${scenario.override_count === 1 ? "value" : "values"} of its own; the rest are the Household defaults.`}{" "}
+          The starting rates are illustrative placeholders, not advice: change them to your own view.
+        </>
+      }
+    >
+      <AssumptionsBody p={p} slots={slots} scenarioName={scenario.name} />
+    </WorkingSection>
+  );
+}
+
+/** What a run's Assumptions resolved to: Drawdown order, each value, Income streams and Tax. */
+export function AssumptionsBody({
+  p,
+  slots,
+  scenarioName,
+}: {
+  p: ScenarioProjection;
+  slots: Slot[];
+  scenarioName: string;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <DrawdownOrderLine categories={p.categories} />
+      <ProvenanceList p={p} slots={slots} scenarioName={scenarioName} />
+      <IncomeUsedList p={p} scenarioName={scenarioName} />
+      <TaxUsedList p={p} />
+    </div>
+  );
+}
+
+/**
+ * What a result shows after the headline, for a live run and a saved one alike: the chart, then
+ * "The working", one card whose sections (Spending, Assumptions, Age Pension and the rest) each
+ * open behind "Show working". The caller supplies the spending and Assumptions sections, which
+ * differ only in their editors and wording.
+ */
+export function ProjectionResult({
+  p,
+  scenarioName,
+  spending,
+  assumptions,
+}: {
+  p: ScenarioProjection;
+  scenarioName: string;
+  spending: ReactNode;
+  assumptions: ReactNode;
+}) {
+  return (
+    <>
+      <BalancesChart p={p} />
+      <WorkingGroup>
+        {spending}
+        {assumptions}
+        <WorkingSection
+          title="Age Pension"
+          testId="age-pension-card"
+          note="Calculated each year from the Rule pack's figures and your Household facts, never entered. Open a year's working from the year-by-year table."
+        >
+          <AgePensionPanel p={p} />
+        </WorkingSection>
+        <WorkingSection title="Rule pack ages" testId="rules-section">
+          <RulesUsed p={p} scenarioName={scenarioName} />
+        </WorkingSection>
+        <WorkingSection title="Life events" testId="life-events-section">
+          <LifeEventsTimeline p={p} scenarioName={scenarioName} />
+        </WorkingSection>
+        <WorkingSection title="What this projection assumes" testId="simplifications-section">
+          <Simplifications p={p} />
+        </WorkingSection>
+        <WorkingSection title="Year by year" testId="year-section">
+          <YearTable p={p} />
+        </WorkingSection>
+      </WorkingGroup>
+    </>
   );
 }
 
@@ -1014,11 +1059,14 @@ function Runner({
             </div>
           )}
           <Headline p={p} />
-          <SpendingCard p={p} scenario={selected} onSaved={saved} />
-          <AssumptionsUsed p={p} slots={slots} scenario={selected} members={members} onSaved={saved} />
-          <AgePensionCard p={p} />
-          <Simplifications p={p} />
-          <YearTable p={p} />
+          <ProjectionResult
+            p={p}
+            scenarioName={selected.name}
+            spending={
+              <SpendingCard p={p} scenario={selected} onSaved={saved} />
+            }
+            assumptions={
+          <AssumptionsUsed p={p} slots={slots} scenario={selected} members={members} onSaved={saved} />} />
         </>
       )}
     </>
