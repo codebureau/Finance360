@@ -309,7 +309,10 @@ def test_the_fixture_prices_load_once_with_gaps_and_provider_and_manual_sources(
         assert svc.price_for(s, by_kind["etf"], date(2026, 7, 1)) == NoPrice(
             by_kind["etf"], date(2026, 7, 1)
         )
-        fund = svc.current_prices(s, by_kind["fund"])
+        balanced = next(
+            i.id for i in inst_svc.list_instruments(s) if i.name == "Sample Balanced Growth Fund"
+        )
+        fund = svc.current_prices(s, balanced)
         assert {p.source for p in fund} == {"manual"} and len(fund) == 3
         assert all(p.ccy == "AUD" for p in s.scalars(select(Price)))
     assert {e.source for e in _events(session_factory)} == {"fixture"}

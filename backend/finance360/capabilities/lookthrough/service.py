@@ -111,6 +111,10 @@ def account_look_through(
         for d in result.lines
     ]
     ids = [p.instrument_id for p in parts if p.instrument_id is not None]
+    # A fund-of-funds resolves through its underlying funds: load theirs too, and every name.
+    profiles = exposure_profiles.profile_facts_closure(session, ids)
+    named = {*ids, *profiles, *(r for ps in profiles.values() for p in ps for r, _ in p.references)}
+    names_of = exposure_profiles.instrument_names(session, named)
     composition = compose(
         position_value=line.value,
         parts_value=parts_value,
@@ -118,6 +122,7 @@ def account_look_through(
         dimension=dimension,
         labels=[(label.key, label.name) for label in view.labels],
         on=on,
-        profiles=exposure_profiles.current_profile_facts(session, ids),
+        profiles=profiles,
+        names_of=names_of,
     )
     return out(None, composition)

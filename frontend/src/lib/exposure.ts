@@ -10,6 +10,7 @@ export type ExposureResolution = components["schemas"]["ResolutionOut"];
 export type LookThrough = components["schemas"]["LookThroughOut"];
 export type LookThroughLine = components["schemas"]["LookThroughLineOut"];
 export type LookThroughPart = components["schemas"]["LookThroughPartOut"];
+export type ExposureReference = components["schemas"]["ReferenceOut"];
 
 /** The named tolerance (ADR-0030): a Dimension may total 100% plus or minus this many ppm. The
  * server decides; the form only previews it. */
@@ -85,10 +86,22 @@ export function ppmToPercent(ppm: number): string {
 
 export type TotalState = "empty" | "exact" | "short" | "over" | "rejected";
 
-/** The running total of one Dimension's entered weights and how the server will judge it. */
-export function judgeTotal(texts: string[]): { totalPpm: number; state: TotalState; differencePpm: number } {
+/** The sum of entered percent strings in ppm (blank and invalid count as nothing). */
+export function sumPpm(texts: string[]): number {
+  return texts.reduce((sum, t) => sum + (percentToPpm(t.trim()) ?? 0), 0);
+}
+
+/**
+ * The running total of one Dimension's entered weights and how the server will judge it. A
+ * fund-of-funds' references (`referencesPpm`) count towards every Dimension that has weights; a
+ * Dimension with none entered is left out, whatever the references total.
+ */
+export function judgeTotal(
+  texts: string[],
+  referencesPpm = 0,
+): { totalPpm: number; state: TotalState; differencePpm: number } {
   const entered = texts.map((t) => t.trim()).filter((t) => t !== "");
-  const totalPpm = entered.reduce((sum, t) => sum + (percentToPpm(t) ?? 0), 0);
+  const totalPpm = sumPpm(entered) + (entered.length > 0 ? referencesPpm : 0);
   const differencePpm = totalPpm - PPM;
   if (entered.length === 0) return { totalPpm, state: "empty", differencePpm };
   if (Math.abs(differencePpm) > WEIGHT_TOLERANCE_PPM) return { totalPpm, state: "rejected", differencePpm };

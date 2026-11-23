@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { judgeTotal, percentToPpm, ppmToPercent } from "@/lib/exposure";
 import { everyday, fakeBackend as accountsBackend, json } from "@/test-accounts-backend";
@@ -10,6 +10,27 @@ vi.mock("@/components/echart", () => ({
 }));
 
 afterEach(() => vi.unstubAllGlobals());
+
+// The Login's Display preferences, as the server keeps them.
+let prefs: Record<string, string> = {};
+const puts: Record<string, string | null>[] = [];
+beforeEach(() => {
+  prefs = {};
+  puts.length = 0;
+});
+
+async function preferences(request: Request): Promise<Response | null> {
+  if (new URL(request.url).pathname !== "/api/preferences") return null;
+  if (request.method === "PUT") {
+    const sent = ((await request.json()) as { preferences: Record<string, string | null> }).preferences;
+    puts.push(sent);
+    for (const [k, v] of Object.entries(sent)) {
+      if (v === null) delete prefs[k];
+      else prefs[k] = v;
+    }
+  }
+  return json({ preferences: { ...prefs } });
+}
 
 const aud = (amount: string, minor: number) => ({ amount, amount_minor: minor, currency: "AUD" });
 const PI = { ...everyday, id: 20, name: "Sample Brokerage account", category_key: "investments" };
@@ -23,16 +44,16 @@ const LOOK = {
   dimension_name: "Asset class",
   total: aud("6645.13", 664513),
   lines: [
-    { kind: "label", key: "australian_shares", name: "Australian shares", amount: aud("3263.05", 326305), percent: "49.10", instrument_id: null },
-    { kind: "label", key: "international_shares", name: "International shares", amount: aud("1898.12", 189812), percent: "28.56", instrument_id: null },
-    { kind: "label", key: "cash", name: "Cash", amount: aud("834.93", 83493), percent: "12.56", instrument_id: null },
-    { kind: "no_profile", key: null, name: "No profile: Sample New Horizons ETF", amount: aud("625.00", 62500), percent: "9.41", instrument_id: 3 },
-    { kind: "not_classified", key: null, name: "Not classified", amount: aud("24.03", 2403), percent: "0.36", instrument_id: null },
-    { kind: "unallocated", key: null, name: "Unallocated", amount: aud("0.00", 0), percent: "0.00", instrument_id: null },
+    { kind: "label", key: "australian_shares", name: "Australian shares", amount: aud("3263.05", 326305), percent: "49.10", instrument_id: null, through_fund: false, contributions: [], reason: null },
+    { kind: "label", key: "international_shares", name: "International shares", amount: aud("1898.12", 189812), percent: "28.56", instrument_id: null, through_fund: false, contributions: [], reason: null },
+    { kind: "label", key: "cash", name: "Cash", amount: aud("834.93", 83493), percent: "12.56", instrument_id: null, through_fund: false, contributions: [], reason: null },
+    { kind: "no_profile", key: null, name: "No profile: Sample New Horizons ETF", amount: aud("625.00", 62500), percent: "9.41", instrument_id: 3, through_fund: false, contributions: [], reason: null },
+    { kind: "not_classified", key: null, name: "Not classified", amount: aud("24.03", 2403), percent: "0.36", instrument_id: null, through_fund: false, contributions: [], reason: null },
+    { kind: "unallocated", key: null, name: "Unallocated", amount: aud("0.00", 0), percent: "0.00", instrument_id: null, through_fund: false, contributions: [], reason: null },
   ],
   parts: [
-    { instrument_id: 1, name: "Sample Broad Market ETF", amount: aud("4805.38", 480538), profile_as_at: "2026-06-30", dated_after: false, shortfall_percent: "0.5", trimmed: [], omitted: false },
-    { instrument_id: 3, name: "Sample New Horizons ETF", amount: aud("625.00", 62500), profile_as_at: "2026-12-31", dated_after: true, shortfall_percent: "0", trimmed: [], omitted: false },
+    { instrument_id: 1, name: "Sample Broad Market ETF", amount: aud("4805.38", 480538), profile_as_at: "2026-06-30", dated_after: false, shortfall_percent: "0.5", trimmed: [], omitted: false, underlying: [] },
+    { instrument_id: 3, name: "Sample New Horizons ETF", amount: aud("625.00", 62500), profile_as_at: "2026-12-31", dated_after: true, shortfall_percent: "0", trimmed: [], omitted: false, underlying: [] },
   ],
   flagged: false,
   tolerance: aud("66.45", 6645),
@@ -53,6 +74,8 @@ function accountBackend(look: unknown | ((dimension: string | null) => unknown))
     "fetch",
     vi.fn(async (request: Request) => {
       const url = new URL(request.url);
+      const pref = await preferences(request);
+      if (pref) return pref;
       if (url.pathname === "/api/accounts/20/look-through") {
         calls.push(url);
         return json(typeof look === "function" ? look(url.searchParams.get("dimension")) : look);
@@ -74,13 +97,13 @@ function accountBackend(look: unknown | ((dimension: string | null) => unknown))
 test("the investment Account shows its asset-class split, with No profile linking to entry", async () => {
   const calls = accountBackend(LOOK);
   await renderAppAt("/accounts/20");
-  const panel = within(await screen.findByRole("region", { name: "Look-through" }));
+  const panel = within(await screen.findByRole("region", { name: /^Look-through/ }));
   expect(panel.getByRole("heading", { name: "Look-through by asset class" })).toBeInTheDocument();
   // the designed view leads: a headline and a chart, with the figures behind a disclosure
   expect(
     await panel.findByText("Mostly Australian shares and International shares; 9.41% has no profile yet"),
   ).toBeInTheDocument();
-  expect(await panel.findByRole("img", { name: /Bar chart of the Account's value by asset class/ })).toBeInTheDocument();
+  expect(await panel.findByRole("img", { name: /Donut chart\..*The Account's value by asset class\./ })).toBeInTheDocument();
   expect(panel.queryByRole("table", { name: "Look-through lines" })).not.toBeInTheDocument();
   fireEvent.click(panel.getByRole("button", { name: "Show figures" }));
   const table = within(await panel.findByRole("table", { name: "Look-through lines" }));
@@ -108,6 +131,7 @@ const PART_OMITTING = {
   shortfall_percent: "0",
   trimmed: [],
   omitted: true,
+  underlying: [],
 };
 
 test("the Dimension switcher lists every Dimension, asks the server for the chosen one and keeps it in the URL", async () => {
@@ -118,16 +142,16 @@ test("the Dimension switcher lists every Dimension, asks the server for the chos
           dimension_key: "sector",
           dimension_name: "Sector",
           lines: [
-            { kind: "label", key: "materials", name: "Materials", amount: aud("379.82", 37982), percent: "5.72", instrument_id: null },
-            { kind: "not_classified", key: null, name: "Not classified", amount: aud("6265.31", 626531), percent: "94.28", instrument_id: null },
-            { kind: "unallocated", key: null, name: "Unallocated", amount: aud("0.00", 0), percent: "0.00", instrument_id: null },
+            { kind: "label", key: "materials", name: "Materials", amount: aud("379.82", 37982), percent: "5.72", instrument_id: null, through_fund: false, contributions: [], reason: null },
+            { kind: "not_classified", key: null, name: "Not classified", amount: aud("6265.31", 626531), percent: "94.28", instrument_id: null, through_fund: false, contributions: [], reason: null },
+            { kind: "unallocated", key: null, name: "Unallocated", amount: aud("0.00", 0), percent: "0.00", instrument_id: null, through_fund: false, contributions: [], reason: null },
           ],
           parts: [PART_OMITTING],
         }
       : LOOK,
   );
   const { router } = await renderAppAt("/accounts/20");
-  const panel = within(await screen.findByRole("region", { name: "Look-through" }));
+  const panel = within(await screen.findByRole("region", { name: /^Look-through/ }));
   const tabs = within(await panel.findByRole("tablist", { name: "Dimension" }));
   expect(tabs.getAllByRole("tab").map((t) => t.textContent)).toEqual([
     "Asset class",
@@ -143,7 +167,7 @@ test("the Dimension switcher lists every Dimension, asks the server for the chos
   // a profile that leaves the Dimension out is said to, and its value is in Not classified
   expect(panel.getByText(/Sample Balanced Growth Fund: its profile gives no sector weights/)).toBeInTheDocument();
   fireEvent.click(panel.getByRole("button", { name: "Show figures" }));
-  expect(await panel.findByText("94.28%")).toBeInTheDocument();
+  expect(await within(await panel.findByRole("table", { name: "Look-through lines" })).findByText("94.28%")).toBeInTheDocument();
   expect(panel.getByText(/Not classified is value with no sector weights/)).toBeInTheDocument();
 });
 
@@ -153,12 +177,12 @@ test("a Dimension in the URL is the one shown, and exposure currency is set apar
     dimension_key: "exposure_currency",
     dimension_name: "Exposure currency",
     lines: [
-      { kind: "label", key: "usd", name: "USD", amount: aud("6645.13", 664513), percent: "100.00", instrument_id: null },
-      { kind: "unallocated", key: null, name: "Unallocated", amount: aud("0.00", 0), percent: "0.00", instrument_id: null },
+      { kind: "label", key: "usd", name: "USD", amount: aud("6645.13", 664513), percent: "100.00", instrument_id: null, through_fund: false, contributions: [], reason: null },
+      { kind: "unallocated", key: null, name: "Unallocated", amount: aud("0.00", 0), percent: "0.00", instrument_id: null, through_fund: false, contributions: [], reason: null },
     ],
   });
   await renderAppAt("/accounts/20?dimension=exposure_currency");
-  const panel = within(await screen.findByRole("region", { name: "Look-through" }));
+  const panel = within(await screen.findByRole("region", { name: /^Look-through/ }));
   expect(await panel.findByRole("heading", { name: "Look-through by exposure currency" })).toBeInTheDocument();
   expect(calls.at(-1)?.searchParams.get("dimension")).toBe("exposure_currency");
   expect(panel.getByText("Holding currency AUD")).toBeInTheDocument();
@@ -169,7 +193,7 @@ test("a Dimension in the URL is the one shown, and exposure currency is set apar
 test("recording an Opening position refreshes the look-through, which is built from the Holdings", async () => {
   const calls = accountBackend(LOOK);
   await renderAppAt("/accounts/20");
-  await screen.findByRole("region", { name: "Look-through" });
+  await screen.findByRole("region", { name: /^Look-through/ });
   const before = calls.length;
   fireEvent.click(await screen.findByRole("button", { name: "Record Opening position" }));
   const form = within(await screen.findByRole("form", { name: "Record Opening position for Sample Brokerage account" }));
@@ -205,7 +229,7 @@ test("an Account whose value is not built from Holdings shows no look-through", 
   accountBackend({ ...LOOK, applies: false, status: "not_analysed", total: null, lines: [], parts: [] });
   await renderAppAt("/accounts/20");
   await screen.findByRole("heading", { name: "Sample Brokerage account" });
-  await waitFor(() => expect(screen.queryByRole("region", { name: "Look-through" })).not.toBeInTheDocument());
+  await waitFor(() => expect(screen.queryByRole("region", { name: /^Look-through/ })).not.toBeInTheDocument());
 });
 
 // --- the Instrument page ---------------------------------------------------------------------
@@ -243,6 +267,7 @@ const VOCAB = [
   },
 ];
 const INSTRUMENT = { id: 1, name: "Sample Broad Market ETF", kind: "etf", currency: "AUD", notes: null, identifiers: [] };
+const UNDERLYING = { id: 2, name: "Sample Global Equity ETF", kind: "etf", currency: "AUD", notes: null, identifiers: [] };
 const profile = (id: number, over: Record<string, unknown>) => ({
   id,
   instrument_id: 1,
@@ -254,12 +279,13 @@ const profile = (id: number, over: Record<string, unknown>) => ({
   status: "current",
   superseded_at: null,
   superseded_by_id: null,
+  references: [],
   weights: [
     { dimension_key: "asset_class", label_key: "australian_shares", percent: "60" },
     { dimension_key: "asset_class", label_key: "international_shares", percent: "39.5" },
   ],
   resolutions: [
-    { dimension_key: "asset_class", total_percent: "99.5", difference_percent: "-0.5", outcome: "short", not_classified_percent: "0.5", trimmed: [] },
+    { dimension_key: "asset_class", total_percent: "99.5", difference_percent: "-0.5", outcome: "short", not_classified_percent: "0.5", trimmed: [], trimmed_references: [] },
   ],
   ...over,
 });
@@ -271,7 +297,9 @@ function instrumentBackend(initial: unknown[], reject = false) {
     "fetch",
     vi.fn(async (request: Request) => {
       const url = new URL(request.url);
-      if (url.pathname === "/api/instruments") return json([INSTRUMENT]);
+      const pref = await preferences(request);
+      if (pref) return pref;
+      if (url.pathname === "/api/instruments") return json([INSTRUMENT, UNDERLYING]);
       if (url.pathname === "/api/household")
         return json({ name: "The Sample Household", time_zone: "Australia/Melbourne", members: [] });
       if (url.pathname === "/api/exposure/vocabulary") return json(VOCAB);
@@ -342,6 +370,7 @@ test("saving sends the weights as percent strings, and a rejection shows the dif
   expect(posted[0]).toEqual({
     as_at: "2026-06-30",
     provenance_note: "Invented factsheet",
+    references: [],
     weights: [{ dimension_key: "asset_class", label_key: "australian_shares", percent: "50" }],
   });
   expect(screen.getByRole("form", { name: /exposure profile/ })).toBeInTheDocument(); // stays open on failure
@@ -425,6 +454,18 @@ test("the profile card groups weights under their Dimension, so a repeated label
   expect(within(card.getByRole("rowgroup", { name: "Asset class" })).getByText("1%")).toBeInTheDocument();
 });
 
+test("for a fund-of-funds the header says its Exposure currency weights are only what it holds directly", async () => {
+  instrumentBackend([
+    profile(2, {
+      weights: [{ dimension_key: "exposure_currency", label_key: "aud", percent: "10" }],
+      references: [{ instrument_id: 2, instrument_name: "Sample Global Equity ETF", percent: "90" }],
+      resolutions: [],
+    }),
+  ]);
+  await renderAppAt("/instruments/1");
+  expect(await screen.findByText("AUD 10% directly, 90% through underlying funds")).toBeInTheDocument();
+});
+
 test("the header says so when the profile leaves Exposure currency out", async () => {
   instrumentBackend([profile(2, {})]);
   await renderAppAt("/instruments/1");
@@ -473,7 +514,7 @@ test("each Dimension of a profile gets its own chart, and one the profile leaves
   await renderAppAt("/instruments/1");
   const card = within(await screen.findByRole("region", { name: "Exposure profile as at 2026-06-30" }));
   expect(
-    await card.findByRole("img", { name: "Bar chart of Sample Broad Market ETF by asset class. The figures are under Show figures." }),
+    await card.findByRole("img", { name: /^Donut chart\. Mostly Australian shares and International shares.*Sample Broad Market ETF by asset class\./ }),
   ).toBeInTheDocument();
   expect(card.getAllByRole("img")).toHaveLength(1);
   for (const name of ["Region split", "Exposure currency split"])
@@ -500,4 +541,212 @@ test("the form's total bar fills towards 100% and marks the accepted band", asyn
   expect(bar().firstElementChild).toHaveStyle({ width: "50%" });
   fireEvent.change(form.getByLabelText("Australian shares"), { target: { value: "100" } });
   expect(bar()).toHaveAttribute("data-state", "exact");
+});
+
+// --- fund-of-funds (#85) ---------------------------------------------------------------------
+
+const FUND_LOOK = {
+  ...LOOK,
+  lines: [
+    {
+      kind: "label",
+      key: "australian_shares",
+      name: "Australian shares",
+      amount: aud("3764.65", 376465),
+      percent: "46.11",
+      instrument_id: null,
+      through_fund: true,
+      reason: null,
+      contributions: [
+        { path: ["Sample Broad Market ETF"], amount: aud("2883.23", 288323) },
+        { path: ["Sample Diversified Fund", "Sample Broad Market ETF"], amount: aud("501.60", 50160) },
+      ],
+    },
+    { kind: "label", key: "cash", name: "Cash", amount: aud("992.25", 99225), percent: "12.15", instrument_id: null, through_fund: false, contributions: [], reason: null },
+    { kind: "unallocated", key: null, name: "Unallocated", amount: aud("0.00", 0), percent: "0.00", instrument_id: null, through_fund: false, contributions: [], reason: null },
+  ],
+  parts: [
+    {
+      ...LOOK.parts[0],
+      underlying: [
+        {
+          path: ["Sample Diversified Fund", "Sample Broad Market ETF"],
+          amount: aud("836.00", 83600),
+          profile_as_at: "2026-12-31",
+          dated_after: true,
+          shortfall_percent: "0.5",
+          trimmed: [],
+          omitted: false,
+        },
+      ],
+    },
+  ],
+};
+
+test("a line an underlying fund gave to is marked, and Show underlying says which fund gave what", async () => {
+  accountBackend(FUND_LOOK);
+  await renderAppAt("/accounts/20");
+  const panel = within(await screen.findByRole("region", { name: /^Look-through/ }));
+  fireEvent.click(await panel.findByRole("button", { name: "Show figures" }));
+  const table = within(await panel.findByRole("table", { name: "Look-through lines" }));
+  const row = table.getByText("Australian shares").closest("tr")!;
+  expect(within(row).getByText("Through a fund")).toBeInTheDocument();
+  expect(within(table.getByText("Cash").closest("tr")!).queryByText("Through a fund")).not.toBeInTheDocument();
+  expect(table.queryByText("Sample Diversified Fund › Sample Broad Market ETF")).not.toBeInTheDocument();
+  fireEvent.click(within(row).getByRole("button", { name: "Show underlying: Australian shares" }));
+  const routes = table.getAllByRole("row").filter((r) => r.getAttribute("data-kind") === "contribution");
+  expect(routes.map((r) => r.textContent)).toEqual([
+    "Sample Broad Market ETF2,883.23",
+    "Sample Diversified Fund › Sample Broad Market ETF501.60",
+  ]);
+  fireEvent.click(within(row).getByRole("button", { name: "Hide underlying: Australian shares" }));
+  expect(table.queryByText("Sample Diversified Fund › Sample Broad Market ETF")).not.toBeInTheDocument();
+  // an underlying fund's own profile notes are named by their route
+  expect(
+    panel.getByText(
+      /Sample Diversified Fund › Sample Broad Market ETF: the profile is dated after 2026-09-30 \(2026-12-31\)/,
+    ),
+  ).toBeInTheDocument();
+  expect(panel.getByText(/Sample Diversified Fund › Sample Broad Market ETF: its profile is 0.5 points short/)).toBeInTheDocument();
+});
+
+test("the look-through chart is a donut that switches form, remembered for this Dimension only", async () => {
+  accountBackend(LOOK);
+  await renderAppAt("/accounts/20");
+  const panel = within(await screen.findByRole("region", { name: /^Look-through/ }));
+  expect((await panel.findByTestId("share-chart")).getAttribute("data-form")).toBe("donut");
+  fireEvent.click(panel.getByRole("radio", { name: "Stacked bar" }));
+  await waitFor(() => expect(puts).toEqual([{ "lookthrough.asset-class": "stacked-bar" }]));
+  expect(panel.getByTestId("share-chart").getAttribute("data-form")).toBe("stacked-bar");
+  expect(panel.getByRole("button", { name: "Use as my default" })).toBeInTheDocument();
+  // the Dimension switcher is untouched by the chart switch
+  expect(panel.getByRole("tab", { name: "Asset class" })).toHaveAttribute("aria-selected", "true");
+});
+
+const FUND_PROFILE = (over: Record<string, unknown> = {}) =>
+  profile(5, {
+    weights: [{ dimension_key: "asset_class", label_key: "cash", percent: "10" }],
+    references: [
+      { instrument_id: 2, instrument_name: "Sample Global Equity ETF", percent: "35" },
+      { instrument_id: 3, instrument_name: "Sample Mining Ltd", percent: "55" },
+    ],
+    resolutions: [
+      { dimension_key: "asset_class", total_percent: "100", difference_percent: "0", outcome: "exact", not_classified_percent: "0", trimmed: [], trimmed_references: [] },
+    ],
+    ...over,
+  });
+
+test("a fund-of-funds profile leads with what it holds, lists its underlying funds and says what its charts show", async () => {
+  instrumentBackend([FUND_PROFILE()]);
+  await renderAppAt("/instruments/1");
+  const card = within(await screen.findByRole("region", { name: "Exposure profile as at 2026-06-30" }));
+  expect(
+    await card.findByText("A fund of funds: 90% is held in Sample Mining Ltd (55%) and Sample Global Equity ETF (35%)"),
+  ).toBeInTheDocument();
+  expect(await card.findByRole("img", { name: /Share of Sample Broad Market ETF held in each underlying fund\./ })).toBeInTheDocument();
+  expect(card.getByRole("region", { name: "Underlying funds split" })).toBeInTheDocument();
+  // the Dimensions it gives no weights of its own come only through the underlying funds
+  expect(within(card.getByRole("region", { name: "Region split" })).getByText("Only through its underlying funds")).toBeInTheDocument();
+  expect(card.getAllByText("Its own holdings, beside the share held through its underlying funds.")).toHaveLength(1);
+  fireEvent.click(card.getByRole("button", { name: "Show figures" }));
+  const funds = within(card.getByRole("rowgroup", { name: "Underlying funds" }));
+  expect(funds.getByRole("link", { name: "Sample Global Equity ETF" })).toHaveAttribute("href", "/instruments/2");
+  expect(funds.getByText("55%")).toBeInTheDocument();
+});
+
+test("one switch serves all of a profile card's charts and stores the card's choice", async () => {
+  instrumentBackend([FUND_PROFILE()]);
+  await renderAppAt("/instruments/1");
+  const card = within(await screen.findByRole("region", { name: "Exposure profile as at 2026-06-30" }));
+  await card.findAllByTestId("share-chart");
+  expect(card.getAllByRole("group", { name: "Chart type" })).toHaveLength(1);
+  const charts = () => card.getAllByTestId("share-chart").map((c) => c.getAttribute("data-form"));
+  expect(charts().every((f) => f === "donut")).toBe(true);
+  fireEvent.click(card.getByRole("radio", { name: "Bars" }));
+  await waitFor(() => expect(puts).toEqual([{ "exposure-profile": "bars" }]));
+  expect(charts().every((f) => f === "bars")).toBe(true);
+  expect(charts().length).toBeGreaterThan(1);
+});
+
+test("a profile of underlying funds alone still has its headline, even beyond 100% (the server trims it)", async () => {
+  instrumentBackend([
+    FUND_PROFILE({
+      weights: [],
+      references: [{ instrument_id: 2, instrument_name: "Sample Global Equity ETF", percent: "101" }],
+      resolutions: [],
+    }),
+  ]);
+  await renderAppAt("/instruments/1");
+  await screen.findByRole("region", { name: "Exposure profile as at 2026-06-30" });
+  expect(await screen.findByText(/A fund of funds: 101% is held in Sample Global Equity ETF \(101%\)/)).toBeInTheDocument();
+});
+
+test("the form takes underlying funds, counts them towards each Dimension and sends them as percent strings", async () => {
+  const posted = instrumentBackend([]);
+  await renderAppAt("/instruments/1");
+  const enter = await screen.findByRole("button", { name: "Enter exposure profile" });
+  await waitFor(() => expect(enter).toBeEnabled());
+  fireEvent.click(enter);
+  const form = within(await screen.findByRole("form", { name: "Enter exposure profile of Sample Broad Market ETF" }));
+  fireEvent.click(form.getByRole("button", { name: "Add underlying fund" }));
+  const chooser = form.getByLabelText("Underlying fund 1");
+  // the Instrument itself cannot be its own underlying fund
+  expect(within(chooser).queryByRole("option", { name: "Sample Broad Market ETF" })).not.toBeInTheDocument();
+  await within(chooser).findByRole("option", { name: "Sample Global Equity ETF" });
+  fireEvent.change(chooser, { target: { value: "2" } });
+  fireEvent.change(form.getByLabelText("Underlying fund 1 weight (%)"), { target: { value: "60" } });
+  expect(form.getByRole("status", { name: "Underlying funds total" })).toHaveTextContent("Underlying funds total 60%.");
+  // a Dimension left out says what the funds do not cover
+  expect(form.getByRole("status", { name: "Asset class total" })).toHaveTextContent(
+    "Nothing entered: this Dimension is left out, and what the underlying funds do not cover (40%) shows as Not classified.",
+  );
+  fireEvent.change(form.getByLabelText("Cash"), { target: { value: "40" } });
+  expect(form.getByRole("status", { name: "Asset class total" })).toHaveTextContent(
+    "Total 100% (with 60% in underlying funds). Adds to 100%.",
+  );
+  fireEvent.change(form.getByLabelText("Cash"), { target: { value: "20" } });
+  expect(form.getByRole("status", { name: "Asset class total" })).toHaveTextContent("Total 80% (with 60% in underlying funds): 20 points short of 100%. More than 1 point");
+  fireEvent.change(form.getByLabelText("Cash"), { target: { value: "40" } });
+  fireEvent.change(form.getByLabelText("Source note"), { target: { value: "Invented fact sheet" } });
+  fireEvent.click(form.getByRole("button", { name: "Save profile" }));
+  await waitFor(() => expect(posted).toHaveLength(1));
+  expect(posted[0].references).toEqual([{ instrument_id: 2, percent: "60" }]);
+  expect(posted[0].weights).toEqual([{ dimension_key: "asset_class", label_key: "cash", percent: "40" }]);
+});
+
+test("a loop of funds is rejected with the server's message under the underlying funds, and a row can be removed", async () => {
+  instrumentBackend([], false);
+  const inner = globalThis.fetch;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (request: Request) => {
+      if (request.method === "POST" && new URL(request.url).pathname === "/api/instruments/1/exposure-profiles")
+        return json(
+          { errors: [{ field: "references", message: "This would make a loop of funds: A > B > A. A fund cannot hold itself, directly or through other funds." }] },
+          422,
+        );
+      return inner(request);
+    }),
+  );
+  await renderAppAt("/instruments/1");
+  const enter = await screen.findByRole("button", { name: "Enter exposure profile" });
+  await waitFor(() => expect(enter).toBeEnabled());
+  fireEvent.click(enter);
+  const form = within(await screen.findByRole("form", { name: "Enter exposure profile of Sample Broad Market ETF" }));
+  fireEvent.click(form.getByRole("button", { name: "Add underlying fund" }));
+  fireEvent.click(form.getByRole("button", { name: "Add underlying fund" }));
+  fireEvent.click(form.getByRole("button", { name: "Remove underlying fund 2" }));
+  expect(form.queryByLabelText("Underlying fund 2")).not.toBeInTheDocument();
+  await within(form.getByLabelText("Underlying fund 1")).findByRole("option", { name: "Sample Global Equity ETF" });
+  fireEvent.change(form.getByLabelText("Underlying fund 1"), { target: { value: "2" } });
+  fireEvent.change(form.getByLabelText("Underlying fund 1 weight (%)"), { target: { value: "100" } });
+  fireEvent.change(form.getByLabelText("Source note"), { target: { value: "Invented fact sheet" } });
+  fireEvent.click(form.getByRole("button", { name: "Save profile" }));
+  expect(await form.findByText(/This would make a loop of funds: A > B > A\./)).toBeInTheDocument();
+});
+
+test("underlying funds count towards a Dimension's running total, and only where it has weights", () => {
+  expect(judgeTotal(["40"], 600_000)).toMatchObject({ totalPpm: 1_000_000, state: "exact" });
+  expect(judgeTotal(["30"], 600_000)).toMatchObject({ state: "rejected", differencePpm: -100_000 });
+  expect(judgeTotal([""], 600_000).state).toBe("empty"); // left out, however much the funds cover
 });

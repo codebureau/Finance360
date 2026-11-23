@@ -3616,6 +3616,15 @@ export interface components {
              */
             needs_own_confirm: components["schemas"]["OwnConfirmOut"][];
         };
+        /** ContributionOut */
+        ContributionOut: {
+            amount: components["schemas"]["MoneyOut"];
+            /**
+             * Path
+             * @description Instrument names from the held fund down to the one that gave.
+             */
+            path: string[];
+        };
         /** ConversionOut */
         ConversionOut: {
             /** Amount */
@@ -5209,6 +5218,11 @@ export interface components {
         LookThroughLineOut: {
             amount: components["schemas"]["MoneyOut"];
             /**
+             * Contributions
+             * @description Each route through the funds that gave to this line, summing to its amount.
+             */
+            contributions: components["schemas"]["ContributionOut"][];
+            /**
              * Instrument Id
              * @description The Instrument a No profile line asks for.
              */
@@ -5230,6 +5244,16 @@ export interface components {
              * @description Of the Account value, two decimal places; display only.
              */
             percent: string | null;
+            /**
+             * Reason
+             * @description A No profile line behind a loop of funds, or nested beyond the cap.
+             */
+            reason: ("cycle" | "too_deep") | null;
+            /**
+             * Through Fund
+             * @description An underlying fund of a fund-of-funds gave to this line (see contributions).
+             */
+            through_fund: boolean;
         };
         /** LookThroughOut */
         LookThroughOut: {
@@ -5296,6 +5320,11 @@ export interface components {
              * @description Trimmed from the largest weight (over 100).
              */
             trimmed: components["schemas"]["TrimmedOut"][];
+            /**
+             * Underlying
+             * @description The underlying funds a fund-of-funds Holding resolved through.
+             */
+            underlying: components["schemas"]["UnderlyingOut"][];
         };
         /** MapIn */
         MapIn: {
@@ -5899,6 +5928,12 @@ export interface components {
             /** Provenance Note */
             provenance_note?: string | null;
             /**
+             * References
+             * @description Underlying funds; a loop of funds or nesting past the cap is rejected.
+             * @default []
+             */
+            references: components["schemas"]["ReferenceIn"][];
+            /**
              * Weights
              * @default []
              */
@@ -5923,6 +5958,11 @@ export interface components {
              * @description UTC.
              */
             recorded_at: string;
+            /**
+             * References
+             * @description Underlying funds (fund-of-funds): each a share of the whole profile.
+             */
+            references: components["schemas"]["ReferenceOut"][];
             /** Resolutions */
             resolutions: components["schemas"]["ResolutionOut"][];
             /**
@@ -6430,6 +6470,29 @@ export interface components {
             /** Profile Version */
             profile_version: number | null;
         };
+        /** ReferenceIn */
+        ReferenceIn: {
+            /** Instrument Id */
+            instrument_id: number;
+            /**
+             * Percent
+             * @description Percent, at most 4 decimal places.
+             * @default
+             */
+            percent: string;
+        };
+        /** ReferenceOut */
+        ReferenceOut: {
+            /** Instrument Id */
+            instrument_id: number;
+            /** Instrument Name */
+            instrument_name: string;
+            /**
+             * Percent
+             * @description Exact percent string of the whole profile.
+             */
+            percent: string;
+        };
         /** ResolutionOut */
         ResolutionOut: {
             /**
@@ -6456,6 +6519,11 @@ export interface components {
              * @description Trimmed from the largest weight when over 100.
              */
             trimmed: components["schemas"]["TrimmedOut"][];
+            /**
+             * Trimmed References
+             * @description Trimmed from the largest underlying fund when no direct weight could take it.
+             */
+            trimmed_references: components["schemas"]["TrimmedReferenceOut"][];
         };
         /** RevealedOut */
         RevealedOut: {
@@ -9151,6 +9219,15 @@ export interface components {
             /** Percent */
             percent: string;
         };
+        /** TrimmedReferenceOut */
+        TrimmedReferenceOut: {
+            /** Instrument Id */
+            instrument_id: number;
+            /** Instrument Name */
+            instrument_name: string;
+            /** Percent */
+            percent: string;
+        };
         /** TurnIn */
         TurnIn: {
             /**
@@ -9160,6 +9237,28 @@ export interface components {
             role: "user" | "assistant";
             /** Text */
             text: string;
+        };
+        /** UnderlyingOut */
+        UnderlyingOut: {
+            amount: components["schemas"]["MoneyOut"];
+            /** Dated After */
+            dated_after: boolean;
+            /** Omitted */
+            omitted: boolean;
+            /**
+             * Path
+             * @description Instrument names from the held fund down to this one.
+             */
+            path: string[];
+            /**
+             * Profile As At
+             * Format: date
+             */
+            profile_as_at: string;
+            /** Shortfall Percent */
+            shortfall_percent: string;
+            /** Trimmed */
+            trimmed: components["schemas"]["TrimmedOut"][];
         };
         /**
          * UnmappedTypeOut

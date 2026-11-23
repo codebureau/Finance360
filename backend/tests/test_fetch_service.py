@@ -495,6 +495,7 @@ def test_stale_instruments_are_those_with_no_price_or_one_older_than_the_limit(e
         "Sample Mining Ltd": date(2026, 10, 1),
         "Sample Balanced Growth Fund": None,
         "Sample Global Equity ETF": None,  # no provider symbol, so nothing fetched
+        "Sample Diversified Fund": None,  # only a manual Price, so the provider has none
     }
 
 

@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Plus } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Plus, X } from "lucide-react";
+import { useId, useMemo, useState } from "react";
 
 import { FieldMessage, GeneralError, inputClass } from "@/components/form-fields";
-import { ExposureBars } from "@/components/exposure-bars";
 import { FiguresDisclosure } from "@/components/figures-disclosure";
+import { FORM_OPTIONS, ShareBody } from "@/components/share-chart";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +18,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SHARE_FORMS, shareChartLabel, type ShareForm } from "@/lib/charts/share";
+import { useDisplayPreference } from "@/lib/display-preferences";
 import {
   fetchExposureProfiles,
   fetchExposureVocabulary,
@@ -26,13 +29,14 @@ import {
   percentToPpm,
   ppmToPercent,
   recordExposureProfile,
+  sumPpm,
   WEIGHT_TOLERANCE_PPM,
   type ExposureDimension,
   type ExposureProfile,
 } from "@/lib/exposure";
-import { profileRows, totalBarGeometry } from "@/lib/exposure-chart";
+import { profileHeadline, profileRows, referenceRows, totalBarGeometry } from "@/lib/exposure-chart";
 import { ApiError, fetchHousehold, todayIn } from "@/lib/household";
-import type { Instrument } from "@/lib/instruments";
+import { fetchInstruments, type Instrument } from "@/lib/instruments";
 
 const DEFAULT_TIME_ZONE = "Australia/Melbourne";
 /** Earlier versions shown before "Show all". */
@@ -53,20 +57,23 @@ function byDimension(profile: ExposureProfile) {
 }
 
 /** How the running total of one Dimension will be judged (the server decides; this previews). */
-function totalMessage(state: ReturnType<typeof judgeTotal>): string {
+function totalMessage(state: ReturnType<typeof judgeTotal>, referencesPpm: number): string {
   const total = ppmToPercent(state.totalPpm);
   const gap = ppmToPercent(Math.abs(state.differencePpm));
+  const withFunds = referencesPpm > 0 ? ` (with ${ppmToPercent(referencesPpm)}% in underlying funds)` : "";
   switch (state.state) {
     case "empty":
-      return "Nothing entered: this Dimension is left out.";
+      return referencesPpm > 0
+        ? `Nothing entered: this Dimension is left out, and what the underlying funds do not cover (${ppmToPercent(Math.max(0, 1_000_000 - referencesPpm))}%) shows as Not classified.`
+        : "Nothing entered: this Dimension is left out.";
     case "exact":
-      return `Total ${total}%. Adds to 100%.`;
+      return `Total ${total}%${withFunds}. Adds to 100%.`;
     case "short":
-      return `Total ${total}%: ${gap} points short of 100%. The shortfall shows as Not classified.`;
+      return `Total ${total}%${withFunds}: ${gap} points short of 100%. The shortfall shows as Not classified.`;
     case "over":
-      return `Total ${total}%: ${gap} points over 100%. The excess is trimmed from the largest weight.`;
+      return `Total ${total}%${withFunds}: ${gap} points over 100%. The excess is trimmed from the largest weight.`;
     default:
-      return `Total ${total}%: ${gap} points ${state.differencePpm < 0 ? "short of" : "over"} 100%. More than ${ppmToPercent(WEIGHT_TOLERANCE_PPM)} point either way is rejected.`;
+      return `Total ${total}%${withFunds}: ${gap} points ${state.differencePpm < 0 ? "short of" : "over"} 100%. More than ${ppmToPercent(WEIGHT_TOLERANCE_PPM)} point either way is rejected.`;
   }
 }
 
@@ -106,19 +113,25 @@ function DimensionFields({
   entered,
   error,
   initiallyOpen,
+  referencesPpm,
   onChange,
 }: {
   dimension: ExposureDimension;
   entered: Record<string, string>;
   error: unknown;
   initiallyOpen: boolean;
+  /** What the underlying funds already cover: it counts towards this Dimension's total. */
+  referencesPpm: number;
   onChange: (key: string, value: string) => void;
 }) {
   const [open, setOpen] = useState(initiallyOpen);
   // a rejected weight is never hidden in a closed Dimension
   const failed =
     error instanceof ApiError && Object.keys(error.fields).some((f) => f.startsWith(`weights.${dimension.key}.`));
-  const state = judgeTotal(dimension.labels.map((l) => entered[`${dimension.key}.${l.key}`] ?? ""));
+  const state = judgeTotal(
+    dimension.labels.map((l) => entered[`${dimension.key}.${l.key}`] ?? ""),
+    referencesPpm,
+  );
   return (
     <details
       open={open || failed}
@@ -163,10 +176,93 @@ function DimensionFields({
                 : "text-sm text-muted-foreground"
           }
         >
-          {totalMessage(state)}
+          {totalMessage(state, referencesPpm)}
         </p>
       </fieldset>
     </details>
+  );
+}
+
+type ReferenceEntry = { instrumentId: string; percent: string };
+
+/**
+ * A fund-of-funds' underlying funds: each a share of the whole profile, picked from the Instruments
+ * and typed in from the fund's documents. They count towards every Dimension's total, so a profile
+ * of 60% in one fund has its own weights add up to 40%. A loop of funds is rejected by the server
+ * with a message naming it.
+ */
+function ReferenceFields({
+  instrument,
+  entered,
+  error,
+  onChange,
+}: {
+  instrument: Instrument;
+  entered: ReferenceEntry[];
+  error: unknown;
+  onChange: (next: ReferenceEntry[]) => void;
+}) {
+  const instruments = useQuery({ queryKey: ["instruments"], queryFn: fetchInstruments });
+  const options = (instruments.data ?? []).filter((i) => i.id !== instrument.id);
+  const total = sumPpm(entered.map((e) => e.percent));
+  return (
+    <fieldset className="flex flex-col gap-2 rounded-md border border-border px-3 py-2">
+      <legend className="px-1 text-sm font-medium">Underlying funds</legend>
+      <p className="text-sm text-muted-foreground">
+        For a fund of funds: the funds it holds, as a share of {instrument.name}. They count towards every Dimension
+        below, which then only needs the rest. Leave empty for an ordinary fund.
+      </p>
+      {entered.map((entry, index) => (
+        <div key={index} className="flex flex-wrap items-end gap-2">
+          <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
+            Underlying fund {index + 1}
+            <select
+              className={inputClass}
+              value={entry.instrumentId}
+              onChange={(e) => onChange(entered.map((x, i) => (i === index ? { ...x, instrumentId: e.target.value } : x)))}
+            >
+              <option value="">Choose an Instrument</option>
+              {options.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.name}
+                </option>
+              ))}
+            </select>
+            {entry.instrumentId !== "" && <FieldMessage error={error} field={`references.${entry.instrumentId}`} />}
+          </label>
+          <label className="flex w-28 flex-col gap-1 text-sm">
+            Weight (%)
+            <input
+              className={inputClass}
+              inputMode="decimal"
+              aria-label={`Underlying fund ${index + 1} weight (%)`}
+              value={entry.percent}
+              onChange={(e) => onChange(entered.map((x, i) => (i === index ? { ...x, percent: e.target.value } : x)))}
+            />
+          </label>
+          <Button
+            type="button"
+            variant="ghost"
+            aria-label={`Remove underlying fund ${index + 1}`}
+            onClick={() => onChange(entered.filter((_, i) => i !== index))}
+          >
+            <X size={16} />
+          </Button>
+        </div>
+      ))}
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" variant="outline" onClick={() => onChange([...entered, { instrumentId: "", percent: "" }])}>
+          <Plus size={16} />
+          Add underlying fund
+        </Button>
+        {entered.length > 0 && (
+          <p role="status" aria-label="Underlying funds total" className="text-sm text-muted-foreground">
+            Underlying funds total {ppmToPercent(total)}%.
+          </p>
+        )}
+      </div>
+      <FieldMessage error={error} field="references" />
+    </fieldset>
   );
 }
 
@@ -190,11 +286,18 @@ function ProfileForm({
   const [entered, setEntered] = useState<Record<string, string>>(() =>
     Object.fromEntries((initial?.weights ?? []).map((w) => [`${w.dimension_key}.${w.label_key}`, w.percent])),
   );
+  const [references, setReferences] = useState<ReferenceEntry[]>(() =>
+    (initial?.references ?? []).map((r) => ({ instrumentId: String(r.instrument_id), percent: r.percent })),
+  );
+  const referencesPpm = sumPpm(references.map((r) => r.percent));
   const save = useMutation({
     mutationFn: () =>
       recordExposureProfile(instrument.id, {
         as_at: asAt,
         provenance_note: note,
+        references: references
+          .filter((r) => r.instrumentId !== "" && r.percent.trim() !== "")
+          .map((r) => ({ instrument_id: Number(r.instrumentId), percent: r.percent.trim() })),
         weights: vocab.flatMap((d) =>
           d.labels
             .filter((l) => (entered[`${d.key}.${l.key}`] ?? "").trim() !== "")
@@ -234,12 +337,14 @@ function ProfileForm({
           <FieldMessage error={save.error} field="provenance_note" />
         </label>
       </div>
+      <ReferenceFields instrument={instrument} entered={references} error={save.error} onChange={setReferences} />
       {vocab.map((dimension, index) => (
         <DimensionFields
           key={dimension.key}
           dimension={dimension}
           entered={entered}
           error={save.error}
+          referencesPpm={referencesPpm}
           initiallyOpen={index === 0 || dimension.labels.some((l) => (entered[`${dimension.key}.${l.key}`] ?? "") !== "")}
           onChange={(key, value) => setEntered((prev) => ({ ...prev, [key]: value }))}
         />
@@ -266,9 +371,10 @@ function resolutionNotes(profile: ExposureProfile, vocab: ExposureDimension[]): 
       return [`${name} totals ${r.total_percent}%: the ${r.not_classified_percent}% shortfall shows as Not classified.`];
     if (r.outcome === "over")
       return [
-        `${name} totals ${r.total_percent}%: ${r.trimmed
-          .map((t) => `${t.percent}% is trimmed from ${labelName(vocab, r.dimension_key, t.label_key)}`)
-          .join(", ")}, the largest weight.`,
+        `${name} totals ${r.total_percent}%: ${[
+          ...r.trimmed.map((t) => `${t.percent}% is trimmed from ${labelName(vocab, r.dimension_key, t.label_key)}`),
+          ...r.trimmed_references.map((t) => `${t.percent}% is trimmed from ${t.instrument_name}`),
+        ].join(", ")}, the largest weight.`,
       ];
     return [];
   });
@@ -288,58 +394,112 @@ function CurrentProfile({
   onChange: () => void;
 }) {
   const [correcting, setCorrecting] = useState(false);
+  const groupId = useId();
+  // One switch serves the card's several small charts (ADR-0031): `exposure-profile`.
+  const pref = useDisplayPreference<ShareForm>("exposure-profile", "share", SHARE_FORMS);
   const notes = resolutionNotes(profile, vocab);
-  const rows = useMemo(() => new Map(vocab.map((d) => [d.key, profileRows(profile.weights, d, vocab)])), [profile, vocab]);
+  const rows = useMemo(() => {
+    const through = profile.references.reduce((sum, r) => sum + (percentToPpm(r.percent) ?? 0), 0);
+    return new Map(vocab.map((d) => [d.key, profileRows(profile.weights, d, vocab, through)]));
+  }, [profile, vocab]);
   const rowsOf = (d: ExposureDimension) => rows.get(d.key) ?? [];
+  const fundRows = useMemo(() => referenceRows(profile), [profile]);
+  const fundOfFunds = profile.references.length > 0;
+  const headline = profileHeadline(profile, vocab);
+  const labelOf = (what: string) => `${shareChartLabel(pref.form, headline)} ${what}`;
   return (
     <Card aria-label={`Exposure profile as at ${profile.as_at}`} role="region">
       <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle>As at {profile.as_at}</CardTitle>
-        <Dialog open={correcting} onOpenChange={setCorrecting}>
-          <DialogTrigger asChild>
-            <Button variant="outline" aria-label={`Correct the profile as at ${profile.as_at}`}>
-              Correct
+        <div className="flex flex-wrap items-center gap-2">
+          <SegmentedControl
+            label="Chart type"
+            name={`exposure-profile-form-${groupId}`}
+            value={pref.form}
+            options={FORM_OPTIONS}
+            onChange={pref.choose}
+          />
+          {pref.canUseAsDefault && (
+            <Button variant="outline" onClick={pref.makeDefault}>
+              Use as my default
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Correct the profile as at {profile.as_at}</DialogTitle>
-              <DialogDescription>The original stays in the history as superseded.</DialogDescription>
-            </DialogHeader>
-            <ProfileForm
-              instrument={instrument}
-              vocab={vocab}
-              today={today}
-              initial={profile}
-              onCancel={() => setCorrecting(false)}
-              onDone={() => {
-                setCorrecting(false);
-                onChange();
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+          )}
+          <Dialog open={correcting} onOpenChange={setCorrecting}>
+            <DialogTrigger asChild>
+              <Button variant="outline" aria-label={`Correct the profile as at ${profile.as_at}`}>
+                Correct
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Correct the profile as at {profile.as_at}</DialogTitle>
+                <DialogDescription>The original stays in the history as superseded.</DialogDescription>
+              </DialogHeader>
+              <ProfileForm
+                instrument={instrument}
+                vocab={vocab}
+                today={today}
+                initial={profile}
+                onCancel={() => setCorrecting(false)}
+                onDone={() => {
+                  setCorrecting(false);
+                  onChange();
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
+        <p className="text-base font-medium break-words">{headline}</p>
         <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <Badge variant={profile.source === "manual" ? "ok" : "info"}>{profile.source}</Badge>
           Entered {profile.retrieved_on}. {profile.provenance_note}
         </p>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {vocab.map((d) => {
-            const rows = rowsOf(d);
-            return (
-              <section key={d.key} aria-label={`${d.name} split`} className="flex min-w-0 flex-col gap-1">
-                <h3 className="text-sm font-medium">{d.name}</h3>
-                {rows.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Not published</p>
-                ) : (
-                  <ExposureBars rows={rows} label={`Bar chart of ${instrument.name} by ${d.name.toLowerCase()}. The figures are under Show figures.`} />
-                )}
+        {!pref.ready ? (
+          <p className="text-sm text-muted-foreground">Loading chart</p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {fundOfFunds && (
+              <section aria-label="Underlying funds split" className="flex min-w-0 flex-col gap-1">
+                <h3 className="text-sm font-medium">Underlying funds</h3>
+                <ShareBody
+                  form={pref.form}
+                  rows={fundRows}
+                  stacked
+                  label={labelOf(`Share of ${instrument.name} held in each underlying fund.`)}
+                  legendLabel="Underlying funds: legend"
+                />
               </section>
-            );
-          })}
-        </div>
+            )}
+            {vocab.map((d) => {
+              const dimensionRows = rowsOf(d);
+              return (
+                <section key={d.key} aria-label={`${d.name} split`} className="flex min-w-0 flex-col gap-1">
+                  <h3 className="text-sm font-medium">{d.name}</h3>
+                  {dimensionRows.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      {fundOfFunds ? "Only through its underlying funds" : "Not published"}
+                    </p>
+                  ) : (
+                    <>
+                      {fundOfFunds && (
+                        <p className="text-xs text-muted-foreground">Its own holdings, beside the share held through its underlying funds.</p>
+                      )}
+                      <ShareBody
+                        form={pref.form}
+                        rows={dimensionRows}
+                        stacked
+                        label={labelOf(`${instrument.name} by ${d.name.toLowerCase()}.`)}
+                        legendLabel={`${d.name}: legend`}
+                      />
+                    </>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+        )}
         <FiguresDisclosure>
           <Table aria-label={`Weights as at ${profile.as_at}`}>
             <TableHeader>
@@ -348,6 +508,29 @@ function CurrentProfile({
                 <TableHead className="text-right">Weight</TableHead>
               </TableRow>
             </TableHeader>
+            {fundOfFunds && (
+              <TableBody aria-label="Underlying funds" className="border-t border-border">
+                <TableRow>
+                  <TableHead scope="rowgroup" colSpan={2} className="bg-muted/30 text-left">
+                    Underlying funds
+                  </TableHead>
+                </TableRow>
+                {profile.references.map((r) => (
+                  <TableRow key={r.instrument_id}>
+                    <TableCell>
+                      <Link
+                        to="/instruments/$instrumentId"
+                        params={{ instrumentId: String(r.instrument_id) }}
+                        className="text-primary underline underline-offset-2"
+                      >
+                        {r.instrument_name}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">{r.percent}%</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            )}
             {byDimension(profile).map(([key, weights]) => (
               <TableBody key={key} aria-label={dimensionName(vocab, key)} className="border-t border-border">
                 <TableRow>
@@ -365,6 +548,12 @@ function CurrentProfile({
             ))}
           </Table>
         </FiguresDisclosure>
+        {fundOfFunds && (
+          <p className="text-sm text-muted-foreground">
+            A fund of funds is resolved through the profile of each underlying fund on the look-through date, so a
+            corrected underlying profile flows through. An underlying fund with no profile shows as No profile.
+          </p>
+        )}
         {notes.map((n) => (
           <p key={n} className="text-sm text-muted-foreground">
             {n}
@@ -404,9 +593,17 @@ export function ExposureCurrencySummary({ instrument }: { instrument: Instrument
           .slice(0, SUMMARY_SHOWN)
           .map((w) => `${labelName(vocab.data, w.dimension_key, w.label_key)} ${w.percent}%`)
           .join(", ") + (weights.length > SUMMARY_SHOWN ? ` and ${weights.length - SUMMARY_SHOWN} more` : "");
+  // A fund-of-funds' own weights cover only what it holds directly; say so rather than imply a whole.
+  const through = (current?.references ?? []).reduce((sum, r) => sum + (percentToPpm(r.percent) ?? 0), 0);
+  const suffix =
+    current && through > 0
+      ? weights.length === 0
+        ? ` (${ppmToPercent(through)}% through underlying funds)`
+        : ` directly, ${ppmToPercent(through)}% through underlying funds`
+      : "";
   return (
     <span className="text-muted-foreground">
-      Exposure currency: <span className="text-foreground">{text}</span>
+      Exposure currency: <span className="text-foreground">{text + suffix}</span>
     </span>
   );
 }
@@ -473,6 +670,7 @@ export function ExposureProfilePanel({ instrument }: { instrument: Instrument })
           How {instrument.name} splits across asset class, region, sector and exposure currency, typed in from a
           published figure. Leave a Dimension blank if the figure is not published. A look-through on a
           date uses the latest profile on or before it. Weights within one point of 100% are accepted as printed.
+          A fund of funds lists the funds it holds under Underlying funds instead of repeating their weights.
         </p>
         {profiles.isPending && <p className="text-muted-foreground">Loading…</p>}
         {profiles.error && (

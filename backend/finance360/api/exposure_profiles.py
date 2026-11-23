@@ -46,6 +46,18 @@ class TrimmedOut(BaseModel):
     percent: str
 
 
+class ReferenceOut(BaseModel):
+    instrument_id: int
+    instrument_name: str
+    percent: str = Field(description="Exact percent string of the whole profile.")
+
+
+class TrimmedReferenceOut(BaseModel):
+    instrument_id: int
+    instrument_name: str
+    percent: str
+
+
 class ResolutionOut(BaseModel):
     dimension_key: str
     total_percent: str
@@ -53,6 +65,9 @@ class ResolutionOut(BaseModel):
     outcome: Literal["exact", "short", "over"]
     not_classified_percent: str = Field(description="A shortfall that resolves to Not classified.")
     trimmed: list[TrimmedOut] = Field(description="Trimmed from the largest weight when over 100.")
+    trimmed_references: list[TrimmedReferenceOut] = Field(
+        description="Trimmed from the largest underlying fund when no direct weight could take it."
+    )
 
 
 class ProfileOut(BaseModel):
@@ -67,6 +82,9 @@ class ProfileOut(BaseModel):
     superseded_at: datetime | None
     superseded_by_id: int | None
     weights: list[WeightOut]
+    references: list[ReferenceOut] = Field(
+        description="Underlying funds (fund-of-funds): each a share of the whole profile."
+    )
     resolutions: list[ResolutionOut]
 
 
@@ -76,13 +94,28 @@ class WeightIn(BaseModel):
     percent: str = Field(default="", description="Percent, at most 4 decimal places.")
 
 
+class ReferenceIn(BaseModel):
+    instrument_id: int
+    percent: str = Field(default="", description="Percent, at most 4 decimal places.")
+
+
 class ProfileIn(BaseModel):
     as_at: date
     provenance_note: str | None = None
     weights: list[WeightIn] = []
+    references: list[ReferenceIn] = Field(
+        default=[],
+        description="Underlying funds; a loop of funds or nesting past the cap is rejected.",
+    )
 
 
 def _out(session: Session, profile: ExposureProfile) -> ProfileOut:
+    resolutions = service.resolutions(session, profile)
+    names = service.instrument_names(
+        session,
+        {r.instrument_id for r in profile.references}
+        | {i for res in resolutions for i, _ in res.trimmed_references},
+    )
     return ProfileOut(
         id=profile.id,
         instrument_id=profile.instrument_id,
@@ -102,6 +135,14 @@ def _out(session: Session, profile: ExposureProfile) -> ProfileOut:
             )
             for w in profile.weights
         ],
+        references=[
+            ReferenceOut(
+                instrument_id=r.instrument_id,
+                instrument_name=names.get(r.instrument_id, str(r.instrument_id)),
+                percent=Weight(r.weight_ppm).to_percent(),
+            )
+            for r in profile.references
+        ],
         resolutions=[
             ResolutionOut(
                 dimension_key=r.dimension_key,
@@ -114,8 +155,16 @@ def _out(session: Session, profile: ExposureProfile) -> ProfileOut:
                 else "over",
                 not_classified_percent=percent_string(r.not_classified_ppm),
                 trimmed=[TrimmedOut(label_key=k, percent=percent_string(p)) for k, p in r.trimmed],
+                trimmed_references=[
+                    TrimmedReferenceOut(
+                        instrument_id=i,
+                        instrument_name=names.get(i, str(i)),
+                        percent=percent_string(p),
+                    )
+                    for i, p in r.trimmed_references
+                ],
             )
-            for r in service.resolutions(session, profile)
+            for r in resolutions
         ],
     )
 
@@ -164,6 +213,9 @@ def record_profile(
         retrieved_on=household_today(session),
         weights=tuple(
             service.WeightInput(w.dimension_key, w.label_key, w.percent) for w in body.weights
+        ),
+        references=tuple(
+            service.ReferenceInput(r.instrument_id, r.percent) for r in body.references
         ),
     )
     return _out(session, service.record_profile(session, ctx, instrument_id, data))

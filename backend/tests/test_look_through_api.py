@@ -441,3 +441,130 @@ def test_a_total_beyond_the_tolerance_is_422_with_the_difference_in_the_shared_e
     [error] = res.json()["errors"]
     assert error["field"] == "weights" and "3 points short of 100%" in error["message"]
     assert len(client.get(f"/api/instruments/{etf}/exposure-profiles").json()) == 1  # not written
+
+
+# --- fund-of-funds (#85) ----------------------------------------------------------------------
+
+DIVERSIFIED_FILE = "investment_transactions_accSAMPLE-PI-0001_24-Sep-2026_24-Sep-2026.csv"
+
+
+def _hold_diversified(c: TestClient) -> int:
+    """Commit the sample fund-of-funds trade (1,000 units at the 1.52 Price on ON: A$1,520.00)."""
+    with c.app.state.session_factory.begin() as s:  # type: ignore[attr-defined]
+        pi = s.scalars(select(Account).where(Account.name == PI)).one()
+        staged = service.stage(
+            s, CTX, (IMPORTS / DIVERSIFIED_FILE).read_bytes(), DIVERSIFIED_FILE, pi.id
+        )
+        commit.commit(s, CTX, staged.import_.id)
+        return reference.resolve(s, "SDVF", "ticker").id  # type: ignore[union-attr]
+
+
+def test_golden_the_fixture_fund_of_funds_resolves_through_its_underlying_funds(
+    held: tuple[TestClient, int, int],
+) -> None:
+    """Sample Diversified Fund (A$1,520.00): 55% Broad Market ETF, 35% Global Equity ETF, 10% own
+    cash. The lines add to the Account's value, and the rows it gave to say which fund gave what."""
+    client, pi, _ = held
+    fund = _hold_diversified(client)
+    view = _view(client, pi, on=ON)
+    assert view["total"]["amount"] == "8165.13"  # 6645.13 + A$1,520.00
+    rows = {r[1]: r[2] for r in _rows(view)}
+    assert rows == {
+        "Australian shares": "3764.65",  # 3263.05 + 836.00 x 60%
+        "International shares": "2755.02",  # 1898.12 + 330.22 + 526.68
+        "Cash": "992.25",  # 834.93 + the fund's own 152.00 + 5.32 of the Global Equity ETF
+        "No profile: Sample New Horizons ETF": "625.00",
+        "Not classified": "28.21",  # 24.03 + the Broad Market ETF's 0.5% of 836.00 (4.18)
+        "Unallocated": "0.00",
+    }
+    assert sum(x["amount"]["amount_minor"] for x in view["lines"]) == 816_513
+    shares = next(x for x in view["lines"] if x["name"] == "Australian shares")
+    assert shares["through_fund"] is True
+    assert [(c["path"], c["amount"]["amount"]) for c in shares["contributions"]] == [
+        (["Sample Broad Market ETF"], "2883.23"),
+        (["Sample Mining Ltd"], "379.82"),
+        (["Sample Diversified Fund", "Sample Broad Market ETF"], "501.60"),
+    ]
+    assert sum(c["amount"]["amount_minor"] for c in shares["contributions"]) == 376_465
+    plain = next(x for x in view["lines"] if x["kind"] == "no_profile")
+    assert plain["through_fund"] is False and plain["contributions"] == []
+    [part] = [p for p in view["parts"] if p["instrument_id"] == fund]
+    assert [(u["path"], u["amount"]["amount"]) for u in part["underlying"]] == [
+        (["Sample Diversified Fund", "Sample Broad Market ETF"], "836.00"),
+        (["Sample Diversified Fund", "Sample Global Equity ETF"], "532.00"),
+    ]
+    for dimension in ("region", "sector", "exposure_currency"):
+        other = _view(client, pi, on=ON, dimension=dimension)
+        assert sum(x["amount"]["amount_minor"] for x in other["lines"]) == 816_513, dimension
+
+
+def test_an_underlying_fund_without_a_profile_shows_as_no_profile_and_the_total_holds(
+    held: tuple[TestClient, int, int],
+) -> None:
+    client, pi, _ = held
+    fund = _hold_diversified(client)
+    snhx_like = client.post(
+        "/api/instruments",
+        json={"name": "Sample Unprofiled Fund", "kind": "fund", "currency": "AUD"},
+    ).json()["id"]
+    posted = client.post(
+        f"/api/instruments/{fund}/exposure-profiles",
+        json={
+            "as_at": "2026-09-01",
+            "provenance_note": "Invented: swaps an underlying fund for one with no profile",
+            "references": [
+                {"instrument_id": snhx_like, "percent": "60"},
+            ],
+            "weights": [{"dimension_key": "asset_class", "label_key": "cash", "percent": "40"}],
+        },
+    )
+    assert posted.status_code == 201, posted.text
+    view = _view(client, pi, on=ON)
+    gap = next(x for x in view["lines"] if x["name"] == "No profile: Sample Unprofiled Fund")
+    assert (gap["amount"]["amount"], gap["instrument_id"]) == ("912.00", snhx_like)  # 60% of 1,520
+    assert gap["reason"] is None and gap["through_fund"] is True
+    assert sum(x["amount"]["amount_minor"] for x in view["lines"]) == 816_513
+
+
+def test_a_loop_of_funds_is_rejected_over_the_api_naming_it_and_nothing_is_written(
+    held: tuple[TestClient, int, int],
+) -> None:
+    client, _, _ = held
+    ids = {i["name"]: i["id"] for i in client.get("/api/instruments").json()}
+    diversified, broad = ids["Sample Diversified Fund"], ids["Sample Broad Market ETF"]
+    before = client.get(f"/api/instruments/{broad}/exposure-profiles").json()
+    res = client.post(
+        f"/api/instruments/{broad}/exposure-profiles",
+        json={
+            "as_at": "2026-06-30",
+            "provenance_note": "Invented: would make Broad Market ETF hold the fund that holds it",
+            "references": [{"instrument_id": diversified, "percent": "100"}],
+        },
+    )
+    assert res.status_code == 422
+    [error] = res.json()["errors"]
+    assert error["field"] == "references"
+    assert (
+        "Sample Broad Market ETF > Sample Diversified Fund > Sample Broad Market ETF"
+        in error["message"]
+    )
+    assert client.get(f"/api/instruments/{broad}/exposure-profiles").json() == before
+
+
+def test_a_profile_reports_its_underlying_funds_by_name(
+    held: tuple[TestClient, int, int],
+) -> None:
+    client, _, _ = held
+    ids = {i["name"]: i["id"] for i in client.get("/api/instruments").json()}
+    [profile] = client.get(
+        f"/api/instruments/{ids['Sample Diversified Fund']}/exposure-profiles"
+    ).json()
+    assert [(r["instrument_name"], r["percent"]) for r in profile["references"]] == [
+        ("Sample Broad Market ETF", "55"),
+        ("Sample Global Equity ETF", "35"),
+    ]
+    assert {r["dimension_key"]: r["outcome"] for r in profile["resolutions"]} == {
+        "asset_class": "exact",
+        "region": "exact",
+        "exposure_currency": "exact",
+    }

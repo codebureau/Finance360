@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 // ECharts is a large dependency, so it loads on demand.
 const EChart = lazy(() => import("@/components/echart"));
 
-const FORM_OPTIONS: SegmentOption<ShareForm>[] = [
+export const FORM_OPTIONS: SegmentOption<ShareForm>[] = [
   { value: "donut", label: "Donut", icon: ChartPie },
   { value: "stacked-bar", label: "Stacked bar", icon: ChartBarStacked },
   { value: "bars", label: "Bars", icon: ChartBar },
@@ -77,6 +77,43 @@ function Legend({ rows, label }: { rows: ShareRow[]; label: string }) {
 }
 
 /**
+ * The chart in one form with its legend beside (a donut) or below it: the body of a `share`, used
+ * on its own where one switch serves several small charts (the Exposure profile card).
+ */
+export function ShareBody({
+  form,
+  rows,
+  label,
+  legendLabel,
+  stacked = false,
+}: {
+  form: ShareForm;
+  rows: ShareRow[];
+  /** The chart's accessible label. */
+  label: string;
+  legendLabel: string;
+  /** Legend below the chart even for a donut (a narrow cell). */
+  stacked?: boolean;
+}) {
+  const theme = useChartTheme();
+  const palette = useMemo(() => categoricalPaletteFromTokens(theme), [theme]);
+  const option = useMemo(() => buildShareOption(form, rows, palette), [form, rows, palette]);
+  const legend = useMemo(() => drawnRows(form, rows), [form, rows]);
+  // A donut sits beside its legend; a stacked bar is wide, so its legend goes below it.
+  const sideBySide = form === "donut" && !stacked;
+  return (
+    <div className={cn("grid items-start gap-4", sideBySide && "sm:grid-cols-[minmax(0,14rem)_1fr]")}>
+      <div className="w-full min-w-0" data-testid="share-chart" data-form={form}>
+        <Suspense fallback={<p className="text-sm text-muted-foreground">Loading chart</p>}>
+          <EChart option={option} label={label} className="w-full" height={shareChartHeight(form, rows.length)} />
+        </Suspense>
+      </div>
+      <Legend rows={legend} label={legendLabel} />
+    </div>
+  );
+}
+
+/**
  * A `share` as a view card (ADR-0031): the headline, the form switch with its own "Use as my
  * default", the chart in the chosen form, a legend with the exact figures beside it and, behind
  * "Show figures", whatever table the caller holds. The switch keeps the view's form under
@@ -108,18 +145,12 @@ export function ShareChart({
   /** Content under the chart and legend, above "Show figures" (a figure that sits beside the chart). */
   after?: ReactNode;
 }) {
-  const theme = useChartTheme();
   // Several cards can share one viewKey (one card per Member), so each radio group needs its own name.
   const groupId = useId();
   const forms = useMemo(() => formsFor(rows, offered), [rows, offered]);
   const pref = useDisplayPreference<ShareForm>(viewKey, "share", forms);
   const form = pref.form;
-  const palette = useMemo(() => categoricalPaletteFromTokens(theme), [theme]);
-  const option = useMemo(() => buildShareOption(form, rows, palette), [form, rows, palette]);
-  const legend = useMemo(() => drawnRows(form, rows), [form, rows]);
   const switchable = FORM_OPTIONS.filter((o) => forms.includes(o.value));
-  // A donut sits beside its legend; a stacked bar is wide, so its legend goes below it.
-  const sideBySide = form === "donut";
 
   return (
     <ViewCard
@@ -148,23 +179,16 @@ export function ShareChart({
         </>
       }
     >
-      <div className={cn("grid items-start gap-4", sideBySide && "sm:grid-cols-[minmax(0,14rem)_1fr]")}>
-        {pref.ready ? (
-          <div className="w-full min-w-0" data-testid="share-chart" data-form={form}>
-            <Suspense fallback={<p className="text-sm text-muted-foreground">Loading chart</p>}>
-              <EChart
-                option={option}
-                label={`${shareChartLabel(form, headline)}${chartLabel ? ` ${chartLabel}` : ""}`}
-                className="w-full"
-                height={shareChartHeight(form, rows.length)}
-              />
-            </Suspense>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">Loading chart</p>
-        )}
-        <Legend rows={legend} label={`${title}: legend`} />
-      </div>
+      {pref.ready ? (
+        <ShareBody
+          form={form}
+          rows={rows}
+          label={`${shareChartLabel(form, headline)}${chartLabel ? ` ${chartLabel}` : ""}`}
+          legendLabel={`${title}: legend`}
+        />
+      ) : (
+        <p className="text-sm text-muted-foreground">Loading chart</p>
+      )}
       {after}
     </ViewCard>
   );

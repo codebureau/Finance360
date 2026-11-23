@@ -2,10 +2,12 @@
 
 An Account's parts (each Holding at its Price x quantity through FX, plus cash) are split across a
 Dimension's labels, with explicit lines for what has no profile, what a profile does not classify,
-and the gap between the parts and the Account's Position value (Unallocated). The lines sum
-**exactly** to the Position value: parts are allocated across the converted parts total, and
-Unallocated is the Position value minus that total, so nothing is absorbed or scaled. Percentages
-are display only, rounded once from Money.
+and the gap between the parts and the Account's Position value (Unallocated). A Holding of a
+fund-of-funds is resolved through its underlying funds (ADR-0030 section 5): a line that any
+underlying fund contributed to carries those contributions, so the panel can show which fund gave
+which part. The lines sum **exactly** to the Position value: parts are allocated across the
+converted parts total, and Unallocated is the Position value minus that total, so nothing is
+absorbed or scaled. Percentages are display only, rounded once from Money.
 """
 
 from __future__ import annotations
@@ -16,7 +18,7 @@ from datetime import date
 from typing import Literal
 
 from finance360.capabilities.lookthrough.reconcile import is_material, reconcile_tolerance
-from finance360.capabilities.lookthrough.resolve import resolve
+from finance360.capabilities.lookthrough.resolve import NoProfileReason, resolve
 from finance360.core.exposure import ASSET_CLASS, CASH, EXPOSURE_CURRENCY, ProfileFacts
 from finance360.core.money import Money, allocate, round_div
 
@@ -45,9 +47,35 @@ class PartResult:
     profile_as_at: date | None
     dated_after: bool
     shortfall_ppm: int
+    #: ``(label key or underlying fund name, ppm)`` trimmed from the largest weight (over 100%).
     trimmed: tuple[tuple[str, int], ...]
     #: The part has a profile that gives this Dimension no weights: all Not classified.
     omitted: bool = False
+    #: The underlying funds this part resolved through, each with its own profile's notes.
+    underlying: tuple[Underlying, ...] = ()
+
+
+@dataclass(frozen=True)
+class Underlying:
+    """One underlying fund a fund-of-funds Holding resolved through, and its profile's notes."""
+
+    #: The Instruments' names from the held fund to this one.
+    path: tuple[str, ...]
+    #: What reached it, in the Base currency.
+    amount: Money
+    profile_as_at: date
+    dated_after: bool
+    shortfall_ppm: int
+    trimmed: tuple[tuple[str, int], ...]
+    omitted: bool
+
+
+@dataclass(frozen=True)
+class Contribution:
+    """What one route through the funds gave to a line: the names from the held fund down."""
+
+    path: tuple[str, ...]
+    amount: Money
 
 
 @dataclass(frozen=True)
@@ -61,6 +89,11 @@ class Line:
     percent: str | None
     #: A ``no_profile`` line names the Instrument so the page can link to entering one.
     instrument_id: int | None = None
+    #: Set only when an underlying fund gave to this line: every route that did (the held fund's
+    #: own direct share too), summing to ``amount``. Empty for an ordinary line.
+    contributions: tuple[Contribution, ...] = ()
+    #: A ``no_profile`` line whose Instrument is not the held one: ``cycle`` or ``too_deep``.
+    reason: NoProfileReason | None = None
 
 
 @dataclass(frozen=True)
@@ -103,12 +136,14 @@ def compose(
     labels: Sequence[tuple[str, str]],
     on: date,
     profiles: Mapping[int, Sequence[ProfileFacts]],
+    names_of: Mapping[int, str] | None = None,
 ) -> Composition:
     """The Account's look-through in one Dimension.
 
     ``position_value`` is the Account's Position value and ``parts_value`` the parts' total, both
     in the Base currency (the service converts); ``labels`` is the Dimension's ``(key, name)`` in
-    seed order. The returned lines sum exactly to ``position_value``.
+    seed order and ``names_of`` the Instruments' names (including underlying funds). The returned
+    lines sum exactly to ``position_value``.
     """
     names = dict(labels)
     order = [key for key, _ in labels]
@@ -122,8 +157,19 @@ def compose(
         in_base = [zero for _ in parts]
         parts_value = zero
 
+    instrument_names = dict(names_of or {})
+    for part in parts:
+        if part.instrument_id is not None:
+            instrument_names.setdefault(part.instrument_id, part.name)
+
+    def called(instrument_id: int) -> str:
+        return instrument_names.get(instrument_id, f"Instrument {instrument_id}")
+
     by_label: dict[str, Money] = {}
-    no_profile: dict[int, Money] = {}
+    #: Routes (Instrument names, held fund first) and what each gave, per label and No profile.
+    label_routes: dict[str, dict[tuple[str, ...], Money]] = {}
+    no_profile: dict[tuple[int, NoProfileReason | None], Money] = {}
+    no_profile_routes: dict[tuple[int, NoProfileReason | None], dict[tuple[str, ...], Money]] = {}
     not_classified = zero
     results: list[PartResult] = []
     for part, amount in zip(parts, in_base, strict=True):
@@ -131,6 +177,8 @@ def compose(
             cash_label = _cash_label(dimension, part.currency, names)
             if cash_label is not None:
                 by_label[cash_label] = by_label.get(cash_label, zero) + amount
+                routes = label_routes.setdefault(cash_label, {})
+                routes[(part.name,)] = routes.get((part.name,), zero) + amount
             else:
                 not_classified += amount
             results.append(PartResult(None, part.name, amount, None, False, 0, ()))
@@ -139,10 +187,15 @@ def compose(
         for line in resolved.lines:
             if line.kind == "label" and line.label_key is not None:
                 by_label[line.label_key] = by_label.get(line.label_key, zero) + line.amount
+                routes = label_routes.setdefault(line.label_key, {})
+                route = tuple(called(i) for i in line.path)
+                routes[route] = routes.get(route, zero) + line.amount
             elif line.kind == "no_profile":
-                no_profile[part.instrument_id] = (
-                    no_profile.get(part.instrument_id, zero) + line.amount
-                )
+                key = (line.path[-1], line.reason)
+                no_profile[key] = no_profile.get(key, zero) + line.amount
+                routes = no_profile_routes.setdefault(key, {})
+                route = tuple(called(i) for i in line.path)
+                routes[route] = routes.get(route, zero) + line.amount
             else:
                 not_classified += line.amount
         results.append(
@@ -153,12 +206,43 @@ def compose(
                 resolved.as_at,
                 resolved.dated_after,
                 resolved.shortfall_ppm,
-                resolved.trimmed,
+                (
+                    *resolved.trimmed,
+                    *((called(i), ppm) for i, ppm in resolved.trimmed_references),
+                ),
                 resolved.omitted,
+                tuple(
+                    Underlying(
+                        tuple(called(i) for i in visit.path),
+                        visit.amount,
+                        visit.as_at,
+                        visit.dated_after,
+                        visit.shortfall_ppm,
+                        (
+                            *visit.trimmed,
+                            *((called(i), ppm) for i, ppm in visit.trimmed_references),
+                        ),
+                        visit.omitted,
+                    )
+                    for visit in resolved.visits
+                ),
             )
         )
 
     unallocated = position_value - parts_value
+
+    def contributions(routes: Mapping[tuple[str, ...], Money]) -> tuple[Contribution, ...]:
+        """Only a line some underlying fund gave to has them; a Holding's own is no news."""
+        if all(len(path) == 1 for path in routes):
+            return ()
+        return tuple(
+            Contribution(path, amount)
+            for path, amount in sorted(
+                routes.items(), key=lambda r: (len(r[0]), -r[1].amount_minor)
+            )
+            if amount.amount_minor
+        )
+
     lines: list[Line] = []
     for key in order:
         if key in by_label and by_label[key].amount_minor:
@@ -169,18 +253,23 @@ def compose(
                     names[key],
                     by_label[key],
                     percent_text(by_label[key], position_value),
+                    contributions=contributions(label_routes[key]),
                 )
             )
-    parts_by_id = {p.instrument_id: p.name for p in parts if p.instrument_id is not None}
-    for instrument_id, amount in no_profile.items():
+    for (instrument_id, reason), amount in no_profile.items():
+        note = {"cycle": " (a loop of funds)", "too_deep": " (nested too deep)"}.get(
+            reason or "", ""
+        )
         lines.append(
             Line(
                 "no_profile",
                 None,
-                f"No profile: {parts_by_id[instrument_id]}",
+                f"No profile: {called(instrument_id)}{note}",
                 amount,
                 percent_text(amount, position_value),
                 instrument_id,
+                contributions(no_profile_routes[(instrument_id, reason)]),
+                reason,
             )
         )
     if not_classified.amount_minor:
