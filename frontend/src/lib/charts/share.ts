@@ -33,11 +33,12 @@ export type ShareRow = {
 
 /**
  * The forms a set of parts may take. A part below zero, or a whole of zero, cannot be a slice or a
- * stacked segment: only `bars` reads it, and the switch is hidden (one form).
+ * stacked segment: only `bars` reads it, and the switch is hidden (one form). A view may list
+ * its own order in `offered`: the first is the view's own default.
  */
-export function formsFor(rows: ShareRow[]): ShareForm[] {
+export function formsFor(rows: ShareRow[], offered: ShareForm[] = SHARE_FORMS): ShareForm[] {
   const whole = rows.reduce((sum, r) => sum + r.ppm, 0);
-  return rows.some((r) => r.ppm < 0) || whole <= 0 ? ["bars"] : SHARE_FORMS;
+  return rows.some((r) => r.ppm < 0) || whole <= 0 ? ["bars"] : offered;
 }
 
 /**

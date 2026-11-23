@@ -12,7 +12,8 @@ async function messages(code: string, filePath: string) {
 
 const NEW_SCREEN = "src/components/new-screen.tsx";
 
-test("a raw palette class is an error outside components/ui", async () => {
+// The first test loads ESLint and the real config, which is slow on a loaded machine: allow 30s.
+test("a raw palette class is an error outside components/ui", { timeout: 30_000 }, async () => {
   const found = await messages('export const X = () => <p className="text-red-500">x</p>;', NEW_SCREEN);
   expect(found).toHaveLength(1);
   expect(found[0]).toMatch(/semantic token/);

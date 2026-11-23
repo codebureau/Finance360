@@ -10,7 +10,7 @@ export type Tone = { token: number } | "muted" | "warning";
 /** The six categorical tokens. A seventh hue is never generated. */
 export const TOKEN_COUNT = 6;
 
-export type Family = "category" | "asset-class" | "member" | "scenario" | "dimension";
+export type Family = "category" | "asset-class" | "member" | "scenario" | "dimension" | "package-part";
 
 /** Families with at most six keys have a fixed table (ADR-0031 section 5). */
 const FIXED: Partial<Record<Family, Record<string, number>>> = {
@@ -29,6 +29,16 @@ const FIXED: Partial<Record<Family, Record<string, number>>> = {
     international_shares: 3,
     fixed_income: 4,
     infrastructure: 5,
+  },
+  // The parts of a total package (Income reconciliation): six fixed parts, so each keeps its colour
+  // on every card. Unreconciled is a part, not a status: a chart token, never green, red or amber.
+  "package-part": {
+    tax: 0,
+    super: 1,
+    lease: 2,
+    other_deductions: 3,
+    take_home: 4,
+    unreconciled: 5,
   },
 };
 
