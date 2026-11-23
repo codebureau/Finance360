@@ -1,11 +1,15 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { useMemo } from "react";
 
+import { ExposureBars } from "@/components/exposure-bars";
+import { FiguresDisclosure } from "@/components/figures-disclosure";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Money } from "@/components/ui/money";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { headline, lookThroughRows } from "@/lib/exposure-chart";
 import {
   DEFAULT_DIMENSION,
   fetchExposureVocabulary,
@@ -15,53 +19,6 @@ import {
 } from "@/lib/exposure";
 
 type Account = { id: number; name: string; currency: string };
-
-/** The categorical chart tokens, one per asset class in a fixed order, so a colour means one
- * thing everywhere; a label without one (alternatives, other) takes the muted tone. The other
- * Dimensions colour their labels by position, cycling these tokens; the table beside the bar has
- * the exact figures. */
-const SEGMENT_OF: Record<string, string> = {
-  australian_shares: "bg-chart-1",
-  international_shares: "bg-chart-2",
-  property: "bg-chart-3",
-  infrastructure: "bg-chart-4",
-  fixed_income: "bg-chart-5",
-  cash: "bg-chart-6",
-};
-const CYCLE = ["bg-chart-1", "bg-chart-2", "bg-chart-3", "bg-chart-4", "bg-chart-5", "bg-chart-6"];
-
-/** A simple stacked bar of the lines that have a positive share; the table beside it has the
- * exact figures (colour is never the only cue). */
-function Bar({ lines, dimension }: { lines: LookThroughLine[]; dimension: string }) {
-  const labelIndex = new Map(lines.filter((l) => l.kind === "label").map((l, i) => [l.key, i]));
-  const shown = lines.filter((l) => l.percent !== null && l.percent !== "0.00" && !l.percent.startsWith("-"));
-  return (
-    <div
-      role="img"
-      aria-label="Share of the Account's value by line"
-      className="flex h-3 w-full overflow-hidden rounded-full bg-muted"
-    >
-      {shown.map((line, i) => (
-        <div
-          key={`${line.kind}-${line.key ?? line.instrument_id ?? i}`}
-          className={
-            line.kind === "label"
-              ? line.key === "other"
-                ? "bg-muted-foreground/40"
-                : dimension === DEFAULT_DIMENSION
-                  ? (SEGMENT_OF[line.key ?? ""] ?? "bg-muted-foreground/40")
-                  : CYCLE[(labelIndex.get(line.key) ?? 0) % CYCLE.length]
-              : line.kind === "no_profile"
-                ? "bg-warning/50"
-                : "bg-muted-foreground/40"
-          }
-          style={{ width: `${line.percent}%` }}
-          title={`${line.name} ${line.percent}%`}
-        />
-      ))}
-    </div>
-  );
-}
 
 function LineRow({ line, flagged }: { line: LookThroughLine; flagged: boolean }) {
   const muted = line.kind === "not_classified" || (line.kind === "unallocated" && !flagged);
@@ -165,7 +122,9 @@ export function LookThroughPanel({
     queryFn: () => fetchLookThrough(account.id, asAt, dimension),
     placeholderData: keepPreviousData,
   });
+  const vocab = useQuery({ queryKey: ["exposure-vocabulary"], queryFn: fetchExposureVocabulary });
   const data = look.data;
+  const rows = useMemo(() => (data?.applies && data.total ? lookThroughRows(data, vocab.data ?? []) : []), [data, vocab.data]);
   if (look.error) {
     return (
       <div className="flex flex-col gap-2">
@@ -187,7 +146,7 @@ export function LookThroughPanel({
         {data.dimension_key === "exposure_currency" && (
           <p className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground">Holding currency {account.currency}</span> is what this
-            Account is valued in. The table is its <span className="font-medium text-foreground">Exposure currency</span>:
+            Account is valued in. The chart is its <span className="font-medium text-foreground">Exposure currency</span>:
             the currencies the underlying assets are actually exposed to.
           </p>
         )}
@@ -197,29 +156,35 @@ export function LookThroughPanel({
           </p>
         ) : (
           <>
+            <p className="text-base font-medium break-words">{headline(data)}</p>
             <p className="flex flex-wrap items-baseline gap-2 text-sm text-muted-foreground">
               Account value{" "}
               <Money amount={data.total.amount} currency={data.total.currency} className="text-lg font-semibold text-foreground" />
             </p>
-            <Bar lines={data.lines} dimension={data.dimension_key} />
-            <Table aria-label="Look-through lines">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{data.dimension_name}</TableHead>
-                  <TableHead className="text-right">Share</TableHead>
-                  <TableHead className="text-right">Value</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.lines.map((line) => (
-                  <LineRow
-                    key={`${line.kind}-${line.key ?? line.instrument_id ?? ""}`}
-                    line={line}
-                    flagged={data.flagged}
-                  />
-                ))}
-              </TableBody>
-            </Table>
+            <ExposureBars
+              rows={rows}
+              label={`Bar chart of the Account's value by ${data.dimension_name.toLowerCase()}. The figures are under Show figures.`}
+            />
+            <FiguresDisclosure>
+              <Table aria-label="Look-through lines">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{data.dimension_name}</TableHead>
+                    <TableHead className="text-right">Share</TableHead>
+                    <TableHead className="text-right">Value</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.lines.map((line) => (
+                    <LineRow
+                      key={`${line.kind}-${line.key ?? line.instrument_id ?? ""}`}
+                      line={line}
+                      flagged={data.flagged}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            </FiguresDisclosure>
             {data.lines.some((l) => l.kind === "not_classified") && (
               <p className="text-sm text-muted-foreground">
                 Not classified is value with no {data.dimension_name.toLowerCase()} weights: a profile that leaves

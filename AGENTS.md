@@ -228,6 +228,11 @@ concurrency test file goes on that list, and in `ci.yml`'s slow pattern. Platfor
 - **Standing rule: the synthetic household grows with the product.** Every slice that introduces
   data extends `fixtures/sample_household/` (invented values only) so its "How to test" has
   something to look at. A slice that adds data without extending the fixture is incomplete.
+- **Standing rule: understanding first.** Every slice that shows data designs how it is presented
+  (`docs/ui-conventions.md`, "Understanding first, detail on demand"): a card with a plain-language
+  headline and a chart or hero number leads, and the full figures sit behind a disclosure or a
+  drill-in. Percentages or a time series with no chart, or a table shown by default where it is not
+  the task, make the slice incomplete. The brief names the chart before work starts.
 - **Standing rule: the Guide grows with the product.** The Guide (`frontend/src/guide/*.md`, shown
   at `/guide`) is how someone sees where a screen fits. Every slice that adds or changes a screen,
   an input the household must provide or a calculation updates the Guide page for its area, and the

@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { FieldMessage, GeneralError, inputClass } from "@/components/form-fields";
+import { ExposureBars } from "@/components/exposure-bars";
+import { FiguresDisclosure } from "@/components/figures-disclosure";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +30,7 @@ import {
   type ExposureDimension,
   type ExposureProfile,
 } from "@/lib/exposure";
+import { profileRows, totalBarGeometry } from "@/lib/exposure-chart";
 import { ApiError, fetchHousehold, todayIn } from "@/lib/household";
 import type { Instrument } from "@/lib/instruments";
 
@@ -65,6 +68,32 @@ function totalMessage(state: ReturnType<typeof judgeTotal>): string {
     default:
       return `Total ${total}%: ${gap} points ${state.differencePpm < 0 ? "short of" : "over"} 100%. More than ${ppmToPercent(WEIGHT_TOLERANCE_PPM)} point either way is rejected.`;
   }
+}
+
+/** The running total filling towards 100%, with the accepted band (within one point) marked. The
+ * message beside it says the same in words; the bar is only a visual cue. */
+function TotalBar({ state }: { state: ReturnType<typeof judgeTotal> }) {
+  const g = totalBarGeometry(state.totalPpm);
+  const tone =
+    state.state === "exact"
+      ? "bg-success"
+      : state.state === "rejected"
+        ? "bg-destructive"
+        : "bg-warning";
+  return (
+    <div
+      aria-hidden="true"
+      data-testid="total-bar"
+      data-state={state.state}
+      className="relative h-2 w-full overflow-hidden rounded-full bg-muted"
+    >
+      {state.state !== "empty" && <div className={`h-full ${tone}`} style={{ width: `${g.fill}%` }} />}
+      <div
+        className="absolute inset-y-0 border-x border-foreground/60"
+        style={{ left: `${g.bandStart}%`, width: `${g.bandEnd - g.bandStart}%` }}
+      />
+    </div>
+  );
 }
 
 /**
@@ -122,6 +151,7 @@ function DimensionFields({
             );
           })}
         </div>
+        <TotalBar state={state} />
         <p
           role="status"
           aria-label={`${dimension.name} total`}
@@ -259,6 +289,8 @@ function CurrentProfile({
 }) {
   const [correcting, setCorrecting] = useState(false);
   const notes = resolutionNotes(profile, vocab);
+  const rows = useMemo(() => new Map(vocab.map((d) => [d.key, profileRows(profile.weights, d, vocab)])), [profile, vocab]);
+  const rowsOf = (d: ExposureDimension) => rows.get(d.key) ?? [];
   return (
     <Card aria-label={`Exposure profile as at ${profile.as_at}`} role="region">
       <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
@@ -293,29 +325,46 @@ function CurrentProfile({
           <Badge variant={profile.source === "manual" ? "ok" : "info"}>{profile.source}</Badge>
           Entered {profile.retrieved_on}. {profile.provenance_note}
         </p>
-        <Table aria-label={`Weights as at ${profile.as_at}`}>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Exposure label</TableHead>
-              <TableHead className="text-right">Weight</TableHead>
-            </TableRow>
-          </TableHeader>
-          {byDimension(profile).map(([key, weights]) => (
-            <TableBody key={key} aria-label={dimensionName(vocab, key)} className="border-t border-border">
+        <div className="grid gap-4 sm:grid-cols-2">
+          {vocab.map((d) => {
+            const rows = rowsOf(d);
+            return (
+              <section key={d.key} aria-label={`${d.name} split`} className="flex min-w-0 flex-col gap-1">
+                <h3 className="text-sm font-medium">{d.name}</h3>
+                {rows.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Not published</p>
+                ) : (
+                  <ExposureBars rows={rows} label={`Bar chart of ${instrument.name} by ${d.name.toLowerCase()}. The figures are under Show figures.`} />
+                )}
+              </section>
+            );
+          })}
+        </div>
+        <FiguresDisclosure>
+          <Table aria-label={`Weights as at ${profile.as_at}`}>
+            <TableHeader>
               <TableRow>
-                <TableHead scope="rowgroup" colSpan={2} className="bg-muted/30 text-left">
-                  {dimensionName(vocab, key)}
-                </TableHead>
+                <TableHead>Exposure label</TableHead>
+                <TableHead className="text-right">Weight</TableHead>
               </TableRow>
-              {weights.map((w) => (
-                <TableRow key={w.label_key}>
-                  <TableCell>{labelName(vocab, key, w.label_key)}</TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">{w.percent}%</TableCell>
+            </TableHeader>
+            {byDimension(profile).map(([key, weights]) => (
+              <TableBody key={key} aria-label={dimensionName(vocab, key)} className="border-t border-border">
+                <TableRow>
+                  <TableHead scope="rowgroup" colSpan={2} className="bg-muted/30 text-left">
+                    {dimensionName(vocab, key)}
+                  </TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          ))}
-        </Table>
+                {weights.map((w) => (
+                  <TableRow key={w.label_key}>
+                    <TableCell>{labelName(vocab, key, w.label_key)}</TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">{w.percent}%</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            ))}
+          </Table>
+        </FiguresDisclosure>
         {notes.map((n) => (
           <p key={n} className="text-sm text-muted-foreground">
             {n}

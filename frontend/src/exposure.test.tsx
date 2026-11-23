@@ -5,6 +5,10 @@ import { judgeTotal, percentToPpm, ppmToPercent } from "@/lib/exposure";
 import { everyday, fakeBackend as accountsBackend, json } from "@/test-accounts-backend";
 import { renderAppAt } from "@/test-utils";
 
+vi.mock("@/components/echart", () => ({
+  default: ({ label }: { label: string }) => <div role="img" aria-label={label} />,
+}));
+
 afterEach(() => vi.unstubAllGlobals());
 
 const aud = (amount: string, minor: number) => ({ amount, amount_minor: minor, currency: "AUD" });
@@ -72,6 +76,13 @@ test("the investment Account shows its asset-class split, with No profile linkin
   await renderAppAt("/accounts/20");
   const panel = within(await screen.findByRole("region", { name: "Look-through" }));
   expect(panel.getByRole("heading", { name: "Look-through by asset class" })).toBeInTheDocument();
+  // the designed view leads: a headline and a chart, with the figures behind a disclosure
+  expect(
+    await panel.findByText("Mostly Australian shares and International shares; 9.41% has no profile yet"),
+  ).toBeInTheDocument();
+  expect(await panel.findByRole("img", { name: /Bar chart of the Account's value by asset class/ })).toBeInTheDocument();
+  expect(panel.queryByRole("table", { name: "Look-through lines" })).not.toBeInTheDocument();
+  fireEvent.click(panel.getByRole("button", { name: "Show figures" }));
   const table = within(await panel.findByRole("table", { name: "Look-through lines" }));
   expect(table.getByText("Australian shares")).toBeInTheDocument();
   expect(table.getByText("49.10%")).toBeInTheDocument();
@@ -131,7 +142,8 @@ test("the Dimension switcher lists every Dimension, asks the server for the chos
   expect(router.state.location.search).toMatchObject({ dimension: "sector" });
   // a profile that leaves the Dimension out is said to, and its value is in Not classified
   expect(panel.getByText(/Sample Balanced Growth Fund: its profile gives no sector weights/)).toBeInTheDocument();
-  expect(panel.getByText("94.28%")).toBeInTheDocument();
+  fireEvent.click(panel.getByRole("button", { name: "Show figures" }));
+  expect(await panel.findByText("94.28%")).toBeInTheDocument();
   expect(panel.getByText(/Not classified is value with no sector weights/)).toBeInTheDocument();
 });
 
@@ -171,6 +183,7 @@ test("recording an Opening position refreshes the look-through, which is built f
 test("the as-at date in the URL reaches the look-through, and a gap beyond tolerance is flagged", async () => {
   const calls = accountBackend({ ...LOOK, flagged: true });
   await renderAppAt("/accounts/20?asat=2026-08-20");
+  fireEvent.click(await screen.findByRole("button", { name: "Show figures" }));
   expect(await screen.findByText("Gap beyond tolerance")).toBeInTheDocument();
   expect(calls.at(-1)?.searchParams.get("on")).toBe("2026-08-20");
 });
@@ -286,6 +299,7 @@ test("the Instrument page shows the profile, how a shortfall resolves, and earli
   ]);
   await renderAppAt("/instruments/1");
   const current = within(await screen.findByRole("region", { name: "Exposure profile as at 2026-06-30" }));
+  fireEvent.click(current.getByRole("button", { name: "Show figures" }));
   expect(current.getByText("39.5%")).toBeInTheDocument();
   expect(current.getByText("Asset class totals 99.5%: the 0.5% shortfall shows as Not classified.")).toBeInTheDocument();
   const earlier = within(await screen.findByRole("table", { name: "Earlier exposure profiles of Sample Broad Market ETF" }));
@@ -404,6 +418,7 @@ test("the profile card groups weights under their Dimension, so a repeated label
   ]);
   await renderAppAt("/instruments/1");
   const card = within(await screen.findByRole("region", { name: "Exposure profile as at 2026-06-30" }));
+  fireEvent.click(card.getByRole("button", { name: "Show figures" }));
   const region = within(await card.findByRole("rowgroup", { name: "Region" }));
   expect(region.getByText("7%")).toBeInTheDocument();
   expect(region.queryByText("1%")).not.toBeInTheDocument();
@@ -449,4 +464,40 @@ test("the form has every Dimension with its own total, and a Dimension may be le
     { dimension_key: "region", label_key: "north_america", percent: "29.5" },
     { dimension_key: "exposure_currency", label_key: "usd", percent: "100" },
   ]);
+});
+
+// --- designed views (understanding first) ----------------------------------------------------
+
+test("each Dimension of a profile gets its own chart, and one the profile leaves out says so", async () => {
+  instrumentBackend([profile(2, {})]);
+  await renderAppAt("/instruments/1");
+  const card = within(await screen.findByRole("region", { name: "Exposure profile as at 2026-06-30" }));
+  expect(
+    await card.findByRole("img", { name: "Bar chart of Sample Broad Market ETF by asset class. The figures are under Show figures." }),
+  ).toBeInTheDocument();
+  expect(card.getAllByRole("img")).toHaveLength(1);
+  for (const name of ["Region split", "Exposure currency split"])
+    expect(within(card.getByRole("region", { name })).getByText("Not published")).toBeInTheDocument();
+  // the exact figures are behind the disclosure, closed by default
+  expect(card.queryByRole("table", { name: "Weights as at 2026-06-30" })).not.toBeInTheDocument();
+  fireEvent.click(card.getByRole("button", { name: "Show figures" }));
+  expect(card.getByRole("table", { name: "Weights as at 2026-06-30" })).toBeInTheDocument();
+  fireEvent.click(card.getByRole("button", { name: "Hide figures" }));
+  expect(card.queryByRole("table", { name: "Weights as at 2026-06-30" })).not.toBeInTheDocument();
+});
+
+test("the form's total bar fills towards 100% and marks the accepted band", async () => {
+  instrumentBackend([]);
+  await renderAppAt("/instruments/1");
+  const enter = await screen.findByRole("button", { name: "Enter exposure profile" });
+  await waitFor(() => expect(enter).toBeEnabled());
+  fireEvent.click(enter);
+  const form = within(await screen.findByRole("form", { name: "Enter exposure profile of Sample Broad Market ETF" }));
+  const bar = () => form.getAllByTestId("total-bar")[0];
+  expect(bar()).toHaveAttribute("data-state", "empty");
+  fireEvent.change(form.getByLabelText("Australian shares"), { target: { value: "55" } });
+  expect(bar()).toHaveAttribute("data-state", "rejected");
+  expect(bar().firstElementChild).toHaveStyle({ width: "50%" });
+  fireEvent.change(form.getByLabelText("Australian shares"), { target: { value: "100" } });
+  expect(bar()).toHaveAttribute("data-state", "exact");
 });
