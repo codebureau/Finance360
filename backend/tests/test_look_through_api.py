@@ -140,6 +140,108 @@ def test_golden_the_investment_account_shows_its_asset_class_split_including_no_
     )
 
 
+def test_golden_region_sector_and_exposure_currency_each_sum_to_the_account_value(
+    held: tuple[TestClient, int, int],
+) -> None:
+    """The same Account by every Dimension, worked by hand. The ETF (480,538 minor) and the share
+    (37,982) have all four Dimensions; the new ETF has no profile (62,500); cash is 83,493."""
+    client, pi, _ = held
+    for dimension in ("asset_class", "region", "sector", "exposure_currency"):
+        view = _view(client, pi, on=ON, dimension=dimension)
+        assert view["dimension_key"] == dimension
+        assert sum(x["amount"]["amount_minor"] for x in view["lines"]) == 664_513, dimension
+        no_profile = [x for x in view["lines"] if x["kind"] == "no_profile"]
+        assert [x["amount"]["amount"] for x in no_profile] == ["625.00"], dimension
+    rows = {r[1]: r[2] for r in _rows(_view(client, pi, on=ON, dimension="region"))}
+    assert rows["Australia"] == "3263.05"  # 60% of the ETF (288,323) + all of the share (37,982)
+    assert rows["Not classified"] == "834.93"  # cash has no region
+    sector = {r[1]: r[2] for r in _rows(_view(client, pi, on=ON, dimension="sector"))}
+    assert sector["Not classified"] == "834.93"  # cash has no sector either
+    currency = _view(client, pi, on=ON, dimension="exposure_currency")
+    assert (currency["dimension_name"], currency["status"]) == ("Exposure currency", "ok")
+    assert _rows(currency)[:4] == [
+        ("label", "AUD", "3870.09", "58.24"),  # ETF 288,323 + share 15,193 + cash 83,493
+        ("label", "USD", "1381.18", "20.78"),
+        ("label", "EUR", "384.43", "5.79"),
+        ("label", "Other", "384.43", "5.79"),
+    ]
+    assert not any(x["kind"] == "not_classified" for x in currency["lines"])  # cash is AUD
+
+
+def test_a_global_etf_has_aud_holding_currency_but_mostly_non_aud_exposure_currency(
+    held: tuple[TestClient, int, int],
+) -> None:
+    client, pi, _ = held
+    global_etf = next(i for i in client.get("/api/instruments").json() if "Global" in i["name"])
+    assert global_etf["currency"] == "AUD" and global_etf["kind"] == "etf"
+    [profile] = client.get(f"/api/instruments/{global_etf['id']}/exposure-profiles").json()
+    currency = {
+        w["label_key"]: w["percent"]
+        for w in profile["weights"]
+        if w["dimension_key"] == "exposure_currency"
+    }
+    assert currency["aud"] == "8" and currency["usd"] == "62"
+    assert sum(float(v) for k, v in currency.items() if k != "aud") == 92  # mostly non-AUD
+    # held in the Account (an Opening position, Prices from the fixture), it is in its view
+    opened = client.post(
+        f"/api/accounts/{pi}/opening-positions",
+        json={
+            "kind": "holding",
+            "occurred_on": "2026-08-01",
+            "instrument_id": global_etf["id"],
+            "quantity": "100",
+        },
+    )
+    assert opened.status_code == 201, opened.text
+    view = _view(client, pi, on=ON, dimension="exposure_currency")
+    assert view["total"]["amount"] == "9168.13"  # 6645.13 + 100 units at 25.23
+    assert sum(x["amount"]["amount_minor"] for x in view["lines"]) == 916_813
+    rows = {r[1]: r[2] for r in _rows(view)}
+    assert rows["JPY"] == "151.38"  # 6% of 2,523.00; no other holding has yen
+    assert rows["GBP"] == "100.92"  # 4%
+
+
+def test_an_instrument_whose_profile_omits_the_dimension_is_all_not_classified(
+    held: tuple[TestClient, int, int],
+) -> None:
+    client, pi, _ = held
+    fund = next(i for i in client.get("/api/instruments").json() if "Balanced" in i["name"])
+    added = client.post(
+        f"/api/accounts/{pi}/opening-positions",
+        json={
+            "kind": "holding",
+            "occurred_on": "2026-08-01",
+            "instrument_id": fund["id"],
+            "quantity": "1000",
+        },
+    )
+    assert added.status_code == 201, added.text
+    sector = _view(client, pi, on=ON, dimension="sector")  # the fund publishes no sectors
+    [part] = [p for p in sector["parts"] if p["instrument_id"] == fund["id"]]
+    assert part["omitted"] is True and part["amount"]["amount"] == "1934.00"
+    assert sum(x["amount"]["amount_minor"] for x in sector["lines"]) == 664_513 + 193_400
+    not_classified = next(x for x in sector["lines"] if x["kind"] == "not_classified")
+    assert not_classified["amount"]["amount"] == "2768.93"  # cash 834.93 + the fund 1,934.00
+    region = _view(client, pi, on=ON, dimension="region")  # but it does publish regions
+    assert next(p for p in region["parts"] if p["instrument_id"] == fund["id"])["omitted"] is False
+
+
+def test_an_unknown_dimension_label_cannot_be_entered_over_the_api(
+    held: tuple[TestClient, int, int],
+) -> None:
+    client, _, snhx = held
+    res = client.post(
+        f"/api/instruments/{snhx}/exposure-profiles",
+        json={
+            "as_at": ON,
+            "provenance_note": "Invented",
+            "weights": [{"dimension_key": "sector", "label_key": "galaxies", "percent": "100"}],
+        },
+    )
+    assert res.status_code == 422
+    assert res.json()["errors"][0]["field"] == "weights.sector.galaxies"
+
+
 def test_the_default_date_is_the_latest_one_the_coverage_reaches(
     held: tuple[TestClient, int, int],
 ) -> None:
@@ -253,11 +355,17 @@ def _etf(c: TestClient) -> int:
     return next(i["id"] for i in c.get("/api/instruments").json() if i["kind"] == "etf")
 
 
-def test_the_vocabulary_lists_asset_class_with_its_labels(client: TestClient) -> None:
-    [dimension] = client.get("/api/exposure/vocabulary").json()
-    assert dimension["key"] == "asset_class"
-    assert [x["key"] for x in dimension["labels"]][0] == "australian_shares"
-    assert dimension["labels"][-1] == {"key": "other", "name": "Other"}
+def test_the_vocabulary_lists_every_dimension_with_its_labels(client: TestClient) -> None:
+    dimensions = client.get("/api/exposure/vocabulary").json()
+    assert [d["key"] for d in dimensions] == [
+        "asset_class",
+        "region",
+        "sector",
+        "exposure_currency",
+    ]
+    assert [x["key"] for x in dimensions[0]["labels"]][0] == "australian_shares"
+    for dimension in dimensions:
+        assert dimension["labels"][-1] == {"key": "other", "name": "Other"}
 
 
 def test_a_correction_supersedes_and_the_history_keeps_the_earlier_version(
@@ -266,7 +374,13 @@ def test_a_correction_supersedes_and_the_history_keeps_the_earlier_version(
     etf = _etf(client)
     [fixture] = client.get(f"/api/instruments/{etf}/exposure-profiles").json()
     assert fixture["status"] == "current" and fixture["source"] == "manual"
-    [r] = fixture["resolutions"]
+    assert [x["dimension_key"] for x in fixture["resolutions"]] == [
+        "asset_class",
+        "region",
+        "sector",
+        "exposure_currency",
+    ]
+    r = fixture["resolutions"][0]
     assert (
         r["total_percent"],
         r["difference_percent"],

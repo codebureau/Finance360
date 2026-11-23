@@ -45,6 +45,9 @@ class LookThroughPartOut(BaseModel):
     dated_after: bool = Field(description="The profile used is dated after the as-at date.")
     shortfall_percent: str = Field(description="A within-tolerance shortfall, in Not classified.")
     trimmed: list[TrimmedOut] = Field(description="Trimmed from the largest weight (over 100).")
+    omitted: bool = Field(
+        description="The profile gives this Dimension no weights, so all of it is Not classified."
+    )
 
 
 class LookThroughOut(BaseModel):
@@ -85,6 +88,7 @@ def _parts(c: Composition) -> list[LookThroughPartOut]:
             dated_after=p.dated_after,
             shortfall_percent=percent_string(p.shortfall_ppm),
             trimmed=[TrimmedOut(label_key=k, percent=percent_string(w)) for k, w in p.trimmed],
+            omitted=p.omitted,
         )
         for p in c.parts
     ]
@@ -103,7 +107,8 @@ def get_look_through(
     on: date | None = None,
     dimension: str = ASSET_CLASS,
 ) -> LookThroughOut:
-    """An investment Account's value on a date split by an Exposure Dimension (asset class), from
+    """An investment Account's value on a date split by an Exposure Dimension (asset class, region,
+    sector or exposure currency), from
     its Holdings' manually entered Exposure profiles. The lines, including No profile, Not
     classified and Unallocated, sum exactly to the Account's value in the Position. ``on``
     defaults to the latest date the Account's Streams' Coverage reaches (at most today), as the

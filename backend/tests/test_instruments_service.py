@@ -244,17 +244,20 @@ def test_the_fixture_roster_loads_once_through_the_service(
         REPO / "fixtures" / "sample_household" / "household.json", tmp_path / "household.json"
     )
     with session_factory.begin() as s:
-        assert svc.load_fixture_instruments(s, tmp_path) == 3
+        assert svc.load_fixture_instruments(s, tmp_path) == 4
     with session_factory.begin() as s:
         assert svc.load_fixture_instruments(s, tmp_path) == 0  # only while none exist
     with session_factory() as s:
-        roster = {i.kind: i for i in svc.list_instruments(s)}
-        assert set(roster) == {"etf", "share", "fund"}
-        assert {x.scheme for x in roster["etf"].identifiers} == {"ticker", "yahoo", "isin", "name"}
-        assert "ticker" not in {x.scheme for x in roster["fund"].identifiers}
+        roster = {i.name: i for i in svc.list_instruments(s)}
+        assert {i.kind for i in roster.values()} == {"etf", "share", "fund"}
+        etf = roster["Sample Broad Market ETF"]
+        assert {x.scheme for x in etf.identifiers} == {"ticker", "yahoo", "isin", "name"}
+        assert "ticker" not in {x.scheme for x in roster["Sample Balanced Growth Fund"].identifiers}
+        # the AUD-listed global ETF has no provider symbol, so a Price fetch never asks for it
+        assert "yahoo" not in {x.scheme for x in roster["Sample Global Equity ETF"].identifiers}
     assert {e.source for e in _events(session_factory)} == {"fixture"}
     data = json.loads((tmp_path / "household.json").read_text(encoding="utf-8"))
-    assert len(data["instruments"]) == 3
+    assert len(data["instruments"]) == 4
 
 
 _word = st.text(alphabet="abcdefXYZ019", min_size=1, max_size=6)

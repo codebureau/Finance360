@@ -133,16 +133,18 @@ def test_changes_are_in_the_audit_trail(client: TestClient) -> None:
     assert summaries[0].startswith("Added name 'Sample Alias'") and len(summaries) == 2
 
 
-def test_the_sample_household_has_the_three_invented_instruments(sample: TestClient) -> None:
+def test_the_sample_household_has_the_four_invented_instruments(sample: TestClient) -> None:
     listed = sample.get("/api/instruments").json()
-    assert {i["kind"]: i["name"] for i in listed} == {
-        "etf": "Sample Broad Market ETF",
-        "share": "Sample Mining Ltd",
-        "fund": "Sample Balanced Growth Fund",
+    assert {i["name"]: i["kind"] for i in listed} == {
+        "Sample Broad Market ETF": "etf",
+        "Sample Mining Ltd": "share",
+        "Sample Balanced Growth Fund": "fund",
+        "Sample Global Equity ETF": "etf",
     }
-    schemes = {i["kind"]: {x["scheme"] for x in i["identifiers"]} for i in listed}
-    assert schemes["etf"] == {"ticker", "yahoo", "isin", "name"}
-    assert schemes["fund"] == {"vendor_id", "isin", "name"}
+    schemes = {i["name"]: {x["scheme"] for x in i["identifiers"]} for i in listed}
+    assert schemes["Sample Broad Market ETF"] == {"ticker", "yahoo", "isin", "name"}
+    assert schemes["Sample Balanced Growth Fund"] == {"vendor_id", "isin", "name"}
+    assert schemes["Sample Global Equity ETF"] == {"ticker", "name"}  # AUD-listed, no provider
     found = sample.get("/api/instruments/lookup", params={"value": "sample mining  limited"}).json()
     assert found["name"] == "Sample Mining Ltd"
     dup = sample.post(

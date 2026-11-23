@@ -383,6 +383,7 @@ const accountDetailRoute = createRoute({
             search: (prev: Record<string, unknown>) =>
               parseTransactionsSearch({ ...parseTransactionsSearch(prev), ...patch }),
             replace: true,
+            resetScroll: false,
           })
         }
       />

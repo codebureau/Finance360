@@ -1,11 +1,11 @@
-import { LineChart } from "echarts/charts";
+import { BarChart, LineChart } from "echarts/charts";
 import { GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
 import { init, use as register, type ECharts, type EChartsCoreOption } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 import { useEffect, useRef } from "react";
 
-// Modular ECharts: only the line chart, the components it needs and the canvas renderer.
-register([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
+// Modular ECharts: only the line and bar charts, the components they need and the canvas renderer.
+register([BarChart, LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
 
 /**
  * A minimal ECharts host: creates the chart once, applies each new ``option`` (so a theme change,
@@ -16,10 +16,13 @@ export default function EChart({
   option,
   label,
   className,
+  height,
 }: {
   option: EChartsCoreOption;
   label: string;
   className?: string;
+  /** Pixel height when the class does not fix one. */
+  height?: number;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const chart = useRef<ECharts | null>(null);
@@ -42,5 +45,5 @@ export default function EChart({
     chart.current?.setOption(option, true);
   }, [option]);
 
-  return <div ref={host} role="img" aria-label={label} className={className} />;
+  return <div ref={host} role="img" aria-label={label} className={className} style={height ? { height } : undefined} />;
 }

@@ -15,7 +15,14 @@ from hypothesis import strategies as st
 from finance360.capabilities.lookthrough.lines import Part, compose, percent_text
 from finance360.capabilities.lookthrough.reconcile import is_material, reconcile_tolerance
 from finance360.capabilities.lookthrough.resolve import resolve, select_profile
-from finance360.core.exposure import ASSET_CLASS, WEIGHT_TOLERANCE_PPM, ProfileFacts
+from finance360.core.exposure import (
+    ASSET_CLASS,
+    EXPOSURE_CURRENCY,
+    REGION,
+    SECTOR,
+    WEIGHT_TOLERANCE_PPM,
+    ProfileFacts,
+)
 from finance360.core.money import Money
 from finance360.core.rate import PPM
 
@@ -32,6 +39,23 @@ LABELS = [
     ("other", "Other"),
 ]
 ORDER = [k for k, _ in LABELS]
+#: Labels per Dimension (a shortened but representative set for the pure tests).
+VOCAB = {
+    ASSET_CLASS: LABELS,
+    REGION: [
+        ("australia", "Australia"),
+        ("north_america", "North America"),
+        ("europe", "Europe (ex UK)"),
+        ("other", "Other"),
+    ],
+    SECTOR: [
+        ("materials", "Materials"),
+        ("financials", "Financials"),
+        ("information_technology", "Information technology"),
+        ("other", "Other"),
+    ],
+    EXPOSURE_CURRENCY: [("aud", "AUD"), ("usd", "USD"), ("eur", "EUR"), ("other", "Other")],
+}
 
 
 def aud(minor: int) -> Money:
@@ -39,7 +63,11 @@ def aud(minor: int) -> Money:
 
 
 def profile(
-    instrument_id: int, as_at: date, weights: dict[str, int], profile_id: int | None = None
+    instrument_id: int,
+    as_at: date,
+    weights: dict[str, int],
+    profile_id: int | None = None,
+    dimension: str = ASSET_CLASS,
 ) -> ProfileFacts:
     return ProfileFacts(
         profile_id or instrument_id * 100 + as_at.day,
@@ -47,7 +75,7 @@ def profile(
         as_at,
         None,
         "manual",
-        tuple((ASSET_CLASS, k, w) for k, w in weights.items()),
+        tuple((dimension, k, w) for k, w in weights.items()),
     )
 
 
@@ -129,12 +157,12 @@ def test_no_profile_is_one_explicit_line_naming_the_instrument() -> None:
     assert got.profile_id is None
 
 
-def _weights() -> st.SearchStrategy[dict[str, int]]:
+def _weights(order: list[str] = ORDER) -> st.SearchStrategy[dict[str, int]]:
     """A profile's weights: 1 to 4 labels totalling 100% plus or minus up to the tolerance."""
 
     @st.composite
     def build(draw: st.DrawFn) -> dict[str, int]:
-        keys = draw(st.lists(st.sampled_from(ORDER), min_size=1, max_size=4, unique=True))
+        keys = draw(st.lists(st.sampled_from(order), min_size=1, max_size=4, unique=True))
         cuts = sorted(
             draw(
                 st.lists(
@@ -264,34 +292,51 @@ def test_percent_text_rounds_once_from_money() -> None:
 def _scenarios(draw: st.DrawFn):  # type: ignore[no-untyped-def]
     n = draw(st.integers(0, 5))
     amounts = draw(st.lists(st.integers(0, 10**8), min_size=n, max_size=n))
+    dimension = draw(st.sampled_from(sorted(VOCAB)))
+    order = [k for k, _ in VOCAB[dimension]]
     parts = [
         Part(
             None if i == 0 and draw(st.booleans()) else i + 1,
             f"Part {i}",
             aud(a),
+            "AUD" if i == 0 else None,
         )
         for i, a in enumerate(amounts)
     ]
     profiles = {}
     for part in parts:
         if part.instrument_id is not None and draw(st.booleans()):
+            # a profile gives this Dimension weights, or omits it (it weights another one only)
+            elsewhere = draw(st.booleans())
+            other = next(d for d in sorted(VOCAB) if d != dimension)
             profiles[part.instrument_id] = [
-                profile(part.instrument_id, date(2026, 6, 30), draw(_weights()))
+                profile(
+                    part.instrument_id,
+                    date(2026, 6, 30),
+                    {VOCAB[other][0][0]: PPM} if elsewhere else draw(_weights(order)),
+                    dimension=other if elsewhere else dimension,
+                )
             ]
-    return parts, profiles, draw(st.integers(0, 2 * 10**9)), draw(st.integers(0, 2 * 10**9))
+    return (
+        dimension,
+        parts,
+        profiles,
+        draw(st.integers(0, 2 * 10**9)),
+        draw(st.integers(0, 2 * 10**9)),
+    )
 
 
 @given(_scenarios())
-def test_property_the_lines_always_sum_exactly_to_the_position_value_and_none_is_negative(
+def test_property_every_dimension_sums_exactly_to_the_position_value_and_none_is_negative(
     scenario,  # type: ignore[no-untyped-def]
 ) -> None:
-    parts, profiles, position, parts_value = scenario
+    dimension, parts, profiles, position, parts_value = scenario
     got = compose(
         position_value=aud(position),
         parts_value=aud(parts_value),
         parts=parts,
-        dimension=ASSET_CLASS,
-        labels=LABELS,
+        dimension=dimension,
+        labels=VOCAB[dimension],
         on=ON,
         profiles=profiles,
     )
@@ -327,3 +372,98 @@ def test_golden_parts_in_another_currency_are_allocated_across_the_converted_tot
         ("unallocated", 9_999),
     ]
     assert all(line.amount.currency == "AUD" for line in got.lines)
+
+
+# --- the other Dimensions (#84) --------------------------------------------------------------
+
+#: An AUD-listed global ETF (invented): AUD Holding currency, mostly non-AUD Exposure currency,
+#: and no sector weights at all; a share with region and sector but no Exposure currency.
+GLOBAL_ETF = ProfileFacts(
+    1,
+    1,
+    date(2026, 6, 30),
+    None,
+    "manual",
+    (
+        (REGION, "australia", 100_000),
+        (REGION, "north_america", 600_000),
+        (REGION, "europe", 300_000),
+        (EXPOSURE_CURRENCY, "aud", 100_000),
+        (EXPOSURE_CURRENCY, "usd", 700_000),
+        (EXPOSURE_CURRENCY, "eur", 200_000),
+    ),
+)
+SHARE = ProfileFacts(
+    2,
+    2,
+    date(2026, 6, 30),
+    None,
+    "manual",
+    ((REGION, "australia", PPM), (SECTOR, "materials", PPM)),
+)
+OTHER_PARTS = [
+    Part(1, "Sample Global ETF", aud(100_000)),
+    Part(2, "Sample Mining Ltd", aud(40_000)),
+    Part(None, "Cash (AUD)", aud(10_000), "AUD"),
+]
+
+
+def _by(dimension: str):  # type: ignore[no-untyped-def]
+    return compose(
+        position_value=aud(150_000),
+        parts_value=aud(150_000),
+        parts=OTHER_PARTS,
+        dimension=dimension,
+        labels=VOCAB[dimension],
+        on=ON,
+        profiles={1: [GLOBAL_ETF], 2: [SHARE]},
+    )
+
+
+def test_golden_an_aud_etf_is_mostly_non_aud_by_exposure_currency() -> None:
+    got = _by(EXPOSURE_CURRENCY)
+    rows = [(line.kind, line.name, line.amount.amount_minor) for line in got.lines]
+    assert rows == [
+        ("label", "AUD", 20_000),  # 10% of the ETF's 100,000, plus the 10,000 of cash
+        ("label", "USD", 70_000),
+        ("label", "EUR", 20_000),
+        ("not_classified", "Not classified", 40_000),  # the share gives no Exposure currency
+        ("unallocated", "Unallocated", 0),
+    ]
+    assert sum(amount for *_, amount in rows) == 150_000
+
+
+def test_golden_cash_is_its_own_currency_and_not_classified_in_region_and_sector() -> None:
+    region = {line.name: line.amount.amount_minor for line in _by(REGION).lines}
+    assert region["Not classified"] == 10_000  # cash has no region
+    assert region["Australia"] == 10_000 + 40_000
+    sector = {line.name: line.amount.amount_minor for line in _by(SECTOR).lines}
+    assert sector["Materials"] == 40_000
+    assert sector["Not classified"] == 100_000 + 10_000  # the ETF omits sectors; cash has none
+
+
+def test_a_part_whose_profile_omits_the_dimension_is_marked_omitted() -> None:
+    sector = _by(SECTOR)
+    assert [(p.name, p.omitted) for p in sector.parts] == [
+        ("Sample Global ETF", True),
+        ("Sample Mining Ltd", False),
+        ("Cash (AUD)", False),
+    ]
+    assert not any(p.omitted for p in _by(REGION).parts if p.instrument_id == 1)
+
+
+def test_cash_in_a_currency_the_vocabulary_does_not_list_is_not_classified() -> None:
+    parts = [Part(None, "Cash (BHD)", Money(5_000, "BHD"), "BHD")]
+    got = compose(
+        position_value=aud(5_000),
+        parts_value=aud(5_000),
+        parts=parts,
+        dimension=EXPOSURE_CURRENCY,
+        labels=VOCAB[EXPOSURE_CURRENCY],
+        on=ON,
+        profiles={},
+    )
+    assert [(line.kind, line.amount.amount_minor) for line in got.lines] == [
+        ("not_classified", 5_000),
+        ("unallocated", 0),
+    ]

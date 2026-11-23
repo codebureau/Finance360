@@ -48,12 +48,19 @@ export async function recordExposureProfile(
   return data;
 }
 
+/** The Dimension the Account panel opens on when the URL names none. */
+export const DEFAULT_DIMENSION = "asset_class";
+
 export async function fetchLookThrough(
   accountId: number,
   asAt: string | undefined,
+  dimension: string | undefined,
 ): Promise<LookThrough> {
   const { data, error, response } = await client.GET("/api/accounts/{account_id}/look-through", {
-    params: { path: { account_id: accountId }, query: asAt ? { on: asAt } : {} },
+    params: {
+      path: { account_id: accountId },
+      query: { ...(asAt ? { on: asAt } : {}), ...(dimension ? { dimension } : {}) },
+    },
   });
   if (!data) throw toApiError(error, response.status);
   return data;

@@ -491,7 +491,11 @@ def test_stale_instruments_are_those_with_no_price_or_one_older_than_the_limit(e
     with env.factory() as s:
         stale = fetch.stale_instruments(s, TODAY, 7)
     by_name = {x.name: x.latest_as_at for x in stale}
-    assert by_name == {"Sample Mining Ltd": date(2026, 10, 1), "Sample Balanced Growth Fund": None}
+    assert by_name == {
+        "Sample Mining Ltd": date(2026, 10, 1),
+        "Sample Balanced Growth Fund": None,
+        "Sample Global Equity ETF": None,  # no provider symbol, so nothing fetched
+    }
 
 
 # --- concurrency: the unique index holds ---------------------------------------------------

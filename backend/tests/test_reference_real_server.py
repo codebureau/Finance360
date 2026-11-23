@@ -61,7 +61,10 @@ def signed_in(tmp_path: Path) -> Iterator[httpx.Client]:
 
 
 def _by_kind(http: httpx.Client) -> dict[str, dict]:
-    return {i["kind"]: i for i in http.get("/api/instruments").json()}
+    found: dict[str, dict] = {}
+    for i in http.get("/api/instruments").json():
+        found.setdefault(i["kind"], i)  # the first of a kind, by name: the Broad Market ETF
+    return found
 
 
 def test_instrument_writes_work_over_a_real_server_and_are_read_back_at_once(

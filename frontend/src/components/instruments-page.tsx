@@ -75,7 +75,7 @@ export function InstrumentForm({
           <FieldMessage error={save.error} field="kind" />
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          Currency
+          Holding currency
           <input className={inputClass} value={currency} onChange={(e) => setCurrency(e.target.value)} />
           <FieldMessage error={save.error} field="currency" />
         </label>
@@ -160,7 +160,7 @@ export function InstrumentsPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Kind</TableHead>
-                <TableHead>Currency</TableHead>
+                <TableHead>Holding currency</TableHead>
                 <TableHead className="hidden md:table-cell">Identifiers</TableHead>
               </TableRow>
             </TableHeader>

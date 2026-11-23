@@ -236,6 +236,13 @@ export function HoldingsPanel({
                 queryKey: ["transactions", account.id],
               });
               void queryClient.invalidateQueries({ queryKey: ["imports"] });
+              // the Account's derived value and look-through are built from these Holdings
+              void queryClient.invalidateQueries({
+                queryKey: ["derived-value", account.id],
+              });
+              void queryClient.invalidateQueries({
+                queryKey: ["look-through", account.id],
+              });
             }}
           />
         </DialogContent>

@@ -164,7 +164,8 @@ export interface paths {
         };
         /**
          * Get Look Through
-         * @description An investment Account's value on a date split by an Exposure Dimension (asset class), from
+         * @description An investment Account's value on a date split by an Exposure Dimension (asset class, region,
+         *     sector or exposure currency), from
          *     its Holdings' manually entered Exposure profiles. The lines, including No profile, Not
          *     classified and Unallocated, sum exactly to the Account's value in the Position. ``on``
          *     defaults to the latest date the Account's Streams' Coverage reaches (at most today), as the
@@ -5260,6 +5261,11 @@ export interface components {
             instrument_id: number | null;
             /** Name */
             name: string;
+            /**
+             * Omitted
+             * @description The profile gives this Dimension no weights, so all of it is Not classified.
+             */
+            omitted: boolean;
             /** Profile As At */
             profile_as_at: string | null;
             /**

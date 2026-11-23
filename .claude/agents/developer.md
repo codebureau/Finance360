@@ -48,7 +48,9 @@ costs a whole extra Developer and Tester cycle.
    lists. Error responses keep the shared shape (`{"errors":[{field,message}]}` for validation).
 6. **Secrets hygiene.** Test credentials must be obviously synthetic, and new files must pass
    `scripts/guard_paths.py` and gitleaks.
-7. **UI conventions.** UI follows `docs/ui-conventions.md`: routed URL, list-to-detail, edit in
+7. **UI conventions.** UI follows `docs/ui-conventions.md`: understanding first (a card with a
+   headline and a chart or hero number leads; percentages or a time series always get a chart; full
+   figures behind a disclosure unless the table is the task), routed URL, list-to-detail, edit in
    Dialog/Sheet, destructive confirmed and out of row clutter, one primary action, semantic tokens only,
    `<Money>`/`<Badge>` used, fine in light/dark and compact.
 8. **Last step, every time:** run **tier 1** (AGENTS.md "Test tiers") after your final edit, plus

@@ -17,8 +17,11 @@ from finance360.core.rate import PPM
 #: published figures round. Make it a Household setting only if real use shows the need.
 WEIGHT_TOLERANCE_PPM = 10_000
 
-#: The Dimension #83 enables, and every Dimension's residual label (the manager's own "other").
+#: The seeded Dimensions, and every Dimension's residual label (the manager's own "other").
 ASSET_CLASS = "asset_class"
+REGION = "region"
+SECTOR = "sector"
+EXPOSURE_CURRENCY = "exposure_currency"
 OTHER = "other"
 CASH = "cash"
 

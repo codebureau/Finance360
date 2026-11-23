@@ -19,6 +19,25 @@ function resolve(token: string): string | null {
   return `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
 }
 
+/** The palette for categorical (per-label) charts: `lines` holds the six `--chart-N` tokens, and
+ * `warning` the warning tone. Literal fallbacks are the tokens converted to sRGB. */
+export type CategoricalPalette = Palette & { warning: string };
+
+const CATEGORICAL_FALLBACK: Record<ChartTheme, { tokens: string[]; warning: string }> = {
+  light: { tokens: ["#0961bb", "#05893e", "#bb6900", "#9240a4", "#00858d", "#cc2827"], warning: "#b7791f" },
+  dark: { tokens: ["#5fa1f3", "#5ac576", "#f2af48", "#ce83de", "#42c3c9", "#fa695e"], warning: "#f6d365" },
+};
+
+export function categoricalPaletteFromTokens(theme: ChartTheme): CategoricalPalette {
+  const base = paletteFromTokens(theme);
+  const fb = CATEGORICAL_FALLBACK[theme];
+  return {
+    ...base,
+    lines: [1, 2, 3, 4, 5, 6].map((n, i) => resolve(`--chart-${n}`) ?? fb.tokens[i]),
+    warning: resolve("--warning") ?? fb.warning,
+  };
+}
+
 /** The chart palette from the live theme tokens, falling back per colour to the literal palette. */
 export function paletteFromTokens(theme: ChartTheme): Palette {
   const fallback = PALETTES[theme];

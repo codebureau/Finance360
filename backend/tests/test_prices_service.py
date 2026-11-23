@@ -298,6 +298,9 @@ def test_the_fixture_prices_load_once_with_gaps_and_provider_and_manual_sources(
         assert svc.load_fixture_prices(s, tmp_path) == 0  # only while none exist
     with session_factory() as s:
         by_kind = {i.kind: i.id for i in inst_svc.list_instruments(s)}
+        by_kind["etf"] = next(
+            i.id for i in inst_svc.list_instruments(s) if i.name == "Sample Broad Market ETF"
+        )
         etf_dates = {p.as_at for p in svc.current_prices(s, by_kind["etf"])}
         gap = date(2026, 8, 19)  # a weekday inside the deliberate week-long gap
         assert gap not in etf_dates

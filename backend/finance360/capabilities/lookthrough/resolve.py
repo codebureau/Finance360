@@ -68,6 +68,9 @@ class Resolution:
     shortfall_ppm: int
     #: ``(label_key, ppm)`` trimmed from the largest weight when the profile totals over 100%.
     trimmed: tuple[tuple[str, int], ...]
+    #: The profile exists but gives this Dimension no weights (a bond fund with no sectors): all
+    #: of the amount is Not classified.
+    omitted: bool = False
 
 
 def resolve(
@@ -95,7 +98,7 @@ def resolve(
     except OutsideTolerance:  # cannot happen for a profile the write path accepted
         line = ExposureLine("not_classified", None, amount, path)
         return Resolution(
-            (line,), selected.profile.profile_id, selected.profile.as_at, False, 0, ()
+            (line,), selected.profile.profile_id, selected.profile.as_at, False, 0, (), True
         )
     keys = [key for key, _ in effective.weights]
     weights = {i: ppm for i, (_, ppm) in enumerate(effective.weights)}
@@ -113,4 +116,5 @@ def resolve(
         selected.dated_after,
         shortfall,
         effective.trimmed,
+        not effective.weights,
     )

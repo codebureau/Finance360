@@ -366,6 +366,29 @@
             "asset_class": {
               "australian_shares": "60",
               "international_shares": "39.5"
+            },
+            "region": {
+              "australia": "60",
+              "north_america": "22",
+              "europe": "8",
+              "asia_pacific": "5",
+              "other": "5"
+            },
+            "sector": {
+              "financials": "24",
+              "materials": "18",
+              "health_care": "12",
+              "information_technology": "14",
+              "industrials": "10",
+              "consumer_staples": "7",
+              "energy": "6",
+              "other": "9"
+            },
+            "exposure_currency": {
+              "aud": "60",
+              "usd": "24",
+              "eur": "8",
+              "other": "8"
             }
           }
         }
@@ -427,6 +450,16 @@
           "weights": {
             "asset_class": {
               "australian_shares": "100"
+            },
+            "region": {
+              "australia": "100"
+            },
+            "sector": {
+              "materials": "100"
+            },
+            "exposure_currency": {
+              "aud": "40",
+              "usd": "60"
             }
           }
         }
@@ -466,7 +499,7 @@
       "exposure_profiles": [
         {
           "as_at": "2026-06-30",
-          "note": "Invented fund fact sheet, as at 30 June 2026.",
+          "note": "Invented fund fact sheet, as at 30 June 2026. It publishes no sector weights, so that Dimension is left out.",
           "weights": {
             "asset_class": {
               "australian_shares": "30",
@@ -476,6 +509,20 @@
               "fixed_income": "20",
               "cash": "7",
               "alternatives": "3"
+            },
+            "region": {
+              "australia": "38",
+              "north_america": "24",
+              "europe": "12",
+              "asia_pacific": "6",
+              "emerging_markets": "8",
+              "other": "12"
+            },
+            "exposure_currency": {
+              "aud": "62",
+              "usd": "20",
+              "eur": "6",
+              "other": "12"
             }
           }
         }
@@ -484,6 +531,62 @@
         { "as_at": "2026-03-31", "value": "1.8412", "source": "manual", "note": "Invented unit price from a sample statement" },
         { "as_at": "2026-06-30", "value": "1.8977", "source": "manual", "note": "Invented unit price from a sample statement" },
         { "as_at": "2026-09-30", "value": "1.9340", "source": "manual", "note": "Invented unit price from a sample statement" }
+      ]
+    },
+    {
+      "name": "Sample Global Equity ETF",
+      "kind": "etf",
+      "currency": "AUD",
+      "notes": "Invented AUD-listed ETF holding overseas shares: AUD Holding currency, mostly non-AUD Exposure currency. No provider symbol, so no fetched Prices.",
+      "identifiers": [
+        { "scheme": "ticker", "value": "SGEQ" },
+        { "scheme": "name", "value": "Sample Global Equity ETF" }
+      ],
+      "exposure_profiles": [
+        {
+          "as_at": "2026-06-30",
+          "note": "Invented factsheet, as at 30 June 2026. Overseas shares, priced in AUD and mostly exposed to other currencies.",
+          "weights": {
+            "asset_class": {
+              "international_shares": "99",
+              "cash": "1"
+            },
+            "region": {
+              "north_america": "64",
+              "europe": "15",
+              "united_kingdom": "4",
+              "japan": "6",
+              "asia_pacific": "4",
+              "emerging_markets": "7"
+            },
+            "sector": {
+              "information_technology": "24",
+              "financials": "15",
+              "health_care": "12",
+              "consumer_discretionary": "11",
+              "communication_services": "9",
+              "industrials": "10",
+              "consumer_staples": "6",
+              "energy": "4",
+              "materials": "3",
+              "utilities": "3",
+              "real_estate": "2",
+              "other": "1"
+            },
+            "exposure_currency": {
+              "aud": "8",
+              "usd": "62",
+              "eur": "13",
+              "gbp": "4",
+              "jpy": "6",
+              "other": "7"
+            }
+          }
+        }
+      ],
+      "prices": [
+        { "as_at": "2026-06-30", "value": "24.1500", "source": "manual", "note": "Invented unit price from a sample statement" },
+        { "as_at": "2026-09-30", "value": "25.2300", "source": "manual", "note": "Invented unit price from a sample statement" }
       ]
     }
   ],

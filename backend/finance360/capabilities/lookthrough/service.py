@@ -106,6 +106,7 @@ def account_look_through(
             if d.instrument_id is not None
             else f"Cash ({d.currency})",
             d.value,
+            d.currency if d.instrument_id is None else None,
         )
         for d in result.lines
     ]

@@ -614,7 +614,7 @@ def _seed_exposure_profiles(session: Session, data_dir: Path) -> None:
     from finance360.core.models.instrument import Instrument
 
     seed_exposure_vocab(session)
-    assert profiles.load_fixture_exposure_profiles(session, data_dir) == 3
+    assert profiles.load_fixture_exposure_profiles(session, data_dir) == 4
     etf = session.scalars(
         select(Instrument).where(Instrument.name == "Sample Broad Market ETF")
     ).one()
@@ -1367,8 +1367,9 @@ def test_the_upgraded_database_keeps_both_lodged_results_and_still_refuses_to_ch
 def test_downgrading_0034_drops_only_the_exposure_tables(tmp_path: Path) -> None:
     upgrade_populated(tmp_path)
     before = snapshot(tmp_path)
-    assert len(before.tables["exposure_profile"].rows) == 4  # three, and a corrected ETF
-    assert len(before.tables["exposure_weight"].rows) == 11  # 2 + 1 + 7 weights, then 1 more
+    assert len(before.tables["exposure_profile"].rows) == 5  # four, and a corrected ETF
+    # 19 + 5 + 17 + 26 weights across four Dimensions, then 1 more
+    assert len(before.tables["exposure_weight"].rows) == 68
     config = alembic_config(tmp_path, MIGRATIONS_DIR)
     command.downgrade(config, "0033")
     after = snapshot(tmp_path)
@@ -1406,7 +1407,8 @@ def test_the_upgraded_database_keeps_a_superseded_profile_and_still_refuses_to_c
         ).fetchall()
         assert [(r[1], r[2] is not None) for r in rows] == [(0, True), (1, False)]
         old = conn.execute(
-            "SELECT label_key, weight_ppm FROM exposure_weight WHERE profile_id = ? ORDER BY id",
+            "SELECT label_key, weight_ppm FROM exposure_weight WHERE profile_id = ? "
+            "AND dimension_key = 'asset_class' ORDER BY id",
             (rows[0][0],),
         ).fetchall()
         assert old == [("australian_shares", 600000), ("international_shares", 395000)]
