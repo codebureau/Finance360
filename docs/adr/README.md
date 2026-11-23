@@ -66,3 +66,4 @@ Superseding is explicit: the new ADR names what it supersedes, and the old one's
 | [0028](0028-regular-deduction-from-super-line-debit.md) | Regular deduction from super: the Line debit | Proposed |
 | [0029](0029-household-facts-and-age-pension-means-test-in-the-projection.md) | Household facts for the Age Pension, and how the means test reads the projection | Accepted |
 | [0030](0030-exposure-profiles-look-through-and-asset-class-returns.md) | Exposure profiles, look-through lines and asset-class returns | Accepted |
+| [0031](0031-visual-layer-chart-kit-display-preferences-and-palette.md) | Visual layer: chart kit, switchable chart forms, Display preferences, palette and colour | Proposed |

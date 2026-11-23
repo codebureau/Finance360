@@ -529,6 +529,19 @@ what to provide and when. Written as Markdown in the repo, so they ship with eac
 field-level help, which lives on the screens.
 _Avoid_: Help, Manual, Docs, Wiki
 
+**Designed view**:
+What a screen or section leads with: a card with a plain-language headline and a chart or stat tile
+that answers its question at a glance, with the exact figures one step behind it ("Show figures"),
+never removed. The chart's form follows the data's shape (ADR-0031).
+_Avoid_: Dashboard, Widget, Summary (on its own)
+
+**Display preference**:
+A remembered presentation choice, such as a chart's form or cards versus list, kept in the instance
+for the Login so it follows across devices. A choice for one view overrides the default for that
+shape of data. It holds no financial data, changes no figure and is not audited (ADR-0031). Theme and
+density are per browser and are not Display preferences.
+_Avoid_: Setting, Household fact, Option, Layout (the Position table/tree control)
+
 **What's due**:
 The home screen's list of **Due items**: places where the data Finance360 uses has gone stale or a new
 period has arrived, such as a manual Valuation older than its usual gap or a missing income statement for
