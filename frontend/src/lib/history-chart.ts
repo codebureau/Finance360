@@ -19,18 +19,25 @@ export const PALETTES: Record<ChartTheme, Palette> = {
     muted: "#737373",
     grid: "#e5e5e5",
     card: "#ffffff",
-    lines: ["#2f855a", "#c53030", "#2b4acb", "#b7791f"],
+    lines: ["#127eee", "#b64e10", "#04a19b", "#7429c3", "#bf1c7f", "#b18e15"],
   },
   dark: {
     text: "#fafafa",
     muted: "#a3a3a3",
     grid: "#3a3a3a",
     card: "#171717",
-    lines: ["#68d391", "#fc8181", "#90a4f4", "#f6d365"],
+    lines: ["#0f64bf", "#ae4e1a", "#1faaa4", "#a170eb", "#c32e85", "#b18e15"],
   },
 };
 
 const DASH: ("solid" | "dashed" | "dotted")[] = ["solid", "dashed", "solid", "dotted"];
+
+/** A series' colour (ADR-0031 section 5): a chart token, neutral ink (Net) or muted ink. Never a status colour. */
+export function seriesColour(s: HistorySeries, pal: Palette): string {
+  if (s.tone === "ink") return pal.text;
+  if (s.tone === "muted") return pal.muted;
+  return pal.lines[s.tone.token % pal.lines.length];
+}
 
 /** Tick text only (e.g. "1.2M"). Display-only; the exact figures are in the tooltip and table. */
 export function axisLabel(value: number): string {
@@ -90,7 +97,7 @@ export function buildOption(
   const pal = palette ?? PALETTES[theme];
   return {
     animation: false,
-    color: pal.lines,
+    color: series.map((s) => seriesColour(s, pal)),
     textStyle: { color: pal.text },
     grid: { left: 8, right: 16, top: 36, bottom: 8, containLabel: true },
     legend: { top: 0, textStyle: { color: pal.text }, itemWidth: 18 },
@@ -124,8 +131,8 @@ export function buildOption(
       lineStyle: { width: 2, type: DASH[k % DASH.length] },
       // Draw every symbol, however dense the axis, or flagged points vanish on a phone.
       showAllSymbol: true,
-      itemStyle: { color: pal.lines[k % pal.lines.length] },
-      data: buildSeriesData(points, s, pal.lines[k % pal.lines.length], pal.card),
+      itemStyle: { color: seriesColour(s, pal) },
+      data: buildSeriesData(points, s, seriesColour(s, pal), pal.card),
     })),
   };
 }

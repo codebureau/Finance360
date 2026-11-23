@@ -1,6 +1,7 @@
 import createClient from "openapi-fetch";
 
 import type { components, paths } from "@/api/schema";
+import { TOKEN_COUNT } from "@/lib/entity-colour";
 import { toApiError } from "@/lib/household";
 
 export type Position = components["schemas"]["PositionOut"];
@@ -80,6 +81,11 @@ export async function fetchPositionHistory(tag: string): Promise<PositionHistory
 export type HistorySeries = {
   key: string;
   label: string;
+  /**
+   * A chart token, neutral ink for a Net line, or muted for Assets and Liabilities (so they never
+   * echo a Category colour). Never a status colour (ADR-0031 section 5).
+   */
+  tone: { token: number } | "ink" | "muted";
   /** The money string for this series at a point; never parsed here. */
   value: (p: HistoryPoint) => string;
 };
@@ -94,19 +100,24 @@ export function seriesFor(
 ): HistorySeries[] {
   if (view === "member") {
     return [
-      ...members.map((m) => ({
+      ...members.map((m, i) => ({
         key: `member-${m.id}`,
         label: `${m.name} Net`,
+        tone: { token: i % TOKEN_COUNT },
         value: (p: HistoryPoint) => p.net.members.find((x) => x.member_id === m.id)?.total ?? "0.00",
       })),
-      { key: "net", label: "Household Net", value: (p: HistoryPoint) => p.net.household },
+      { key: "net", label: "Household Net",
+        tone: "ink" as const, value: (p: HistoryPoint) => p.net.household },
     ];
   }
   const pick = (f: Figures) => (view === "joint" ? f.joint : f.household);
   return [
-    { key: "assets", label: "Assets", value: (p) => pick(p.assets) },
-    { key: "liabilities", label: "Liabilities", value: (p) => pick(p.liabilities) },
-    { key: "net", label: "Net", value: (p) => pick(p.net) },
+    { key: "assets", label: "Assets",
+      tone: "muted" as const, value: (p) => pick(p.assets) },
+    { key: "liabilities", label: "Liabilities",
+      tone: "muted" as const, value: (p) => pick(p.liabilities) },
+    { key: "net", label: "Net",
+      tone: "ink" as const, value: (p) => pick(p.net) },
   ];
 }
 

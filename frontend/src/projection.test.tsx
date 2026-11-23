@@ -2,8 +2,22 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 
 import { agePensionUsed, agePensionYear } from "@/age-pension-fixture";
-import { renderAppAt } from "@/test-utils";
+import { openAllWorking, renderAppAt } from "@/test-utils";
 import type { Layer, SavedAssumptions, Scenario, ScenarioProjection } from "@/lib/scenarios";
+
+// jsdom has no canvas: stand in for the ECharts host and keep the option it was given.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const options: { label: string; current: any }[] = [];
+vi.mock("@/components/echart", () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  default: ({ option, label }: { option: any; label: string }) => {
+    options.push({ label, current: option });
+    return <div data-testid="mock-echart" role="img" aria-label={label} />;
+  },
+}));
+/** The latest option given to the balances chart. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const balancesOption = (): any => options.filter((o) => /of balances by Category/.test(o.label)).at(-1)!.current;
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -210,6 +224,7 @@ const withPension = (over: Partial<ScenarioProjection> = {}): ScenarioProjection
 test("the year table lists the Age Pension of a year and opens its working", async () => {
   fakeBackend({ project: () => json(withPension()) });
   await renderAppAt("/projection");
+  await openAllWorking();
 
   const table = await screen.findByTestId("projection-table");
   expect(within(table).getByRole("columnheader", { name: "Age Pension" })).toBeInTheDocument();
@@ -238,6 +253,7 @@ test("the year table lists the Age Pension of a year and opens its working", asy
 test("the Age Pension card shows the facts with their labels, eligibility, assets and simplifications", async () => {
   fakeBackend({ project: () => json(withPension()) });
   await renderAppAt("/projection");
+  await openAllWorking();
 
   const facts = within(await screen.findByTestId("age-pension-facts"));
   expect(facts.getByText("Couple status")).toBeInTheDocument();
@@ -261,6 +277,7 @@ test("when no pension is calculated the card says why and the table has no Age P
   });
   fakeBackend({ project: () => json({ ...projection(), age_pension: used }) });
   await renderAppAt("/projection");
+  await openAllWorking();
 
   const card = await screen.findByTestId("age-pension-used");
   expect(within(card).getByText("Choose the principal home on Household")).toBeInTheDocument();
@@ -287,6 +304,7 @@ test("a line debit is listed with what was requested, paid and paid personally, 
   );
   fakeBackend({ project: () => json({ ...base, rows }) });
   await renderAppAt("/projection");
+  await openAllWorking();
 
   const list = await screen.findByTestId("line-debit-rows");
   const items = within(list).getAllByRole("listitem");
@@ -304,6 +322,7 @@ test("a line debit is listed with what was requested, paid and paid personally, 
 test("a run with no line debits shows no debit section", async () => {
   fakeBackend();
   await renderAppAt("/projection");
+  await openAllWorking();
   await screen.findByTestId("projection-table");
   expect(screen.queryByTestId("line-debits")).not.toBeInTheDocument();
 });
@@ -353,6 +372,7 @@ test("a Scenario in the URL is selected on arrival", async () => {
 test("the Assumptions used are listed with the layer that set each", async () => {
   fakeBackend();
   await renderAppAt("/projection");
+  await openAllWorking();
   const panel = await screen.findByTestId("assumptions-used");
 
   const rows = within(panel).getAllByRole("listitem");
@@ -374,6 +394,7 @@ test("editing the Household defaults sends only what changed, then flags the Sce
       }),
   });
   await renderAppAt("/projection");
+  await openAllWorking();
   fireEvent.click(await screen.findByRole("button", { name: "Edit Household defaults" }));
 
   const field = await screen.findByLabelText("Investments return per year (%)");
@@ -399,6 +420,7 @@ test("editing the Household defaults sends only what changed, then flags the Sce
 test("the Tax assumptions are choices, and picking one sends its word", async () => {
   const calls = fakeBackend();
   await renderAppAt("/projection");
+  await openAllWorking();
   fireEvent.click(await screen.findByRole("button", { name: "Edit Likely" }));
 
   const tax = await screen.findByLabelText("Tax in the projection");
@@ -421,6 +443,7 @@ test("the Tax assumptions are choices, and picking one sends its word", async ()
 test("a Scenario's own sheet shows what it inherits and clearing a field removes the override", async () => {
   const calls = fakeBackend();
   await renderAppAt("/projection");
+  await openAllWorking();
   fireEvent.click(await screen.findByRole("button", { name: "Edit Likely" }));
 
   const field = await screen.findByLabelText("Investments return per year (%)");
@@ -441,6 +464,7 @@ test("a rejected value is shown beside its field and the sheet stays open", asyn
     save: () => json({ errors: [{ field: "inflation", message: "Rates have at most 4 decimal places of a percent." }] }, 422),
   });
   await renderAppAt("/projection");
+  await openAllWorking();
   fireEvent.click(await screen.findByRole("button", { name: "Edit Household defaults" }));
   fireEvent.change(await screen.findByLabelText("Inflation per year (%)"), { target: { value: "2.55555" } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -506,6 +530,7 @@ test("a capped sustainable amount is shown as a minimum", async () => {
 test("the stated simplifications are on the screen beside the answer", async () => {
   fakeBackend();
   await renderAppAt("/projection");
+  await openAllWorking();
   const panel = await screen.findByTestId("simplifications");
   expect(within(panel).getByText(/Property, vehicles and loans are not projected/)).toBeInTheDocument();
   expect(within(panel).getByText(/later of its owner.s retirement and preservation age/)).toBeInTheDocument();
@@ -521,6 +546,7 @@ test("the stated simplifications are on the screen beside the answer", async () 
 test("the year table shows balances by Category and marks the first short year", async () => {
   fakeBackend();
   await renderAppAt("/projection");
+  await openAllWorking();
   const table = await screen.findByTestId("projection-table");
   expect(within(table).getByRole("columnheader", { name: "Cash" })).toBeInTheDocument();
   expect(within(table).getByRole("columnheader", { name: "Investments" })).toBeInTheDocument();
@@ -543,6 +569,7 @@ test("Accounts left out are listed with the reason", async () => {
       ),
   });
   await renderAppAt("/projection");
+  await openAllWorking();
   const list = await screen.findByTestId("flagged-accounts");
   expect(within(list).getByText(/Sample UK Pension/)).toBeInTheDocument();
   expect(within(list).getByText(/no FX rate/)).toBeInTheDocument();
@@ -559,6 +586,7 @@ test("the sidebar links to the Projection screen", async () => {
 test("the drawdown order used is shown with the Assumptions", async () => {
   fakeBackend();
   await renderAppAt("/projection");
+  await openAllWorking();
   const panel = await screen.findByTestId("assumptions-used");
   expect(within(panel).getByTestId("drawdown-order")).toHaveTextContent("Drawdown order: Cash, then Investments.");
 });
@@ -566,6 +594,7 @@ test("the drawdown order used is shown with the Assumptions", async () => {
 test("moving a Category in a Scenario's sheet saves the whole order, and Reset returns to the default", async () => {
   const calls = fakeBackend();
   await renderAppAt("/projection");
+  await openAllWorking();
   fireEvent.click(await screen.findByRole("button", { name: "Edit Likely" }));
   const editor = await screen.findByTestId("drawdown-order-editor");
   expect(within(editor).getByText("This is the default order.")).toBeInTheDocument();
@@ -591,6 +620,7 @@ test("moving a Category in a Scenario's sheet saves the whole order, and Reset r
 test("Reset to default order sends null, and an untouched order sends nothing", async () => {
   const calls = fakeBackend();
   await renderAppAt("/projection");
+  await openAllWorking();
   fireEvent.click(await screen.findByRole("button", { name: "Edit Likely" }));
   const editor = await screen.findByTestId("drawdown-order-editor");
   fireEvent.click(within(editor).getByRole("button", { name: "Move Cash down" }));
@@ -604,6 +634,7 @@ test("Reset to default order sends null, and an untouched order sends nothing", 
 test("the Household defaults sheet has no order to edit", async () => {
   fakeBackend();
   await renderAppAt("/projection");
+  await openAllWorking();
   fireEvent.click(await screen.findByRole("button", { name: "Edit Household defaults" }));
   await screen.findByLabelText("Investments return per year (%)");
   expect(screen.queryByTestId("drawdown-order-editor")).not.toBeInTheDocument();
@@ -612,6 +643,7 @@ test("the Household defaults sheet has no order to edit", async () => {
 test("each Member's Rule pack ages are shown with the pack version and the sources", async () => {
   fakeBackend({ project: () => json(projection({ rules: rules({ pension: [66, 6] }) })) });
   await renderAppAt("/projection");
+  await openAllWorking();
 
   const panel = await screen.findByTestId("rules-used");
   expect(within(panel).getByText("au/2026-27/r1")).toBeInTheDocument();
@@ -627,6 +659,7 @@ test("each Member's Rule pack ages are shown with the pack version and the sourc
 test("a Scenario's own Rule pack age is labelled with the Scenario", async () => {
   fakeBackend({ project: () => json(projection({ rules: rules({ pension: [70, 0], layer: "scenario" }) })) });
   await renderAppAt("/projection");
+  await openAllWorking();
 
   const alex = within(await screen.findByTestId("rules-member-1"));
   expect(alex.getByText("70 years")).toBeInTheDocument();
@@ -636,6 +669,7 @@ test("a Scenario's own Rule pack age is labelled with the Scenario", async () =>
 test("the Life events timeline lists each Member's dates in order and shows the gap before super opens", async () => {
   fakeBackend({ project: () => json(projection()) });
   await renderAppAt("/projection");
+  await openAllWorking();
 
   const alex = within(await screen.findByTestId("life-events-member-1"));
   const rows = alex.getAllByRole("listitem").map((li) => li.textContent);
@@ -656,7 +690,108 @@ test("a Scenario's rule override is labelled on the timeline", async () => {
   );
   fakeBackend({ project: () => json(projection({ life_events: events })) });
   await renderAppAt("/projection");
+  await openAllWorking();
 
   const alex = within(await screen.findByTestId("life-events-member-1"));
   expect(alex.getByText("Likely")).toBeInTheDocument();
+});
+
+// Invented: Alex retires and reaches preservation age in year 2 (index 1), Jordan reaches Age Pension
+// age after the horizon.
+const marked = () => [
+  { member_id: 1, kind: "retirement", on: "2027-03-12", age_years: 43, age_months: 0, source: "scenario", year: 1 },
+  { member_id: 1, kind: "preservation_age", on: "2027-04-01", age_years: 43, age_months: 0, source: "rule_pack", year: 1 },
+  { member_id: 2, kind: "age_pension_age", on: "2053-09-30", age_years: 67, age_months: 0, source: "rule_pack", year: 27 },
+];
+
+test("the headline and the balances chart come before any working, which is closed", async () => {
+  fakeBackend({ project: () => json(projection({ life_events: marked() })) });
+  await renderAppAt("/projection");
+
+  const headline = await screen.findByTestId("headline");
+  const chart = await screen.findByTestId("balances-chart");
+  const assumptions = screen.getByTestId("assumptions-used");
+  expect(headline.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(chart.compareDocumentPosition(assumptions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "How the balances move" })).toBeInTheDocument();
+
+  // Closed: none of the working is on the page, but each section names itself and opens.
+  expect(screen.queryByTestId("projection-table")).not.toBeInTheDocument();
+  expect(screen.queryByTestId("life-events")).not.toBeInTheDocument();
+  expect(screen.queryByTestId("simplifications")).not.toBeInTheDocument();
+  for (const title of ["Assumptions in use", "Rule pack ages", "Life events", "What this projection assumes", "Year by year"]) {
+    expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
+  }
+  // The editors stay reachable with the working closed.
+  expect(screen.getByRole("button", { name: "Edit Likely" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Edit Household spending" })).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Show working: Year by year" }));
+  expect(await screen.findByTestId("projection-table")).toBeInTheDocument();
+});
+
+test("the chart values equal the Year by year table", async () => {
+  fakeBackend({ project: () => json(projection({ life_events: marked() })) });
+  await renderAppAt("/projection");
+  await openAllWorking();
+  const table = await screen.findByTestId("projection-table");
+  const option = balancesOption();
+
+  const rows = within(table).getAllByRole("row").slice(2); // header and the Start row
+  expect(rows).toHaveLength(2);
+  const headers = within(table).getAllByRole("columnheader").map((h) => h.textContent);
+  const cell = (row: HTMLElement, name: string) => {
+    const i = headers.indexOf(name);
+    return within(row).getAllByRole("cell")[i - 1].textContent!.replace(/,/g, "");
+  };
+  expect(option.series.map((s: { name: string }) => s.name)).toEqual(["Cash", "Investments"]);
+  for (const s of option.series as { name: string; data: number[] }[]) {
+    rows.forEach((row, i) => expect(s.data[i]).toBe(Number(cell(row, s.name))));
+  }
+  expect(option.xAxis.data).toEqual(["2027", "2028"]);
+});
+
+test("the markers are the Life events, on the dates the Life events list shows", async () => {
+  fakeBackend({ project: () => json(projection({ life_events: marked() })) });
+  await renderAppAt("/projection");
+  await openAllWorking();
+  const option = balancesOption();
+
+  const lines = option.series[0].markLine.data as { name: string; xAxis: number }[];
+  // Jordan's Age Pension age is after the horizon: not drawn, and said so.
+  expect(lines.map((l) => [l.name, l.xAxis])).toEqual([
+    ["Retirement (Alex Sample)", 1],
+    ["Preservation age (Alex Sample)", 1],
+  ]);
+  expect(screen.getByText(/One marked event falls after the horizon/)).toBeInTheDocument();
+
+  const listed = within(screen.getByTestId("chart-markers"));
+  const events = within(screen.getByTestId("life-events-member-1"));
+  expect(listed.getByText("Retirement (Alex Sample): 2027-03-12")).toBeInTheDocument();
+  expect(events.getByText("2027-03-12")).toBeInTheDocument();
+  expect(listed.getByText("Preservation age (Alex Sample): 2027-04-01")).toBeInTheDocument();
+  expect(events.getByText("2027-04-01")).toBeInTheDocument();
+});
+
+test("the short year is marked on the chart and named beside it", async () => {
+  fakeBackend({ project: () => json(projection({ life_events: marked() })) });
+  await renderAppAt("/projection");
+  await screen.findByTestId("balances-chart");
+
+  const area = balancesOption().series[0].markArea.data;
+  expect(area).toEqual([[{ xAxis: 1 }, { xAxis: 1 }]]);
+  expect(screen.getByTestId("chart-short")).toHaveTextContent("Short: spending is not met in full in 2028");
+});
+
+test("the chart can be switched to lines, which stop stacking", async () => {
+  fakeBackend({ project: () => json(projection()) });
+  await renderAppAt("/projection");
+  await screen.findByTestId("balances-chart");
+  expect(balancesOption().series[0].stack).toBe("total");
+  expect(balancesOption().series[0].areaStyle).toBeDefined();
+
+  fireEvent.click(screen.getByRole("radio", { name: "Lines" }));
+  await waitFor(() => expect(screen.getByTestId("balances-chart")).toHaveAttribute("data-form", "lines"));
+  expect(balancesOption().series[0].stack).toBeUndefined();
+  expect(balancesOption().series[0].areaStyle).toBeUndefined();
 });

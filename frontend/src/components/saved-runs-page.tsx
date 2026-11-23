@@ -2,24 +2,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 
-import { AgePensionCard } from "@/components/age-pension";
 import { GeneralError } from "@/components/form-fields";
-import { DrawdownOrderLine } from "@/components/assumptions-editor";
-import {
-  Headline,
-  IncomeUsedList,
-  TaxUsedList,
-  LifeEventsTimeline,
-  ProvenanceList,
-  RulesUsed,
-  Simplifications,
-  YearTable,
-} from "@/components/projection-page";
+import { AssumptionsBody, Headline, ProjectionResult } from "@/components/projection-page";
 import { SpendingPhasesUsed } from "@/components/spending-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { WorkingSection } from "@/components/working-section";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatWhen } from "@/lib/audit";
 import { fetchHousehold } from "@/lib/household";
@@ -165,34 +154,33 @@ export function SavedRunPage({ runId }: { runId: string }) {
         </div>
       )}
       <Headline p={p} />
-      <section aria-label="Assumptions used" data-testid="assumptions-used">
-        <Card>
-          <CardHeader>
-            <CardTitle>Assumptions used in this run</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              The values {header.scenario_name} resolved to when this run was saved. Changing an Assumption later does
-              not change them.
-            </p>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <DrawdownOrderLine categories={p.categories} />
+      <ProjectionResult
+        p={p}
+        scenarioName={header.scenario_name}
+        spending={
+          <WorkingSection
+            title="Spending used in this run"
+            testId="spending-used"
+            note={`The spending phases ${header.scenario_name} resolved to when this run was saved.`}
+          >
             <SpendingPhasesUsed
               spending={p.spending}
               referenceAge={p.reference_member.age_now}
               years={p.years}
               scenarioName={header.scenario_name}
             />
-            <ProvenanceList p={p} slots={slots} scenarioName={header.scenario_name} />
-            <IncomeUsedList p={p} scenarioName={header.scenario_name} />
-            <TaxUsedList p={p} />
-            <RulesUsed p={p} scenarioName={header.scenario_name} />
-            <LifeEventsTimeline p={p} scenarioName={header.scenario_name} />
-          </CardContent>
-        </Card>
-      </section>
-      <AgePensionCard p={p} />
-      <Simplifications p={p} />
-      <YearTable p={p} />
+          </WorkingSection>
+        }
+        assumptions={
+          <WorkingSection
+            title="Assumptions used in this run"
+            testId="assumptions-used"
+            note={`The values ${header.scenario_name} resolved to when this run was saved. Changing an Assumption later does not change them.`}
+          >
+            <AssumptionsBody p={p} slots={slots} scenarioName={header.scenario_name} />
+          </WorkingSection>
+        }
+      />
     </div>
   );
 }

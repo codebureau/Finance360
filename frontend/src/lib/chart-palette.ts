@@ -33,7 +33,6 @@ export function categoricalPaletteFromTokens(theme: ChartTheme): CategoricalPale
   const fb = CATEGORICAL_FALLBACK[theme];
   return {
     ...base,
-    lines: [1, 2, 3, 4, 5, 6].map((n, i) => resolve(`--chart-${n}`) ?? fb.tokens[i]),
     warning: resolve("--warning") ?? fb.warning,
   };
 }
@@ -41,9 +40,8 @@ export function categoricalPaletteFromTokens(theme: ChartTheme): CategoricalPale
 /** The chart palette from the live theme tokens, falling back per colour to the literal palette. */
 export function paletteFromTokens(theme: ChartTheme): Palette {
   const fallback = PALETTES[theme];
-  const lines = ["--success", "--money-negative", "--info", "--warning"].map(
-    (t, i) => resolve(t) ?? fallback.lines[i],
-  );
+  // The six chart tokens, never the status colours (ADR-0031 section 5).
+  const lines = [1, 2, 3, 4, 5, 6].map((n, i) => resolve(`--chart-${n}`) ?? fallback.lines[i]);
   return {
     text: resolve("--foreground") ?? fallback.text,
     muted: resolve("--muted-foreground") ?? fallback.muted,

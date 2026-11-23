@@ -12,7 +12,7 @@ const point = (on: string, net: string, flagged = 0): HistoryPoint => ({
   flagged,
 });
 const points = [point("2025-01-31", "1200.50", 1), point("2025-02-28", "1234567.89")];
-const series: HistorySeries[] = [{ key: "net", label: "Net <b>", value: (p) => p.net.household }];
+const series: HistorySeries[] = [{ key: "net", label: "Net <b>", tone: { token: 0 }, value: (p) => p.net.household }];
 
 test("the tooltip shows the exact API strings and marks an incomplete point", () => {
   expect(tooltipText(points, series, 1)).toEqual(["2025-02-28", "Net <b>: 1,234,567.89"]);
@@ -51,10 +51,27 @@ test("the x axis is the month-end dates and the tooltip formatter escapes labels
 test("the option is re-themed by theme and y-axis ticks are compact money text", () => {
   const light = buildOption(points, series, "light");
   const dark = buildOption(points, series, "dark");
-  expect(light.color).toEqual(PALETTES.light.lines);
-  expect(dark.color).toEqual(PALETTES.dark.lines);
+  expect(light.color).toEqual([PALETTES.light.lines[0]]);
+  expect(dark.color).toEqual([PALETTES.dark.lines[0]]);
   expect(light.color).not.toEqual(dark.color);
   expect(axisLabel(1_200_000)).toBe("1.2M");
   expect(axisLabel(-500)).toBe("-500");
   expect(light.yAxis.axisLabel.formatter(1_200_000)).toBe("1.2M");
+});
+
+test("series wear chart tokens or neutral ink, never a status colour (ADR-0031)", () => {
+  const three: HistorySeries[] = [
+    { key: "assets", label: "Assets", tone: { token: 0 }, value: (p) => p.assets.household },
+    { key: "liabilities", label: "Liabilities", tone: { token: 1 }, value: (p) => p.liabilities.household },
+    { key: "net", label: "Net", tone: "ink", value: (p) => p.net.household },
+  ];
+  for (const theme of ["light", "dark"] as const) {
+    const pal = PALETTES[theme];
+    const option = buildOption(points, three, theme);
+    expect(option.color).toEqual([pal.lines[0], pal.lines[1], pal.text]);
+    // The old status greens and reds are gone from the palette.
+    expect(pal.lines).not.toContain("#2f855a");
+    expect(pal.lines).not.toContain("#c53030");
+    expect(option.series.map((s) => s.itemStyle.color)).toEqual(option.color);
+  }
 });

@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 
 import type { Scenario, ScenarioProjection, SpendingLayer, SpendingSaved } from "@/lib/scenarios";
-import { renderAppAt } from "@/test-utils";
+import { openAllWorking, renderAppAt } from "@/test-utils";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -144,6 +144,7 @@ const puts = (calls: Call[]) => calls.filter((c) => c.method === "PUT" && c.path
 test("the Projection shows the spending phases it used, as ages, and which layer supplied them", async () => {
   fakeBackend();
   await renderAppAt("/projection");
+  await openAllWorking();
 
   const card = await screen.findByTestId("spending-used");
   expect(within(card).getByText("Spending in Likely")).toBeInTheDocument();
@@ -161,6 +162,7 @@ test("the Projection shows the spending phases it used, as ages, and which layer
 test("a Scenario with its own phases says so", async () => {
   fakeBackend();
   await renderAppAt("/projection?scenario=3");
+  await openAllWorking();
   const card = await screen.findByTestId("spending-used");
   expect(within(card).getByText(/states its own spending phases/)).toBeInTheDocument();
   expect(within(card).getByText("Worst")).toBeInTheDocument(); // the badge
@@ -206,6 +208,7 @@ test("the Household spending sheet lists the phases, and an added phase is sent 
 test("a phase is edited and another removed, and the list sent is the whole new list", async () => {
   const calls = fakeBackend();
   await renderAppAt("/projection");
+  await openAllWorking();
   fireEvent.click(await screen.findByRole("button", { name: "Edit Household spending" }));
   fireEvent.change(await screen.findByLabelText("Phase 1 amount a year"), { target: { value: "72000" } });
   fireEvent.click(screen.getByRole("button", { name: "Remove phase 2" }));
@@ -225,6 +228,7 @@ test("an offset that is not a whole number is sent so the server names the field
       json({ errors: [{ field: "spending_phases.0.offset_years", message: "Enter a whole number of years from 0 to 120." }] }, 422),
   });
   await renderAppAt("/projection");
+  await openAllWorking();
   fireEvent.click(await screen.findByRole("button", { name: "Edit Household spending" }));
   fireEvent.change(await screen.findByLabelText("Phase 1 years after"), { target: { value: "ten" } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -249,6 +253,7 @@ test("field errors appear beside the phase they belong to", async () => {
       ),
   });
   await renderAppAt("/projection");
+  await openAllWorking();
   fireEvent.click(await screen.findByRole("button", { name: "Edit Household spending" }));
   fireEvent.click(await screen.findByRole("button", { name: "Save" }));
 
@@ -261,6 +266,7 @@ test("field errors appear beside the phase they belong to", async () => {
 test("a Scenario that inherits shows the default list and gets its own only when asked", async () => {
   const calls = fakeBackend();
   await renderAppAt("/projection");
+  await openAllWorking();
   fireEvent.click(await screen.findByRole("button", { name: "Edit Likely spending" }));
 
   expect(await screen.findByTestId("spending-inherited")).toHaveTextContent(/Likely uses the Household default phases/);
@@ -277,6 +283,7 @@ test("a Scenario that inherits shows the default list and gets its own only when
 test("giving a Scenario its own phases starts from the default and replaces it whole", async () => {
   const calls = fakeBackend();
   await renderAppAt("/projection");
+  await openAllWorking();
   fireEvent.click(await screen.findByRole("button", { name: "Edit Likely spending" }));
   fireEvent.click(await screen.findByRole("button", { name: "Give Likely its own phases" }));
 
@@ -295,6 +302,7 @@ test("giving a Scenario its own phases starts from the default and replaces it w
 test("a Scenario with its own phases can go back to the Household default", async () => {
   const calls = fakeBackend();
   await renderAppAt("/projection?scenario=3");
+  await openAllWorking();
   fireEvent.click(await screen.findByRole("button", { name: "Edit Worst spending" }));
   expect(await screen.findByLabelText("Phase 1 amount a year")).toHaveValue("85000.00");
   fireEvent.click(screen.getByRole("button", { name: "Use the Household default phases" }));
@@ -308,6 +316,7 @@ test("a Scenario with its own phases can go back to the Household default", asyn
 test("a Scenario's own phases are the first sheet shown when it has some", async () => {
   fakeBackend();
   await renderAppAt("/projection?scenario=3");
+  await openAllWorking();
   fireEvent.click(await screen.findByRole("button", { name: "Edit Worst spending" }));
   expect(await screen.findAllByTestId("phase-row")).toHaveLength(1);
   expect(screen.queryByTestId("spending-inherited")).not.toBeInTheDocument();

@@ -14,11 +14,14 @@ A Scenario is a named set of Assumptions. Best, Likely and Worst are built in, a
 An Assumption is one input: a return, inflation, a retirement age or a level of saving. Each has a Household default, and a Scenario can override it. Returns are set for each Category and retirement ages for each Member. Spending is a list of phases, such as working years, then retirement, then later life.
 
 ## Reading the result
-- The headline says whether the funds last beyond the horizon, or to what age spending is met in full (measured by the youngest Member).
-- The year-by-year table shows each year in today's dollars.
-- "What this projection assumes" lists the simplifications. Read it once.
-- If an Account is left out of the starting balances (no Valuation or FX rate), it is listed.
+The screen leads with the answer, then the picture, and keeps the working one click away.
+- The headline says whether the funds last beyond the horizon, or to what age spending is met in full (measured by the youngest Member), and the sustainable retirement income.
+- **How the balances move** is a chart of the balance of each Category at the end of every year, stacked so the top edge is the total. Each Category keeps its colour from [Position](/position). The two icons switch between stacked areas (the default) and lines; **Use as my default** keeps your choice for other charts of this kind. Hover or tap a year for the exact figures.
+- **Markers** on the chart are Life events: a solid line for retirement, a dashed line for preservation age and a dotted line for Age Pension age, each named in the list under the chart with its date. A shaded band marked **Short** covers the years spending is not met in full. An event that falls after the horizon is not drawn, and the chart says so.
+- **The working** is one card below the chart. Each of its sections opens with **Show working**, one at a time: the spending phases, the **Assumptions in use**, the **Age Pension** (the facts it used and who is eligible), **Rule pack ages**, **Life events**, **What this projection assumes** (the simplifications; read it once) and the **Year by year** table, which has the same values as the chart. The buttons to edit the Assumptions and the spending stay beside their sections whether or not the working is open.
+- If an Account is left out of the starting balances (no Valuation or FX rate), it is listed under the simplifications.
 - If the Assumptions are incomplete, the screen says what is missing. A salary with no spending phase from the start is the usual cause.
+- A [saved run](/projection/runs) shows exactly the same screen from what it stored.
 
 ## Tax in the projection
 By default take-home pay is the figure you typed on the [Income stream](/income-streams). Two Assumptions change that:
@@ -26,7 +29,7 @@ By default take-home pay is the figure you typed on the [Income stream](/income-
 - **Tax in the projection** (off unless stated). On, each year's take-home pay is estimated by the same tax engine as the [Tax estimate](/tax): the gross pay is the Income stream's figure for that year (grown by the real wage growth), and take-home pay is gross less income tax and the Medicare levy.
 - **Division 293 paid by** (for each Member, `super` unless stated). With `super`, the default, the Member's own super fund pays [Division 293](/guide/division-293): the amount is taken from **that Member's** super balance **a year after** the year it is for, so FY 2030-31's is taken in the next year. With `own` the household pays it from its own money instead; the timing is the same. The first projected year also pays the year just ended, estimated from year 0 figures. A payment that would fall after the horizon is listed but not paid.
 
-**What leaves super, and when.** A line debit is an amount taken from one Member's super balance at the end of a year, after growth and contributions and before any spending is drawn. It never takes the balance below zero. If the balance cannot cover it, the rest is **paid personally**: it is added to that year's spending and met by drawing down your Cash, Investments and the rest in the usual order, never borrowed or carried to a later year. The year-by-year table lists each one under "Taken from a line" with what was asked for, what super paid and what was paid personally, and flags any part paid personally. Switching the default to `super` changes a Scenario only when Tax in the projection is on; with it off nothing moves. A run saved before this existed keeps its figures and says so; **re-run with the current engine** saves a new run beside it.
+**What leaves super, and when.** A line debit is an amount taken from one Member's super balance at the end of a year, after growth and contributions and before any spending is drawn. It never takes the balance below zero. If the balance cannot cover it, the rest is **paid personally**: it is added to that year's spending and met by drawing down your Cash, Investments and the rest in the usual order, never borrowed or carried to a later year. The Year by year table lists each one under "Taken from a line" with what was asked for, what super paid and what was paid personally, and flags any part paid personally. Switching the default to `super` changes a Scenario only when Tax in the projection is on; with it off nothing moves. A run saved before this existed keeps its figures and says so; **re-run with the current engine** saves a new run beside it.
 
 The Rule pack publishes tax figures only up to some year. Later years use the **latest published figures carried forward**: rates and brackets are held, and thresholds the pack marks frozen fall in real terms by inflation each year. The working says which years use carried figures and lists each year's gross pay, tax and take-home, and each Division 293 payment with its inputs.
 
@@ -41,7 +44,7 @@ From each Member's Age Pension age the projection pays the **Age Pension** into 
 
 If your Household facts do not fit (for example more than two Members), you own several properties and have not chosen the home, or the pack holds no Age Pension figures for the start year, the projection runs with **no Age Pension** and says why. Not modelled: debt secured on an asset, rent, super already being drawn before Age Pension age, Property growth, tax on the pension and Scenario changes to the Age Pension rules.
 
-**Reading the Age Pension.** The year-by-year table has an Age Pension column once someone is eligible, with each year's total a year in today's dollars. Press **Working** beside a year to open how it was reached:
+**Reading the Age Pension.** The Year by year table (under **Show working**) has an Age Pension column once someone is eligible, with each year's total a year in today's dollars. Press **Working** beside a year to open how it was reached:
 - the assets read (each Category's opening balance, Property other than the home, Vehicles) and the income read (deeming on the financial assets, and the gross pay of Income streams);
 - the maximum, what the income test alone and the assets test alone would pay, and which of them **bound** (a year where neither reduced the maximum says so);
 - what each Member was paid;
