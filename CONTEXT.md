@@ -542,6 +542,34 @@ shape of data. It holds no financial data, changes no figure and is not audited 
 density are per browser and are not Display preferences.
 _Avoid_: Setting, Household fact, Option, Layout (the Position table/tree control)
 
+**Question**:
+A question the household brings to Finance360, in its own words ("Are we on track for retirement?"),
+registered by the Capability whose screen answers it, with the Question inputs it needs in the order
+to provide them and a fixed prompt for Ask. Its wording is the bold lead of its line in the Guide page
+"What Finance360 answers". Each has a Question page showing its Readiness and next step (ADR-0032).
+_Avoid_: Goal (reserved for Goals & targets), Feature, Use case, Query
+
+**Question input**:
+One thing a Question's answer reads, such as the Accounts' figures or an income statement, owned by
+the Capability that owns the data and shareable between Questions. Its check gives structured reasons
+(missing, stale or incomplete), each with the value it affects and a link to where it is fixed
+(ADR-0032).
+_Avoid_: Requirement, Dependency, Projection input (that is the resolved value a projection runs on)
+
+**Readiness**:
+How far a Question can be answered from what the household has given: **Ready**, **Partly ready**,
+**Not ready**, **Not started** or **Could not check**. Computed on demand, never stored, weighted by the
+value each gap affects with named tolerances, and never a number. Stale figures alone make an answer
+Partly ready, never Not ready, and nothing counts that the Effort level does not ask for or the owner
+has snoozed. The **next step** is the first reason to fix, in a fixed order (ADR-0032).
+_Avoid_: Score, Health, Data quality, Completeness, RAG (as a label), Rating (that is an Answer rating)
+
+**Answer rating**:
+The owner's Yes, Partly or No on whether a Question's answer was useful, with an optional note. Stored
+in the instance with its history, never audited, never sent anywhere, and never combined with
+Readiness (ADR-0032).
+_Avoid_: Feedback, Score, Survey, Owner signal (the design-discussion name)
+
 **What's due**:
 The home screen's list of **Due items**: places where the data Finance360 uses has gone stale or a new
 period has arrived, such as a manual Valuation older than its usual gap or a missing income statement for

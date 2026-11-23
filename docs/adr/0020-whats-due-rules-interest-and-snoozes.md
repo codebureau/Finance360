@@ -3,6 +3,7 @@
 **Status:** Proposed
 **Date:** 2026-11-03
 **Issue:** — (part of the Orientation milestone)
+**Amended by ADR-0032:** the "Back to What's due" marker (section 5) becomes one per-tab return mechanism shared with Questions.
 
 ## Context
 
