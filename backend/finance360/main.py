@@ -33,6 +33,7 @@ from finance360.api import (
     library,
     look_through,
     position,
+    preferences,
     prices,
     projection,
     rule_figures,
@@ -355,6 +356,7 @@ def create_app(
     app.include_router(tax_lodged_results.router, dependencies=signed_in)
     app.include_router(rule_figures.router, dependencies=signed_in)
     app.include_router(due.router, dependencies=signed_in)
+    app.include_router(preferences.router, dependencies=signed_in)
     app.include_router(documents.router, dependencies=signed_in)
     app.include_router(document_profiles_api.router, dependencies=signed_in)
     app.include_router(library.router, dependencies=signed_in)

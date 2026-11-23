@@ -1696,6 +1696,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Preferences */
+        get: operations["getPreferences"];
+        /** Put Preferences */
+        put: operations["putPreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projection/compare": {
         parameters: {
             query?: never;
@@ -5627,6 +5645,26 @@ export interface components {
              * @description Every Tag in use, for the filter.
              */
             tags: string[];
+        };
+        /** PreferencesIn */
+        PreferencesIn: {
+            /**
+             * Preferences
+             * @description A partial map: a value sets the key, null forgets it.
+             */
+            preferences: {
+                [key: string]: string | null;
+            };
+        };
+        /** PreferencesOut */
+        PreferencesOut: {
+            /**
+             * Preferences
+             * @description The Login's Display preferences: view key to chosen form.
+             */
+            preferences: {
+                [key: string]: string;
+            };
         };
         /** PreviousOut */
         PreviousOut: {
@@ -14395,6 +14433,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PositionHistoryOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    getPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesOut"];
+                };
+            };
+        };
+    };
+    putPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferencesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesOut"];
                 };
             };
             /** @description Not Found */

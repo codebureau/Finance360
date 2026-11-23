@@ -26,11 +26,16 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { TOKEN_TEXT } from "@/lib/entity-colour";
 import { fetchWhatsDue, importantCount, WHATS_DUE_KEY } from "@/lib/due";
 import { cn } from "@/lib/utils";
 
 /** `exact`: not active on the screens below it (`/tax` is not `/tax/records`). */
-type Item = { to: string; label: string; icon: LucideIcon; exact?: boolean };
+export type Item = { to: string; label: string; icon: LucideIcon; exact?: boolean };
+
+/** Which of the six chart tokens tints a group's icons and its page-title chip (ADR-0031 section 5);
+ * a wayfinding cue only. `null`: muted. */
+export type GroupTone = number | null;
 
 /** Above the groups: the home screen (ADR-0020) and the Guide. */
 export const TOP_ITEMS: Item[] = [
@@ -42,20 +47,23 @@ export const TOP_ITEMS: Item[] = [
  * The sidebar groups by the question being asked, not by kind of data. Each heading links to
  * the Guide page that covers its group (`guide`), so every group says where to read more.
  */
-export const SIDEBAR_GROUPS: { heading: string; guide: string; items: Item[] }[] = [
+export const SIDEBAR_GROUPS: { heading: string; guide: string; tone: GroupTone; items: Item[] }[] = [
   {
     heading: "Where we stand",
     guide: "/guide/position",
+    tone: 0,
     items: [{ to: "/position", label: "Position", icon: LineChart }],
   },
   {
     heading: "Where we're heading",
     guide: "/guide/projection",
+    tone: 3,
     items: [{ to: "/projection", label: "Projection", icon: TrendingUp }],
   },
   {
     heading: "This tax year",
     guide: "/guide/tax",
+    tone: 5,
     items: [
       { to: "/tax", label: "Tax estimate", icon: Calculator, exact: true },
       { to: "/tax/reconciliation", label: "Income reconciliation", icon: PieChart },
@@ -68,6 +76,7 @@ export const SIDEBAR_GROUPS: { heading: string; guide: string; items: Item[] }[]
   {
     heading: "Keep it current",
     guide: "/guide/accounts-and-imports",
+    tone: 2,
     items: [
       { to: "/accounts", label: "Accounts", icon: Wallet },
       { to: "/imports", label: "Imports", icon: FileDown },
@@ -78,11 +87,13 @@ export const SIDEBAR_GROUPS: { heading: string; guide: string; items: Item[] }[]
   {
     heading: "Your documents",
     guide: "/guide/library",
+    tone: 1,
     items: [{ to: "/library", label: "Library", icon: Library }],
   },
   {
     heading: "Reference and system",
     guide: "/guide/what-to-provide",
+    tone: null,
     items: [
       { to: "/instruments", label: "Instruments", icon: Building2 },
       { to: "/fx-rates", label: "FX rates", icon: Banknote },
@@ -100,11 +111,11 @@ const ITEM_CLASS = cn(
   "aria-[current=page]:bg-accent aria-[current=page]:font-medium aria-[current=page]:text-accent-foreground",
 );
 
-function NavLink({ item, important }: { item: Item; important: number }) {
+function NavLink({ item, important, tone }: { item: Item; important: number; tone?: GroupTone }) {
   const { to, label, icon: Icon, exact } = item;
   return (
     <Link to={to} activeOptions={{ exact: exact ?? false }} className={ITEM_CLASS}>
-      <Icon size={16} aria-hidden />
+      <Icon size={16} aria-hidden className={tone === undefined ? undefined : tone === null ? "text-muted-foreground" : TOKEN_TEXT[tone]} />
       {label}
       {to === "/" && important > 0 && (
         <Badge variant="info" className="ml-auto" aria-label={`${important} important`}>
@@ -145,7 +156,7 @@ export function SidebarNav() {
           <ul className="flex flex-col gap-0.5">
             {group.items.map(({ to, label, icon: Icon, exact }) => (
               <li key={to}>
-                <NavLink item={{ to, label, icon: Icon, exact }} important={important} />
+                <NavLink item={{ to, label, icon: Icon, exact }} important={important} tone={group.tone} />
               </li>
             ))}
           </ul>

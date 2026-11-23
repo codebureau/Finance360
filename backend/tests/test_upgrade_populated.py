@@ -631,6 +631,20 @@ def _seed_exposure_profiles(session: Session, data_dir: Path) -> None:
     )
 
 
+def _seed_display_preferences(session: Session, data_dir: Path) -> None:
+    """Revision 0035 created ``display_preference``: the owner Login (created through the real
+    service, with an invented passphrase) keeps a view's choice and a default."""
+    from datetime import datetime
+
+    from finance360.capabilities.auth import logins
+    from finance360.capabilities.preferences import service as preferences
+
+    login = logins.create_login(session, "synthetic-upgrade-passphrase-1", now=datetime(2026, 1, 1))
+    preferences.put_preferences(
+        session, login.id, {"position.composition": "bars", "default.share": "stacked-bar"}
+    )
+
+
 #: revision -> loads the data its migration created tables for. Extend with each schema slice.
 SEEDERS: dict[str, Callable[[Session, Path], None]] = {
     BASELINE: _seed_baseline,
@@ -659,6 +673,7 @@ SEEDERS: dict[str, Callable[[Session, Path], None]] = {
     "0032": _seed_tax_lodged_results,
     "0033": _seed_household_facts,
     "0034": _seed_exposure_profiles,
+    "0035": _seed_display_preferences,
 }
 
 
@@ -944,7 +959,9 @@ def test_upgrading_a_populated_database_changes_no_existing_row(tmp_path: Path) 
     # pre-M2 rows. Seeding the M2 tables from the fixture writes audit events (the one existing
     # table that grows), so the audit trail is compared by its pre-existing prefix.
     for name, table in baseline.tables.items():
-        if name not in ("audit_event", "meta"):
+        # ``login`` and ``auth_event`` grow only because 0035's seeder creates the owner Login its
+        # Display preferences belong to.
+        if name not in ("audit_event", "meta", "login", "auth_event"):
             width = len(table.columns)  # 0023 appended a column to ``household``
             rows = [r[:width] for r in final.tables[name].rows]
             if name == "valuation":  # 0027's two statements each recorded their 30 June Valuation
@@ -957,6 +974,10 @@ def test_upgrading_a_populated_database_changes_no_existing_row(tmp_path: Path) 
     assert set(baseline.tables["meta"].rows) <= set(final.tables["meta"].rows)
     old_audit = baseline.tables["audit_event"].rows
     assert final.tables["audit_event"].rows[: len(old_audit)] == old_audit
+    for name in ("login", "auth_event"):  # pre-existing rows unchanged; only appended to
+        if name in baseline.tables:
+            old = baseline.tables[name].rows
+            assert final.tables[name].rows[: len(old)] == old, name
     assert len(final.tables["audit_event"].rows) > len(old_audit)  # the fixture Instruments, Prices
     assert {
         "instrument",
@@ -1380,6 +1401,25 @@ def test_downgrading_0034_drops_only_the_exposure_tables(tmp_path: Path) -> None
     for name, table in after.tables.items():
         if name != "audit_event":  # the profiles' audit rows stay: the trail is append-only
             assert table.rows == before.tables[name].rows, name
+    command.upgrade(config, "head")
+    command.check(config)
+
+
+def test_downgrading_0035_drops_only_the_display_preference_table(tmp_path: Path) -> None:
+    upgrade_populated(tmp_path)
+    before = snapshot(tmp_path)
+    assert sorted(r[:3] for r in before.tables["display_preference"].rows) == [
+        (1, "default.share", "stacked-bar"),
+        (1, "position.composition", "bars"),
+    ]
+    config = alembic_config(tmp_path, MIGRATIONS_DIR)
+    command.downgrade(config, "0034")
+    after = snapshot(tmp_path)
+    assert "display_preference" not in after.tables
+    assert after.triggers == before.triggers
+    assert after.indexes == before.indexes
+    for name, table in after.tables.items():
+        assert table.rows == before.tables[name].rows, name  # the Login and everything else stay
     command.upgrade(config, "head")
     command.check(config)
 

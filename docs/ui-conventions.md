@@ -110,8 +110,10 @@ Decisions and values: [ADR-0031](adr/0031-visual-layer-chart-kit-display-prefere
   tables or form controls. Check compact when touching a table.
 
 ## Position screen
-- Top-level Categories open one level, deeper collapsed. Totals bar sticky. Rows link to detail
-  pages instead of expanding further.
+- Leads with the net stat tile, then "What it is made of" (a `share` of assets by Category or by
+  Member), then "Over time". The tree and table sit behind "Show figures", open when Layout is Table.
+  Top-level Categories open one level, deeper collapsed; rows link to detail pages instead of
+  expanding further. As at, Tag, View and Layout live in one collapsed "Change view" row.
 
 ## Checklists
 **Developer self-review (add to `.claude/agents/developer.md`):** "UI follows `docs/ui-conventions.md`:

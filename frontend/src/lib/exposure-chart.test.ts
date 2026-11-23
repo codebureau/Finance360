@@ -1,16 +1,8 @@
 import { expect, test } from "vitest";
 
 import type { ExposureDimension, LookThrough } from "@/lib/exposure";
-import {
-  buildBarOption,
-  foldRows,
-  headline,
-  labelTone,
-  lookThroughRows,
-  profileRows,
-  totalBarGeometry,
-  type BarRow,
-} from "@/lib/exposure-chart";
+import { buildBarOption, foldRows, type ShareRow } from "@/lib/charts/share";
+import { headline, labelTone, lookThroughRows, profileRows, totalBarGeometry } from "@/lib/exposure-chart";
 
 const aud = (amount: string, minor: number) => ({ amount, amount_minor: minor, currency: "AUD" });
 const vocab = [
@@ -41,24 +33,25 @@ test("a label keeps the same colour token in different views (never by rank or p
   const cur = { dimension_key: "exposure_currency" };
   const a = lookThroughRows(look([line("label", "usd", "USD", "90"), line("label", "eur", "EUR", "10")], cur), vocab);
   const b = lookThroughRows(look([line("label", "eur", "EUR", "70"), line("label", "usd", "USD", "30")], cur), vocab);
-  const toneOf = (rows: BarRow[], name: string) => rows.find((r) => r.name === name)?.tone;
+  const toneOf = (rows: ShareRow[], name: string) => rows.find((r) => r.name === name)?.tone;
   expect(toneOf(a, "USD")).toEqual(toneOf(b, "USD"));
   expect(toneOf(a, "EUR")).toEqual(toneOf(b, "EUR"));
   // asset class keeps its fixed tokens; other and unknown are muted
-  expect(labelTone("asset_class", "cash", vocab)).toEqual({ token: 5 });
+  expect(labelTone("asset_class", "cash", vocab)).toEqual({ token: 2 }); // teal, never red
   expect(labelTone("asset_class", "alternatives", vocab)).toBe("muted");
   expect(labelTone("region", "other", vocab)).toBe("muted");
 });
 
 test("more than six bars fold the smallest into one muted Other, but explicit lines stay", () => {
   const labels = ["aud", "usd", "eur", "gbp", "jpy", "cad", "chf"].map((k, i) => ({
+    key: k,
     name: k.toUpperCase(),
     ppm: (70 - i * 10) * 10_000 + 5_000,
     percentText: "x",
     amountText: null,
     tone: labelTone("exposure_currency", k, vocab),
   }));
-  const noProfile: BarRow = { name: "No profile: Sample ETF", ppm: 20_000, percentText: "2%", amountText: null, tone: "warning" };
+  const noProfile: ShareRow = { key: "no_profile", name: "No profile: Sample ETF", ppm: 20_000, percentText: "2%", amountText: null, tone: "warning" };
   const rows = foldRows(labels, [noProfile]);
   expect(rows).toHaveLength(6);
   expect(rows.at(-1)).toBe(noProfile);
@@ -116,7 +109,7 @@ test("the bar option plots one bar per row in the palette's colours, with exact 
   );
   const pal = { text: "#000", muted: "#777", grid: "#ddd", card: "#fff", lines: ["#1", "#2", "#3", "#4", "#5", "#6"], warning: "#w" };
   const opt = buildBarOption(rows, pal);
-  expect(opt.series[0].data.map((d) => d.itemStyle.color)).toEqual(["#6", "#w"]);
+  expect(opt.series[0].data.map((d) => d.itemStyle.color)).toEqual(["#3", "#w"]);
   expect(opt.series[0].data.map((d) => d.value)).toEqual([60, 40]);
   const html = opt.tooltip.formatter({ dataIndex: 1 });
   expect(html).toContain("40.00%");

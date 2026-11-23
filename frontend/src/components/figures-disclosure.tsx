@@ -4,8 +4,17 @@ import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
 /** The exact figures behind a designed view: closed by default, one click away, never removed. */
-export function FiguresDisclosure({ children, label = "figures" }: { children: ReactNode; label?: string }) {
-  const [open, setOpen] = useState(false);
+export function FiguresDisclosure({
+  children,
+  label = "figures",
+  defaultOpen = false,
+}: {
+  children: ReactNode;
+  label?: string;
+  /** Open at first only where the table is the task (the Position's Table layout). */
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="flex flex-col gap-2">
       <div>

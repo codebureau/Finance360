@@ -24,8 +24,8 @@ function resolve(token: string): string | null {
 export type CategoricalPalette = Palette & { warning: string };
 
 const CATEGORICAL_FALLBACK: Record<ChartTheme, { tokens: string[]; warning: string }> = {
-  light: { tokens: ["#0961bb", "#05893e", "#bb6900", "#9240a4", "#00858d", "#cc2827"], warning: "#b7791f" },
-  dark: { tokens: ["#5fa1f3", "#5ac576", "#f2af48", "#ce83de", "#42c3c9", "#fa695e"], warning: "#f6d365" },
+  light: { tokens: ["#127eee", "#b64e10", "#04a19b", "#7429c3", "#bf1c7f", "#b18e15"], warning: "#b7791f" },
+  dark: { tokens: ["#0f64bf", "#ae4e1a", "#1faaa4", "#a170eb", "#c32e85", "#b18e15"], warning: "#f6d365" },
 };
 
 export function categoricalPaletteFromTokens(theme: ChartTheme): CategoricalPalette {

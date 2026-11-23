@@ -64,3 +64,30 @@ def test_household_facts_are_written_over_a_real_server_and_read_back_at_once(
         "Reset the Household couple status to not entered",
         "Reset the Household homeowner to not entered",
     ]
+
+
+def test_display_preferences_are_written_over_a_real_server_and_read_back_at_once(
+    signed_in: httpx.Client,  # noqa: F811
+) -> None:
+    """The Display preference write route (ADR-0031): a real sign-in and session, committed before
+    the response returns, kept per Login, not audited. Lives here because this file already drives
+    a real server and is a slow file."""
+    http = signed_in
+    assert http.get("/api/preferences").json() == {"preferences": {}}
+    saved = http.put(
+        "/api/preferences",
+        json={"preferences": {"position.composition": "bars", "default.share": "stacked-bar"}},
+    )
+    assert saved.status_code == 200, saved.text
+    # committed before the response returned, so the next read sees it
+    assert http.get("/api/preferences").json() == {
+        "preferences": {"default.share": "stacked-bar", "position.composition": "bars"}
+    }
+    cleared = http.put("/api/preferences", json={"preferences": {"position.composition": None}})
+    assert cleared.json() == {"preferences": {"default.share": "stacked-bar"}}
+    refused = http.put("/api/preferences", json={"preferences": {"no-dot": "bars"}})
+    assert refused.status_code == 422
+    assert http.get("/api/preferences").json() == {"preferences": {"default.share": "stacked-bar"}}
+    assert (
+        http.get("/api/audit", params={"entity_type": "display_preference"}).json()["items"] == []
+    )

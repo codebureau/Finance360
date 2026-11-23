@@ -1,14 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ChevronDown, ChevronRight } from "lucide-react";
-import { useState, type CSSProperties } from "react";
+import { ChevronDown, ChevronRight, Layers, SlidersHorizontal, Users } from "lucide-react";
+import { useMemo, useState, type CSSProperties } from "react";
 
+import { FiguresDisclosure } from "@/components/figures-disclosure";
 import { GeneralError, inputClass } from "@/components/form-fields";
 import { PositionHistory } from "@/components/position-history";
+import { ShareChart } from "@/components/share-chart";
+import { StatTile } from "@/components/stat-tile";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Money } from "@/components/ui/money";
 import { PageHeader } from "@/components/ui/page-header";
+import { SegmentedControl, type SegmentOption } from "@/components/ui/segmented-control";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatMoney } from "@/lib/money";
 import {
@@ -20,6 +24,13 @@ import {
   type PositionAccount,
   type PositionView,
 } from "@/lib/position";
+import {
+  categoryShareRows,
+  compositionHeadline,
+  memberShareRows,
+  netHeadline,
+  type Composition,
+} from "@/lib/position-share";
 import type { PositionSearch } from "@/lib/position-search";
 import { cn } from "@/lib/utils";
 
@@ -244,40 +255,6 @@ function PositionTable({ rows, columns }: { rows: Row[]; columns: Column[] }) {
   );
 }
 
-/** Assets, Liabilities and Net for the view, pinned while the Position scrolls under it. */
-function TotalsBar({ p, view }: { p: Position; view: PositionView }) {
-  const pick = (f: Position["net"]) => (view === "joint" ? f.joint : f.household);
-  const [assets, liabilities] = p.classes;
-  const items: [string, string][] = [
-    ["Assets", pick(assets.figures)],
-    ["Liabilities", pick(liabilities.figures)],
-    ["Net", pick(p.net)],
-  ];
-  return (
-    <section
-      aria-label="Totals"
-      data-testid="totals-bar"
-      className="sticky top-14 z-30 -mx-4 mb-4 border-b border-border bg-background/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6 md:top-0"
-    >
-      <dl className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm">
-        {items.map(([label, amount]) => (
-          <div key={label} className="flex items-baseline gap-2">
-            <dt className="text-muted-foreground">{label}</dt>
-            <dd className={cn("text-base", label === "Net" && "font-semibold")}>
-              <Money amount={amount} />
-            </dd>
-          </div>
-        ))}
-        {p.flagged > 0 && (
-          <Badge variant="flagged" role="status">
-            {p.flagged} not counted
-          </Badge>
-        )}
-      </dl>
-    </section>
-  );
-}
-
 /** Per-column Net (By Member), the exactness check and the flagged note. */
 function Totals({ p, columns, view }: { p: Position; columns: Column[]; view: PositionView }) {
   const sole = p.net.members.map((m) => ({
@@ -319,13 +296,68 @@ function Totals({ p, columns, view }: { p: Position; columns: Column[]; view: Po
         {sole.map((s) => `${s.name} (held solely) ${formatMoney(s.amount)}`).join(" + ")} + Joint{" "}
         {formatMoney(p.net.joint)} = Household {formatMoney(p.net.household)}
       </p>
-      {p.flagged > 0 && (
-        <p className="font-medium text-warning">
-          {p.flagged} {p.flagged === 1 ? "Account is" : "Accounts are"} not in these totals: no
-          Valuation or FX rate on or before {p.as_at}.
-        </p>
-      )}
     </section>
+  );
+}
+
+/** Why some Accounts are missing from the figures, in words, beside the totals. */
+function NotCounted({ p }: { p: Position }) {
+  if (p.flagged === 0) return null;
+  return (
+    <div className="flex flex-col gap-1" role="status">
+      <Badge variant="flagged" className="self-start">
+        {p.flagged} not counted
+      </Badge>
+      <p className="text-sm font-medium text-warning">
+        {p.flagged} {p.flagged === 1 ? "Account is" : "Accounts are"} not in these totals: no
+        Valuation or FX rate on or before {p.as_at}.
+      </p>
+    </div>
+  );
+}
+
+/** Card 1: Net position as the hero, Assets and Liabilities beside it (liabilities live here, never in a chart). */
+function NetTile({ p, view }: { p: Position; view: PositionView }) {
+  const pick = (f: Position["net"]) => (view === "joint" ? f.joint : f.household);
+  const [assets, liabilities] = p.classes;
+  return (
+    <StatTile
+      label="Net position"
+      hero={<Money amount={pick(p.net)} className="font-sans" />}
+      headline={netHeadline(p, view)}
+      supporting={[
+        { label: "Assets", value: <Money amount={pick(assets.figures)} className="font-sans" /> },
+        { label: "Liabilities", value: <Money amount={pick(liabilities.figures)} className="font-sans" /> },
+      ]}
+    >
+      <NotCounted p={p} />
+    </StatTile>
+  );
+}
+
+const COMPOSITION: SegmentOption<Composition>[] = [
+  { value: "category", label: "Category", icon: Layers },
+  { value: "member", label: "Member", icon: Users },
+];
+
+/** Card 2: the share of assets by Category (or Member), in the form the household chose. */
+function MadeOf({ p, view }: { p: Position; view: PositionView }) {
+  const [by, setBy] = useState<Composition>("category");
+  const rows = useMemo(
+    () => (by === "category" ? categoryShareRows(p, view) : memberShareRows(p, view)),
+    [p, view, by],
+  );
+  return (
+    <ShareChart
+      viewKey="position.composition"
+      title="What it is made of"
+      headline={compositionHeadline(rows, by)}
+      rows={rows}
+      chartLabel={`Share of assets by ${by === "category" ? "Category" : "Member"}.`}
+      toolbar={
+        <SegmentedControl label="Split by" name="position-composition-by" value={by} options={COMPOSITION} onChange={setBy} />
+      }
+    />
   );
 }
 
@@ -335,7 +367,103 @@ const VIEWS: { key: PositionView; label: string }[] = [
   { key: "joint", label: "Joint" },
 ];
 
-/** The Position: as-at date, view, Tag and layout are URL search params (`onSearch` patches them). */
+/** As at, Tag, View and Layout in one collapsed row: a summary of the choices and a button to change them. */
+function ChangeView({
+  p,
+  on,
+  tag,
+  view,
+  layout,
+  onSearch,
+}: {
+  p: Position | undefined;
+  on: string;
+  tag: string;
+  view: PositionView;
+  layout: "tree" | "table";
+  onSearch: (patch: Partial<Record<keyof PositionSearch, string | undefined>>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const summary = [
+    `As at ${on || p?.as_at || "today"}`,
+    tag ? `Tag ${tag}` : "All Accounts",
+    VIEWS.find((v) => v.key === view)?.label,
+    layout === "tree" ? "Tree" : "Table",
+  ].join(" · ");
+  return (
+    <div className="mb-4 flex flex-col gap-3" data-testid="change-view">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Button variant="outline" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          <SlidersHorizontal aria-hidden size={16} />
+          Change view
+        </Button>
+        <span className="text-sm text-muted-foreground">{summary}</span>
+      </div>
+      {open && (
+        <div className="flex flex-wrap items-end gap-x-4 gap-y-3 rounded-lg border border-border bg-card p-3">
+          <label className="flex flex-col gap-1 text-sm">
+            As at
+            <input
+              className={inputClass}
+              type="date"
+              value={on || p?.as_at || ""}
+              onChange={(e) => onSearch({ on: e.target.value || undefined })}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            Tag
+            <select
+              className={inputClass}
+              value={tag}
+              onChange={(e) => onSearch({ tag: e.target.value || undefined })}
+            >
+              <option value="">All Accounts</option>
+              {(p?.tags ?? []).map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </label>
+          <fieldset className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+            <legend className="mb-1">View</legend>
+            {VIEWS.map((v) => (
+              <label key={v.key} className="flex items-center gap-1">
+                <input
+                  type="radio"
+                  name="position-view"
+                  checked={view === v.key}
+                  onChange={() => onSearch({ view: v.key === "household" ? undefined : v.key })}
+                />
+                {v.label}
+              </label>
+            ))}
+          </fieldset>
+          <fieldset className="flex gap-3 text-sm">
+            <legend className="mb-1">Layout</legend>
+            {(["tree", "table"] as const).map((l) => (
+              <label key={l} className="flex items-center gap-1">
+                <input
+                  type="radio"
+                  name="position-layout"
+                  checked={layout === l}
+                  onChange={() => onSearch({ layout: l === "tree" ? undefined : l })}
+                />
+                {l === "tree" ? "Tree" : "Table"}
+              </label>
+            ))}
+          </fieldset>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The Position: what the household is made of before any table (ADR-0031). As-at date, view, Tag
+ * and layout are URL search params (`onSearch` patches them); the tree and table sit behind
+ * "Show figures", open when the layout is Table.
+ */
 export function PositionPage({
   search,
   onSearch,
@@ -358,77 +486,31 @@ export function PositionPage({
   return (
     <div className="flex flex-col">
       <PageHeader title="Position" description="What the household owns and owes." />
-      <div className="mb-4 flex flex-wrap items-end gap-x-4 gap-y-3">
-        <label className="flex flex-col gap-1 text-sm">
-          As at
-          <input
-            className={inputClass}
-            type="date"
-            value={on || p?.as_at || ""}
-            onChange={(e) => onSearch({ on: e.target.value || undefined })}
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Tag
-          <select
-            className={inputClass}
-            value={tag}
-            onChange={(e) => onSearch({ tag: e.target.value || undefined })}
-          >
-            <option value="">All Accounts</option>
-            {(p?.tags ?? []).map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
-        <fieldset className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
-          <legend className="mb-1">View</legend>
-          {VIEWS.map((v) => (
-            <label key={v.key} className="flex items-center gap-1">
-              <input
-                type="radio"
-                name="position-view"
-                checked={view === v.key}
-                onChange={() => onSearch({ view: v.key === "household" ? undefined : v.key })}
-              />
-              {v.label}
-            </label>
-          ))}
-        </fieldset>
-        <fieldset className="flex gap-3 text-sm">
-          <legend className="mb-1">Layout</legend>
-          {(["tree", "table"] as const).map((l) => (
-            <label key={l} className="flex items-center gap-1">
-              <input
-                type="radio"
-                name="position-layout"
-                checked={layout === l}
-                onChange={() => onSearch({ layout: l === "tree" ? undefined : l })}
-              />
-              {l === "tree" ? "Tree" : "Table"}
-            </label>
-          ))}
-        </fieldset>
-      </div>
+      <ChangeView p={p} on={on} tag={tag} view={view} layout={layout} onSearch={onSearch} />
       <GeneralError error={position.error} />
       {position.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
       {p && (
-        <>
-          <TotalsBar p={p} view={view} />
-          {(() => {
-            const rows = buildRows(p, view, columns);
-            return layout === "tree" ? (
-              <Tree rows={rows} columns={columns} />
-            ) : (
-              <PositionTable rows={rows} columns={columns} />
-            );
-          })()}
-          <Totals p={p} columns={columns} view={view} />
-        </>
+        <div className="flex flex-col gap-4">
+          <NetTile p={p} view={view} />
+          <MadeOf p={p} view={view} />
+          <PositionHistory tag={tag} view={view} />
+          <section aria-label="Position figures">
+            <FiguresDisclosure key={layout} defaultOpen={layout === "table"} label="all accounts">
+              <div className="flex flex-col gap-3">
+                {(() => {
+                  const rows = buildRows(p, view, columns);
+                  return layout === "tree" ? (
+                    <Tree rows={rows} columns={columns} />
+                  ) : (
+                    <PositionTable rows={rows} columns={columns} />
+                  );
+                })()}
+                <Totals p={p} columns={columns} view={view} />
+              </div>
+            </FiguresDisclosure>
+          </section>
+        </div>
       )}
-      <PositionHistory tag={tag} view={view} />
     </div>
   );
 }
