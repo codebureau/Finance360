@@ -38,14 +38,15 @@
   --ring: oklch(0.6 0.1 250);
   --money-negative: oklch(0.5 0.2 27);
   --scrim: oklch(0 0 0 / 50%);
-  /* Categorical chart colours (ADR-0019 section 9): a small set for the slices of a chart, in
-     drawing order. Hues are well apart and each reads against --card in this theme. */
-  --chart-1: oklch(0.5 0.16 255);
-  --chart-2: oklch(0.55 0.15 150);
-  --chart-3: oklch(0.6 0.15 65);
-  --chart-4: oklch(0.52 0.17 320);
-  --chart-5: oklch(0.55 0.12 200);
-  --chart-6: oklch(0.55 0.2 27);
+  /* Categorical chart colours (ADR-0031 section 4): identity colours for the marks of a chart
+     (which Category, asset class, Member, Scenario). No red, green or amber, so a data colour
+     never impersonates a status. Validated against --card in this theme, adjacent and all pairs. */
+  --chart-1: oklch(0.6 0.19 255);
+  --chart-2: oklch(0.55 0.15 45);
+  --chart-3: oklch(0.64 0.11 190);
+  --chart-4: oklch(0.48 0.22 300);
+  --chart-5: oklch(0.54 0.21 350);
+  --chart-6: oklch(0.66 0.13 90);
 
   --row-h: 2.75rem;
   --cell-px: 0.75rem;
@@ -83,12 +84,12 @@
   --ring: oklch(0.7 0.1 250);
   --money-negative: oklch(0.72 0.18 25);
   --scrim: oklch(0 0 0 / 60%);
-  --chart-1: oklch(0.7 0.14 255);
-  --chart-2: oklch(0.74 0.15 150);
-  --chart-3: oklch(0.8 0.14 75);
-  --chart-4: oklch(0.72 0.15 320);
-  --chart-5: oklch(0.75 0.11 200);
-  --chart-6: oklch(0.7 0.18 27);
+  --chart-1: oklch(0.51 0.16 255);
+  --chart-2: oklch(0.54 0.14 45);
+  --chart-3: oklch(0.67 0.11 190);
+  --chart-4: oklch(0.65 0.18 300);
+  --chart-5: oklch(0.56 0.2 350);
+  --chart-6: oklch(0.66 0.13 90);
 }
 
 /* Density: tables and form controls read these, never hard-coded sizes. Default is normal. */

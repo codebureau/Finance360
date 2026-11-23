@@ -1,6 +1,6 @@
-import type { CategoricalPalette } from "@/lib/chart-palette";
+import { toneOf, type Tone } from "@/lib/entity-colour";
 import { percentToPpm, ppmToPercent, type ExposureDimension, type LookThrough } from "@/lib/exposure";
-import { escapeHtml } from "@/lib/history-chart";
+import { foldRows, type ShareRow } from "@/lib/charts/share";
 import { formatMoney } from "@/lib/money";
 
 /**
@@ -10,84 +10,27 @@ import { formatMoney } from "@/lib/money";
  * ECharts a bar length.
  */
 
-export const CHART_TOKENS = 6;
-/** Most bars before the smallest fold into one "Other" (for the picture only). */
-export const MAX_BARS = 6;
-
-/** Asset class keeps one token per class, in a fixed order, so a colour means one thing everywhere. */
-const ASSET_CLASS_TOKEN: Record<string, number> = {
-  australian_shares: 0,
-  international_shares: 1,
-  property: 2,
-  infrastructure: 3,
-  fixed_income: 4,
-  cash: 5,
-};
-
-export type Tone = { token: number } | "muted" | "warning";
-
 /**
- * The colour of a label: by the label's identity, never its rank or position in a list. Asset
- * class has a fixed token per class; other Dimensions use the label's seed order in the
- * vocabulary (so USD is the same colour in every view). "other", alternatives and anything
- * unknown are muted. A Dimension seeded with more than six labels reuses tokens; each bar is
- * directly labelled, so colour is never the only cue.
+ * The colour of a label: by the label's identity, never its rank or position in a list (ADR-0031
+ * section 5). Asset class has a fixed token per class; other Dimensions take the label's seed
+ * order in the vocabulary (so USD is the same colour in every view). "other", alternatives and
+ * anything unknown are muted.
  */
 export function labelTone(dimensionKey: string, labelKey: string, vocab: ExposureDimension[]): Tone {
-  if (labelKey === "other") return "muted";
-  if (dimensionKey === "asset_class") {
-    const token = ASSET_CLASS_TOKEN[labelKey];
-    return token === undefined ? "muted" : { token };
-  }
+  if (dimensionKey === "asset_class") return toneOf("asset-class", labelKey);
   const labels = vocab.find((d) => d.key === dimensionKey)?.labels.filter((l) => l.key !== "other") ?? [];
-  const index = labels.findIndex((l) => l.key === labelKey);
-  return index < 0 ? "muted" : { token: index % CHART_TOKENS };
-}
-
-export type BarRow = {
-  name: string;
-  ppm: number;
-  /** Shown beside the bar and in the tooltip. */
-  percentText: string;
-  /** Exact amount text, where the source has one (look-through lines do; profile weights do not). */
-  amountText: string | null;
-  tone: Tone;
-};
-
-/**
- * Largest first, at most `max` bars including the explicit lines (No profile, Not classified,
- * Unallocated, which always stay). Labels without a colour of their own ("other", alternatives)
- * and the smallest coloured labels beyond the room fold into one muted "Other".
- */
-export function foldRows(labelRows: BarRow[], explicitRows: BarRow[], max = MAX_BARS): BarRow[] {
-  const sorted = [...labelRows].sort((a, b) => b.ppm - a.ppm);
-  const coloured = sorted.filter((r) => typeof r.tone === "object");
-  const plain = sorted.filter((r) => typeof r.tone !== "object");
-  const room = Math.max(max - explicitRows.length, 1);
-  let kept = coloured;
-  let folded = plain;
-  if (coloured.length + (plain.length > 0 ? 1 : 0) > room) {
-    const keep = Math.max(room - 1, 0);
-    kept = coloured.slice(0, keep);
-    folded = [...coloured.slice(keep), ...plain];
-  }
-  const out = [...kept].sort((a, b) => b.ppm - a.ppm);
-  if (folded.length === 1) out.push(folded[0]);
-  else if (folded.length > 1) {
-    const ppm = folded.reduce((sum, r) => sum + r.ppm, 0);
-    out.push({ name: "Other", ppm, percentText: `${ppmToPercent(ppm)}%`, amountText: null, tone: "muted" });
-  }
-  return [...out, ...explicitRows];
+  return toneOf("dimension", labelKey, labels.findIndex((l) => l.key === labelKey));
 }
 
 /** Rows for a look-through: positive lines only; the table keeps every line, zeros included. */
-export function lookThroughRows(data: LookThrough, vocab: ExposureDimension[]): BarRow[] {
-  const labels: BarRow[] = [];
-  const explicit: BarRow[] = [];
+export function lookThroughRows(data: LookThrough, vocab: ExposureDimension[]): ShareRow[] {
+  const labels: ShareRow[] = [];
+  const explicit: ShareRow[] = [];
   for (const line of data.lines) {
     const ppm = line.percent === null ? null : percentToPpm(line.percent);
     if (ppm === null || ppm === 0) continue;
-    const row: BarRow = {
+    const row: ShareRow = {
+      key: line.key ?? line.kind,
       name: line.name,
       ppm,
       percentText: `${line.percent}%`,
@@ -109,13 +52,14 @@ export function profileRows(
   weights: { dimension_key: string; label_key: string; percent: string }[],
   dimension: ExposureDimension,
   vocab: ExposureDimension[],
-): BarRow[] {
-  const rows: BarRow[] = [];
+): ShareRow[] {
+  const rows: ShareRow[] = [];
   for (const w of weights) {
     if (w.dimension_key !== dimension.key) continue;
     const ppm = percentToPpm(w.percent);
     if (ppm === null || ppm === 0) continue;
     rows.push({
+      key: w.label_key,
       name: dimension.labels.find((l) => l.key === w.label_key)?.name ?? w.label_key,
       ppm,
       percentText: `${w.percent}%`,
@@ -148,57 +92,6 @@ export function headline(data: LookThrough): string {
   const unallocated = sumOf("unallocated");
   if (data.flagged && unallocated > 0) parts.push(`${ppmToPercent(unallocated)}% is unallocated, beyond tolerance`);
   return parts.join("; ");
-}
-
-function colourOf(tone: Tone, pal: CategoricalPalette): { color: string; opacity: number } {
-  if (tone === "warning") return { color: pal.warning, opacity: 0.85 };
-  if (tone === "muted") return { color: pal.muted, opacity: 0.55 };
-  return { color: pal.lines[tone.token % pal.lines.length], opacity: 1 };
-}
-
-/** Pixel height of a bar chart of `rows` bars. */
-export const barChartHeight = (rows: number) => Math.max(rows, 1) * 30 + 8;
-
-/** One horizontal bar per row, in the order given (first at the top), directly labelled. */
-export function buildBarOption(rows: BarRow[], pal: CategoricalPalette) {
-  return {
-    animation: false,
-    textStyle: { color: pal.text },
-    grid: { left: 4, right: 52, top: 2, bottom: 2, containLabel: true },
-    tooltip: {
-      trigger: "item",
-      confine: true,
-      backgroundColor: pal.card,
-      borderColor: pal.grid,
-      textStyle: { color: pal.text },
-      formatter: (params: unknown) => {
-        const row = rows[(params as { dataIndex: number }).dataIndex];
-        return [`<strong>${escapeHtml(row.name)}</strong>`, escapeHtml(row.percentText), ...(row.amountText ? [escapeHtml(row.amountText)] : [])].join("<br/>");
-      },
-    },
-    xAxis: { type: "value", min: 0, max: 100, show: false },
-    yAxis: {
-      type: "category",
-      inverse: true,
-      data: rows.map((r) => r.name),
-      axisTick: { show: false },
-      axisLine: { show: false },
-      axisLabel: { color: pal.text, width: 120, overflow: "truncate", interval: 0 },
-    },
-    series: [
-      {
-        type: "bar",
-        barMaxWidth: 16,
-        data: rows.map((r) => ({ value: Number(ppmToPercent(r.ppm)), itemStyle: colourOf(r.tone, pal) })),
-        label: {
-          show: true,
-          position: "right",
-          color: pal.text,
-          formatter: (p: { dataIndex: number }) => rows[p.dataIndex].percentText,
-        },
-      },
-    ],
-  };
 }
 
 /** Geometry (percent of the track) of the form's running-total bar: the track runs 0 to 110%,

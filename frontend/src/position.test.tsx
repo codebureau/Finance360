@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 
 import { renderAppAt } from "@/test-utils";
@@ -7,15 +7,17 @@ import type { Position, PositionHistory } from "@/lib/position";
 
 // jsdom has no canvas: stand in for the ECharts host and keep the option it was given.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const options: { current: any }[] = [];
+const options: { label: string; current: any }[] = [];
 vi.mock("@/components/echart", () => ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   default: ({ option, label }: { option: any; label: string }) => {
-    options.push({ current: option });
+    options.push({ label, current: option });
     return <div data-testid="mock-echart" role="img" aria-label={label} />;
   },
 }));
-const lastOption = () => options[options.length - 1].current;
+/** The latest option given to the chart whose accessible label matches. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const optionFor = (label: RegExp): any => options.filter((o) => label.test(o.label)).at(-1)!.current;
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -132,19 +134,73 @@ const history = (): PositionHistory => ({
   ],
 });
 
-function stub(body: Position = position()) {
+// A richer household for the cards: three asset Categories in the invented amounts below.
+const money = (household: string, alex: string, jordan: string, joint = "0.00") => ({
+  household,
+  joint,
+  members: [
+    { member_id: 1, sole: alex, joint_share: "0.00", total: alex },
+    { member_id: 2, sole: jordan, joint_share: "0.00", total: jordan },
+  ],
+});
+const category = (key: string, name: string, figs: ReturnType<typeof money>, accounts: unknown[] = []) => ({
+  key,
+  name,
+  figures: figs,
+  flagged: 0,
+  accounts,
+});
+const rich = (extra: unknown[] = []): Position => {
+  const categories = [
+    category("investments", "Investments", money("600.00", "400.00", "200.00")),
+    category("property", "Property", money("300.00", "300.00", "0.00")),
+    category("cash", "Cash", money("100.00", "50.00", "50.00", "20.00")),
+    ...extra,
+  ];
+  return {
+    as_at: "2026-10-17",
+    tag: null,
+    members: [
+      { id: 1, name: "Alex Sample" },
+      { id: 2, name: "Jordan Sample" },
+    ],
+    tags: ["everyday"],
+    classes: [
+      { class: "asset", figures: money("1000.00", "750.00", "250.00", "20.00"), flagged: 0, categories },
+      { class: "liability", figures: money("-400.00", "-400.00", "0.00"), flagged: 0, categories: [] },
+    ],
+    net: money("600.00", "350.00", "250.00", "20.00"),
+    flagged: 0,
+  } as Position;
+};
+
+const prefs: Record<string, string> = {};
+const puts: Record<string, string | null>[] = [];
+
+function stub(body: Position = position(), tagged?: (tag: string | null) => Position) {
   const urls: string[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (request: Request) => {
       const url = new URL(request.url);
+      if (url.pathname === "/api/preferences") {
+        if (request.method === "PUT") {
+          const sent = ((await request.json()) as { preferences: Record<string, string | null> }).preferences;
+          puts.push(sent);
+          for (const [k, v] of Object.entries(sent)) {
+            if (v === null) delete prefs[k];
+            else prefs[k] = v;
+          }
+        }
+        return json({ preferences: { ...prefs } });
+      }
       if (url.pathname === "/api/position/history") {
         historyUrls.push(url.pathname + url.search);
         return json(history());
       }
       if (url.pathname !== "/api/position") return json({}, 404); // shell status calls
       urls.push(url.pathname + url.search);
-      return json(body);
+      return json(tagged ? tagged(url.searchParams.get("tag")) : body);
     }),
   );
   return urls;
@@ -156,7 +212,32 @@ async function renderPage(path = "/position") {
   return renderAppAt(path);
 }
 
-afterEach(() => vi.unstubAllGlobals());
+/** The composition card with its chart mounted (the preferences are read, the lazy chart loaded);
+ * returns the legend. */
+async function chartReady() {
+  const chart = await screen.findByTestId("share-chart");
+  await within(chart).findByTestId("mock-echart");
+  return screen.getByTestId("share-legend");
+}
+
+/** Opens the Position's figures (the tree or table), which sit behind "Show all accounts". */
+async function openFigures() {
+  const section = await screen.findByRole("region", { name: "Position figures" });
+  fireEvent.click(within(section).getByRole("button", { name: "Show all accounts" }));
+}
+
+/** The "Change view" row opens to As at, Tag, View and Layout. */
+async function openChangeView() {
+  fireEvent.click(await screen.findByRole("button", { name: "Change view" }));
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  for (const k of Object.keys(prefs)) delete prefs[k];
+  puts.length = 0;
+  historyUrls.length = 0;
+  options.length = 0;
+});
 
 test("money is formatted in one place, from the exact string, never via a number", () => {
   expect(formatMoney("1294742.56")).toBe("1,294,742.56");
@@ -166,12 +247,201 @@ test("money is formatted in one place, from the exact string, never via a number
   expect(formatMoney("5.00", "GBP")).toBe("GBP 5.00");
 });
 
-test("asks for today's Position by default; only the first level (Class, Category) is open", async () => {
-  const urls = stub();
+test("the first screen leads with the stat tile and the composition card, with no table on it", async () => {
+  const urls = stub(rich());
   await renderPage();
-  const cash = await screen.findByRole("button", { name: "Cash" });
+  const tile = await screen.findByRole("region", { name: "Net position" });
   expect(urls).toEqual(["/api/position"]); // no date: the server uses the Household's today
+  expect(within(tile).getByTestId("stat-hero")).toHaveTextContent("600.00");
+  expect(within(tile).getByText("Assets").nextSibling).toHaveTextContent("1,000.00");
+  expect(within(tile).getByText("Liabilities").nextSibling).toHaveTextContent("-400.00");
+  expect(tile).toHaveTextContent("Net position is 600.00; Investments is the largest share of assets.");
+  expect(await screen.findByRole("heading", { name: "What it is made of" })).toBeInTheDocument();
+  // no tree and no table until the figures are asked for
+  expect(screen.queryByTestId("position-tree")).not.toBeInTheDocument();
+  expect(screen.queryByTestId("position-table")).not.toBeInTheDocument();
+});
+
+test("liabilities are in the stat tile, never a slice of the composition", async () => {
+  stub(rich());
+  await renderPage();
+  const legend = await chartReady();
+  expect(within(legend).queryByText(/Liabilit/)).not.toBeInTheDocument();
+  const option = optionFor(/Donut chart/);
+  expect(option.series[0].type).toBe("pie");
+  expect(option.series[0].data.map((d: { name: string }) => d.name)).toEqual(["Investments", "Property", "Cash"]);
+  expect(option.series[0].data.reduce((s: number, d: { value: number }) => s + d.value, 0)).toBeLessThanOrEqual(1_000_000);
+});
+
+test("the legend names every Category with its percent and exact Money value beside the chart", async () => {
+  stub(rich());
+  await renderPage();
+  const legend = await chartReady();
+  const items = within(legend).getAllByRole("listitem");
+  expect(items[0]).toHaveTextContent("Investments");
+  expect(items[0]).toHaveTextContent("60%");
+  expect(items[0]).toHaveTextContent("600.00");
+  expect(items[1]).toHaveTextContent("Property");
+  expect(items[1]).toHaveTextContent("30%");
+  expect(items[2]).toHaveTextContent("Cash");
+  expect(items[2]).toHaveTextContent("10%");
+  expect(screen.getByRole("heading", { name: "What it is made of" }).closest("section")).toHaveTextContent(
+    "Investments is the largest share, 60%; Property is 30%.",
+  );
+});
+
+test("a Category keeps its colour whatever else is shown, and Cash is teal, never red", async () => {
+  const urls = stub(rich(), (tag) =>
+    tag === "everyday"
+      ? { ...rich(), classes: rich().classes.map((c) => ({ ...c, categories: c.categories.filter((k) => k.key === "cash") })) }
+      : rich(),
+  );
+  await renderPage();
+  await chartReady();
+  const colourOfCash = () => {
+    const o = optionFor(/Donut chart/);
+    return o.series[0].data.find((d: { name: string }) => d.name === "Cash").itemStyle.color;
+  };
+  const before = colourOfCash();
+  await openChangeView();
+  fireEvent.change(screen.getByLabelText("Tag"), { target: { value: "everyday" } });
+  await waitFor(() => expect(urls).toContain("/api/position?tag=everyday"));
+  await waitFor(() => expect(screen.getByTestId("share-legend")).not.toHaveTextContent("Investments"));
+  expect(colourOfCash()).toBe(before);
+  // fixed table: Cash is the third token, a teal in the new palette (no red in the categorical set)
+  expect(before).toBe("#04a19b");
+});
+
+test("more than six Categories fold into Other for the picture; the legend keeps every one", async () => {
+  const extra = ["Boat", "Art", "Wine", "Coins"].map((name, i) =>
+    category(`user-${i}`, name, money(`${10 - i}.00`, `${10 - i}.00`, "0.00")),
+  );
+  const many = rich([
+    category("superannuation", "Superannuation", money("80.00", "80.00", "0.00")),
+    category("overseas_pensions", "Overseas pensions", money("50.00", "50.00", "0.00")),
+    ...extra,
+  ]);
+  stub(many);
+  await renderPage();
+  const legend = await chartReady();
+  const names = (o: { name: string }) => o.name;
+  const drawn = optionFor(/Donut chart/).series[0].data.map(names);
+  expect(drawn).toHaveLength(6);
+  expect(drawn.at(-1)).toBe("Other");
+  // every Category is still named in the legend, the folded ones under Other
+  for (const name of ["Investments", "Property", "Cash", "Superannuation", "Overseas pensions", "Boat", "Art", "Wine", "Coins", "Other"]) {
+    expect(within(legend).getByText(name)).toBeInTheDocument();
+  }
+});
+
+test("the switch changes the chart, saves the view's choice only, and offers Use as my default", async () => {
+  stub(rich());
+  await renderPage();
+  await chartReady();
+  expect(screen.getByTestId("share-chart")).toHaveAttribute("data-form", "donut");
+  expect(screen.queryByRole("button", { name: "Use as my default" })).not.toBeInTheDocument(); // donut is the default
+
+  fireEvent.click(screen.getByRole("radio", { name: "Bars" }));
+  await waitFor(() => expect(screen.getByTestId("share-chart")).toHaveAttribute("data-form", "bars"));
+  expect(optionFor(/Bar chart/).series[0].type).toBe("bar");
+  await waitFor(() => expect(puts).toEqual([{ "position.composition": "bars" }])); // not default.share
+  expect(prefs).toEqual({ "position.composition": "bars" });
+
+  fireEvent.click(screen.getByRole("radio", { name: "Stacked bar" }));
+  await waitFor(() => expect(screen.getByTestId("share-chart")).toHaveAttribute("data-form", "stacked-bar"));
+  const stacked = optionFor(/Stacked bar chart/);
+  expect(stacked.series.map((s: { name: string }) => s.name)).toEqual(["Investments", "Property", "Cash"]);
+  expect(stacked.series.every((s: { stack: string }) => s.stack === "share")).toBe(true);
+});
+
+test("Use as my default stores the shape's default, and a view with no choice of its own follows it", async () => {
+  stub(rich());
+  await renderPage();
+  await chartReady();
+  fireEvent.click(screen.getByRole("radio", { name: "Bars" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Use as my default" }));
+  await waitFor(() => expect(puts.at(-1)).toEqual({ "default.share": "bars" }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Use as my default" })).not.toBeInTheDocument());
+
+  // Drop the view's own choice: the stored default applies where there is no area choice.
+  delete prefs["position.composition"];
+  cleanup();
+  stub(rich());
+  const { QueryClient } = await import("@tanstack/react-query");
+  await renderAppAt("/position", new QueryClient({ defaultOptions: { queries: { retry: false } } }));
+  await chartReady();
+  expect(screen.getByTestId("share-chart")).toHaveAttribute("data-form", "bars");
+  expect(screen.getByRole("radio", { name: "Bars" })).toBeChecked();
+});
+
+test("a stored choice reloads as set, and one the view no longer offers is ignored", async () => {
+  prefs["position.composition"] = "stacked-bar";
+  stub(rich());
+  await renderPage();
+  await chartReady();
+  expect(screen.getByTestId("share-chart")).toHaveAttribute("data-form", "stacked-bar");
+
+  cleanup();
+  prefs["position.composition"] = "hexagon";
+  stub(rich());
+  await renderPage();
+  await chartReady();
+  expect(screen.getByTestId("share-chart")).toHaveAttribute("data-form", "donut");
+});
+
+test("if the preferences cannot be read the chart still draws in the kit default and the switch works", async () => {
+  stub(rich());
+  const inner = globalThis.fetch as unknown as (r: Request) => Promise<Response>;
+  vi.stubGlobal("fetch", vi.fn(async (request: Request) => {
+    if (new URL(request.url).pathname === "/api/preferences") return json({ errors: [] }, 500);
+    return inner(request);
+  }));
+  await renderPage();
+  await chartReady();
+  expect(screen.getByTestId("share-chart")).toHaveAttribute("data-form", "donut");
+  fireEvent.click(screen.getByRole("radio", { name: "Bars" }));
+  await waitFor(() => expect(screen.getByTestId("share-chart")).toHaveAttribute("data-form", "bars"));
+});
+
+test("a negative part draws bars only and hides the switch", async () => {
+  const owing = rich([category("vehicles", "Vehicles", money("-50.00", "-50.00", "0.00"))]);
+  stub(owing);
+  await renderPage();
+  await chartReady();
+  expect(screen.getByTestId("share-chart")).toHaveAttribute("data-form", "bars");
+  expect(screen.queryByRole("radio", { name: "Donut" })).not.toBeInTheDocument();
+});
+
+test("the composition can be split by Member instead of Category", async () => {
+  stub(rich());
+  await renderPage();
+  await chartReady();
+  fireEvent.click(screen.getByRole("radio", { name: "Member" }));
+  const legend = await chartReady();
+  await waitFor(() => expect(legend).toHaveTextContent("Alex Sample"));
+  expect(legend).toHaveTextContent("750.00");
+  expect(legend).toHaveTextContent("75%");
+  expect(legend).toHaveTextContent("Jordan Sample");
+  expect(legend).toHaveTextContent("25%");
+  expect(legend).not.toHaveTextContent("Investments");
+});
+
+test("As at, Tag, View and Layout are collapsed into one Change view row that opens on demand", async () => {
+  stub();
+  await renderPage();
+  const row = await screen.findByTestId("change-view");
+  expect(within(row).getByText(/As at 2026-10-17 · All Accounts · Household · Tree/)).toBeInTheDocument();
+  expect(screen.queryByLabelText("As at")).not.toBeInTheDocument();
+  await openChangeView();
   expect(screen.getByLabelText("As at")).toHaveValue("2026-10-17");
+  expect(screen.getByLabelText("Tag")).toBeInTheDocument();
+});
+
+test("the tree is behind Show all accounts; only the first level (Class, Category) is open", async () => {
+  stub();
+  await renderPage();
+  await openFigures();
+  const cash = await screen.findByRole("button", { name: "Cash" });
   const tree = screen.getByTestId("position-tree");
   expect(within(tree).getByText("Assets")).toBeInTheDocument();
   expect(within(tree).getByText("Liabilities")).toBeInTheDocument();
@@ -184,6 +454,7 @@ test("asks for today's Position by default; only the first level (Class, Categor
 test("a category can be expanded and collapsed again", async () => {
   stub();
   await renderPage();
+  await openFigures();
   const cash = await screen.findByRole("button", { name: "Cash" });
   fireEvent.click(cash);
   expect(cash).toHaveAttribute("aria-expanded", "true");
@@ -196,6 +467,7 @@ test("a category can be expanded and collapsed again", async () => {
 test("an Account row links through to its detail page instead of expanding", async () => {
   stub();
   const { router } = await renderPage();
+  await openFigures();
   fireEvent.click(await screen.findByRole("button", { name: "Cash" }));
   const link = screen.getByRole("link", { name: "Joint savings" });
   expect(link).toHaveAttribute("href", "/accounts/2");
@@ -203,15 +475,17 @@ test("an Account row links through to its detail page instead of expanding", asy
   await waitFor(() => expect(router.state.location.pathname).toBe("/accounts/2"));
 });
 
-test("the totals bar is sticky and shows Assets, Liabilities, Net and the not-counted count", async () => {
+test("the stat tile shows Assets, Liabilities, Net and the not-counted note", async () => {
   stub();
   await renderPage();
-  const bar = await screen.findByTestId("totals-bar");
-  expect(bar).toHaveClass("sticky");
-  expect(bar).toHaveTextContent("Assets");
-  expect(bar).toHaveTextContent("200.02");
-  expect(bar).toHaveTextContent("Net");
-  expect(within(bar).getByRole("status")).toHaveTextContent("1 not counted");
+  const tile = await screen.findByRole("region", { name: "Net position" });
+  expect(tile).toHaveTextContent("Assets");
+  expect(tile).toHaveTextContent("200.02");
+  expect(tile).toHaveTextContent("Liabilities");
+  expect(within(tile).getByRole("status")).toHaveTextContent("1 not counted");
+  expect(within(tile).getByText(/1 Account is not in these totals/)).toHaveTextContent(
+    "1 Account is not in these totals: no Valuation or FX rate on or before 2026-10-17.",
+  );
 });
 
 test("negative amounts carry a sign and the money-negative colour", async () => {
@@ -224,25 +498,23 @@ test("negative amounts carry a sign and the money-negative colour", async () => 
   } as Position["classes"][number];
   stub(p);
   await renderPage();
-  await screen.findByTestId("totals-bar");
-  const liabilities = within(screen.getByTestId("totals-bar")).getByText("-400.00");
+  const tile = await screen.findByRole("region", { name: "Net position" });
+  const liabilities = within(tile).getByText("-400.00");
   expect(liabilities).toHaveClass("text-money-negative");
   expect(liabilities).toHaveAttribute("data-negative", "true");
-  const positive = within(screen.getByTestId("totals-bar")).getAllByText("200.02")[0];
+  const positive = within(tile).getAllByText("200.02")[0];
   expect(positive).not.toHaveClass("text-money-negative");
 });
 
 test("an Account with no FX rate is flagged with a badge and words, shown as a dash, not zeroed", async () => {
   stub();
   await renderPage();
+  await openFigures();
   fireEvent.click(await screen.findByRole("button", { name: "Overseas pensions" }));
   expect(await screen.findByText("No FX rate for GBP on or before 2026-10-17")).toBeInTheDocument();
   const row = screen.getByText("UK Pension").closest("li")!;
   expect(within(row).getByText("—")).toBeInTheDocument();
   expect(within(row).getByText("Not counted")).toBeInTheDocument();
-  expect(screen.getByText(/1 Account is not in these totals/)).toHaveTextContent(
-    "1 Account is not in these totals: no Valuation or FX rate on or before 2026-10-17.",
-  );
 });
 
 test("a converted line names the date and the source of the FX rate it used", async () => {
@@ -268,6 +540,7 @@ test("a converted line names the date and the source of the FX rate it used", as
     })),
   } as Position);
   await renderPage();
+  await openFigures();
   fireEvent.click(await screen.findByRole("button", { name: "Overseas pensions" }));
   expect(await screen.findByText(/GBP 500.00 @ 2.0399836801 \(rate of 2026-10-19, rba\)/)).toBeInTheDocument();
 });
@@ -275,7 +548,9 @@ test("a converted line names the date and the source of the FX rate it used", as
 test("the By Member view splits joint Accounts by share and Joint shows them whole", async () => {
   stub();
   await renderPage();
+  await openChangeView();
   fireEvent.click(await screen.findByLabelText("By Member"));
+  await openFigures();
   fireEvent.click(await screen.findByRole("button", { name: "Cash" }));
   const tree = screen.getByTestId("position-tree");
   const joint = within(tree).getByText("Joint savings").closest("li")!;
@@ -293,9 +568,10 @@ test("the By Member view splits joint Accounts by share and Joint shows them who
   ).toHaveTextContent("100.01");
 });
 
-test("the totals show that Members (held solely) plus Joint equal the Household", async () => {
+test("the figures show that Members (held solely) plus Joint equal the Household", async () => {
   stub();
   await renderPage();
+  await openFigures();
   expect(await screen.findByTestId("reconciliation")).toHaveTextContent(
     "Alex Sample (held solely) 100.01 + Jordan Sample (held solely) 0.00 + Joint 100.01 = Household 200.02",
   );
@@ -307,10 +583,12 @@ test("the date, view, Tag and layout live in the URL, so a deep link restores th
     "/position?on=2025-10-17&tag=retirement&view=member&layout=table",
   );
   await waitFor(() => expect(urls).toContain("/api/position?on=2025-10-17&tag=retirement"));
+  await openChangeView();
   expect(screen.getByLabelText("As at")).toHaveValue("2025-10-17");
   expect(screen.getByLabelText("By Member")).toBeChecked();
   expect(screen.getByLabelText("Table")).toBeChecked();
-  expect(screen.getByTestId("position-table")).toBeInTheDocument();
+  // the Table layout opens the figures by itself
+  expect(await screen.findByTestId("position-table")).toBeInTheDocument();
 
   fireEvent.click(screen.getByLabelText("Joint"));
   await waitFor(() => expect(router.state.location.search).toMatchObject({ view: "joint" }));
@@ -330,18 +608,18 @@ test("the table view is a real table with a row header and the Account link", as
   expect(within(table).getByRole("link", { name: "Everyday" })).toHaveAttribute("href", "/accounts/1");
 });
 
-test("the history card starts collapsed (no fetch); opened, its table shows exact figures and feeds the chart", async () => {
-  historyUrls.length = 0;
+test("Over time is open by default: the chart and its headline lead, the table is behind Show figures", async () => {
   stub();
   await renderPage();
-  const toggle = await screen.findByRole("button", { name: "History" });
-  expect(toggle).toHaveAttribute("aria-expanded", "false");
-  expect(screen.queryByRole("region", { name: "Net position history table" })).not.toBeInTheDocument();
-  expect(historyUrls).toEqual([]);
+  const card = (await screen.findByRole("heading", { name: "Over time" })).closest("section")!;
+  await waitFor(() => expect(historyUrls).toEqual(["/api/position/history"]));
+  expect(await within(card).findByTestId("mock-echart")).toHaveAccessibleName(/Assets, Liabilities, Net over time/);
+  expect(card).toHaveTextContent("Net position moved from 600.01 on 2026-07-31 to 810.01 on 2026-09-30.");
+  expect(screen.getByText(/Hollow markers are incomplete/)).toBeInTheDocument();
+  expect(within(card).queryByRole("region", { name: "Net position history table" })).not.toBeInTheDocument();
 
-  fireEvent.click(toggle);
-  const table = await screen.findByRole("region", { name: "Net position history table" });
-  expect(historyUrls).toEqual(["/api/position/history"]);
+  fireEvent.click(within(card).getByRole("button", { name: "Show figures" }));
+  const table = await within(card).findByRole("region", { name: "Net position history table" });
   const rows = within(table).getAllByRole("row");
   expect(rows).toHaveLength(4); // header + three month-ends
   expect(rows[1]).toHaveTextContent("2026-07-31");
@@ -349,34 +627,28 @@ test("the history card starts collapsed (no fetch); opened, its table shows exac
   expect(rows[1]).toHaveTextContent("-400.00");
   expect(rows[2]).toHaveTextContent("1 (incomplete)");
   expect(rows[2]).toHaveAttribute("data-flagged", "true");
-  expect(screen.getByText(/Hollow markers are incomplete/)).toBeInTheDocument();
 
   // The (mocked) chart gets an option built from the same points.
-  const chart = await screen.findByTestId("mock-echart");
-  expect(chart).toHaveAccessibleName(/Assets, Liabilities, Net over time/);
-  const option = lastOption();
+  const option = optionFor(/Assets, Liabilities, Net over time/);
   expect(option.xAxis.data).toEqual(["2026-07-31", "2026-08-31", "2026-09-30"]);
-  expect(option.series.map((s: { name: string }) => s.name)).toEqual([
-    "Assets",
-    "Liabilities",
-    "Net",
-  ]);
+  expect(option.series.map((s: { name: string }) => s.name)).toEqual(["Assets", "Liabilities", "Net"]);
   expect(option.series[2].data[1].flagged).toBe(true);
 });
 
-test("the history follows the Tag filter and the view", async () => {
-  historyUrls.length = 0;
+test("the cards follow the Tag filter and the view", async () => {
   stub();
   await renderPage();
-  fireEvent.click(await screen.findByRole("button", { name: "History" }));
-  await screen.findByRole("region", { name: "Net position history table" });
+  await waitFor(() => expect(historyUrls).toEqual(["/api/position/history"]));
+  await openChangeView();
   fireEvent.change(screen.getByLabelText("Tag"), { target: { value: "retirement" } });
   await waitFor(() => expect(historyUrls).toContain("/api/position/history?tag=retirement"));
 
   fireEvent.click(screen.getByLabelText("Joint"));
-  const table = await screen.findByRole("region", { name: "Net position history table" });
-  await waitFor(() => expect(within(table).getAllByRole("row")[3]).toHaveTextContent("12.00")); // joint
+  const card = screen.getByRole("heading", { name: "Over time" }).closest("section")!;
+  await waitFor(() => expect(card).toHaveTextContent("to 12.00 on 2026-09-30"));
   fireEvent.click(screen.getByLabelText("By Member"));
+  fireEvent.click(within(card).getByRole("button", { name: "Show figures" }));
+  const table = await within(card).findByRole("region", { name: "Net position history table" });
   expect(await within(table).findByRole("columnheader", { name: "Alex Sample Net" })).toBeInTheDocument();
   expect(within(table).getByRole("columnheader", { name: "Household Net" })).toBeInTheDocument();
 });

@@ -1,14 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight } from "lucide-react";
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useMemo } from "react";
 
 import { GeneralError } from "@/components/form-fields";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Money } from "@/components/ui/money";
+import { ViewCard } from "@/components/view-card";
 import { paletteFromTokens } from "@/lib/chart-palette";
-import { buildOption, type ChartTheme } from "@/lib/history-chart";
+import { buildOption } from "@/lib/history-chart";
+import { formatMoney } from "@/lib/money";
 import {
   fetchPositionHistory,
   seriesFor,
@@ -16,25 +15,13 @@ import {
   type HistorySeries,
   type PositionView,
 } from "@/lib/position";
+import { useChartTheme } from "@/lib/use-chart-theme";
 
-// ECharts is a large dependency, so it loads on demand, after the table is already on screen.
+// ECharts is a large dependency, so it loads on demand.
 const EChart = lazy(() => import("@/components/echart"));
 
-/** The current theme, following the header toggle (it flips the ``dark`` class on <html>). */
-function useTheme(): ChartTheme {
-  const read = (): ChartTheme =>
-    document.documentElement.classList.contains("dark") ? "dark" : "light";
-  const [theme, setTheme] = useState<ChartTheme>(read);
-  useEffect(() => {
-    const observer = new MutationObserver(() => setTheme(read()));
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
-  return theme;
-}
-
 function Chart({ points, series }: { points: HistoryPoint[]; series: HistorySeries[] }) {
-  const theme = useTheme();
+  const theme = useChartTheme();
   // The palette is read from the theme tokens (re-read when the theme flips).
   const option = useMemo(
     () => buildOption(points, series, theme, paletteFromTokens(theme)),
@@ -45,7 +32,7 @@ function Chart({ points, series }: { points: HistoryPoint[]; series: HistorySeri
       <Suspense fallback={<p className="text-sm text-muted-foreground">Loading chart</p>}>
         <EChart
           option={option}
-          label={`Line chart of ${series.map((s) => s.label).join(", ")} over time. The table beside it has the same figures.`}
+          label={`Line chart of ${series.map((s) => s.label).join(", ")} over time. The figures are under Show figures.`}
           className="h-64 w-full"
         />
       </Suspense>
@@ -105,58 +92,48 @@ function HistoryTable({ points, series }: { points: HistoryPoint[]; series: Hist
   );
 }
 
+/** What to notice: where Net position started and where it is now, as the exact figures. */
+function headlineOf(points: HistoryPoint[], series: HistorySeries[]): string | null {
+  const net = series.find((s) => s.key === "net");
+  if (!net || points.length === 0) return null;
+  const first = points[0];
+  const last = points[points.length - 1];
+  const label = net.label === "Net" ? "Net position" : net.label;
+  if (points.length === 1) return `${label} was ${formatMoney(net.value(last))} on ${last.on}.`;
+  return `${label} moved from ${formatMoney(net.value(first))} on ${first.on} to ${formatMoney(net.value(last))} on ${last.on}.`;
+}
+
 /**
- * Assets, Liabilities and Net over time for the chosen view and Tag, in a card that starts
- * collapsed so it never pushes the Position down. The table is the accessible fallback.
+ * Assets, Liabilities and Net over time for the chosen view and Tag (shape `series`: lines only,
+ * so no switch). The table is the text equivalent, behind "Show figures".
  */
 export function PositionHistory({ tag, view }: { tag: string; view: PositionView }) {
-  const [open, setOpen] = useState(false);
   const history = useQuery({
     queryKey: ["position-history", tag],
     queryFn: () => fetchPositionHistory(tag),
     placeholderData: (previous) => previous,
-    enabled: open,
   });
   const h = history.data;
   const series = useMemo(() => (h ? seriesFor(view, h.members) : []), [h, view]);
+  const headline = h ? headlineOf(h.points, series) : null;
   return (
-    <Card className="mt-6">
-      <section aria-label="Net position history">
-        <h2 className="text-base font-semibold">
-          <Button
-            variant="ghost"
-            aria-expanded={open}
-            className="w-full justify-start rounded-xl px-4 py-3"
-            onClick={() => setOpen((o) => !o)}
-          >
-            {open ? <ChevronDown aria-hidden className="size-4" /> : <ChevronRight aria-hidden className="size-4" />}
-            History
-          </Button>
-        </h2>
-        {open && (
-          <div className="flex flex-col gap-3 px-4 pb-4">
-            <GeneralError error={history.error} />
-            {history.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
-            {h && h.points.length === 0 && (
-              <p className="text-sm text-muted-foreground">No Valuations recorded yet.</p>
-            )}
-            {h && h.points.length > 0 && (
-              <>
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <Chart points={h.points} series={series} />
-                  <HistoryTable points={h.points} series={series} />
-                </div>
-                {h.points.some((p) => p.flagged > 0) && (
-                  <p className="text-xs text-muted-foreground">
-                    Hollow markers are incomplete: some Accounts had no Valuation or FX rate by then
-                    and are not counted.
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-        )}
-      </section>
-    </Card>
+    <ViewCard
+      title="Over time"
+      headline={headline ?? undefined}
+      figures={h && h.points.length > 0 ? <HistoryTable points={h.points} series={series} /> : undefined}
+    >
+      <GeneralError error={history.error} />
+      {history.isPending && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {h && h.points.length === 0 && (
+        <p className="text-sm text-muted-foreground">No Valuations recorded yet.</p>
+      )}
+      {h && h.points.length > 0 && <Chart points={h.points} series={series} />}
+      {h && h.points.some((p) => p.flagged > 0) && (
+        <p className="text-xs text-muted-foreground">
+          Hollow markers are incomplete: some Accounts had no Valuation or FX rate by then and are
+          not counted.
+        </p>
+      )}
+    </ViewCard>
   );
 }
