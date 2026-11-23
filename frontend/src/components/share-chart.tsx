@@ -1,5 +1,5 @@
 import { ChartBar, ChartBarStacked, ChartPie, TriangleAlert } from "lucide-react";
-import { Fragment, lazy, Suspense, useMemo, type ReactNode } from "react";
+import { Fragment, lazy, Suspense, useId, useMemo, type ReactNode } from "react";
 
 import { SegmentedControl, type SegmentOption } from "@/components/ui/segmented-control";
 import { Button } from "@/components/ui/button";
@@ -90,6 +90,8 @@ export function ShareChart({
   toolbar,
   figures,
   chartLabel,
+  offered,
+  after,
 }: {
   viewKey: string;
   title: string;
@@ -101,16 +103,23 @@ export function ShareChart({
   figures?: ReactNode;
   /** The chart's accessible label, naming what is shown; the form is added to it. */
   chartLabel?: string;
+  /** The forms this view offers, first is its own default (default: the kit order). */
+  offered?: ShareForm[];
+  /** Content under the chart and legend, above "Show figures" (a figure that sits beside the chart). */
+  after?: ReactNode;
 }) {
   const theme = useChartTheme();
-  const forms = useMemo(() => formsFor(rows), [rows]);
+  // Several cards can share one viewKey (one card per Member), so each radio group needs its own name.
+  const groupId = useId();
+  const forms = useMemo(() => formsFor(rows, offered), [rows, offered]);
   const pref = useDisplayPreference<ShareForm>(viewKey, "share", forms);
   const form = pref.form;
   const palette = useMemo(() => categoricalPaletteFromTokens(theme), [theme]);
   const option = useMemo(() => buildShareOption(form, rows, palette), [form, rows, palette]);
   const legend = useMemo(() => drawnRows(form, rows), [form, rows]);
   const switchable = FORM_OPTIONS.filter((o) => forms.includes(o.value));
-  const sideBySide = form !== "bars";
+  // A donut sits beside its legend; a stacked bar is wide, so its legend goes below it.
+  const sideBySide = form === "donut";
 
   return (
     <ViewCard
@@ -124,7 +133,7 @@ export function ShareChart({
             <>
               <SegmentedControl
                 label="Chart type"
-                name={`${viewKey}-form`}
+                name={`${viewKey}-form-${groupId}`}
                 value={form}
                 options={switchable}
                 onChange={pref.choose}
@@ -156,6 +165,7 @@ export function ShareChart({
         )}
         <Legend rows={legend} label={`${title}: legend`} />
       </div>
+      {after}
     </ViewCard>
   );
 }

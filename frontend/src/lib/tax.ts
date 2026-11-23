@@ -597,53 +597,6 @@ export async function fetchIncomeReconciliation(
   return data;
 }
 
-/** Each slice's chart colour token, by key: fixed, so a colour means one thing everywhere. */
-export const SLICE_COLOURS: Record<string, string> = {
-  tax: "var(--chart-1)",
-  super: "var(--chart-2)",
-  lease: "var(--chart-3)",
-  other: "var(--chart-4)",
-  take_home: "var(--chart-5)",
-  unreconciled: "var(--chart-6)",
-};
-
-export type Arc = { key: string; path: string };
-
-/**
- * The SVG paths of a pie from the slices' shares as the server sends them (percent strings).
- * Geometry only: the shares themselves are exact, from the server. A slice with no share is
- * skipped; a lone whole slice is a full circle, which a single arc cannot draw.
- */
-export function pieArcs(
-  shares: { key: string; percent: string | null }[],
-  radius = 50,
-): Arc[] {
-  const drawn = shares
-    .map((s) => ({ key: s.key, weight: Number(s.percent ?? 0) }))
-    .filter((s) => Number.isFinite(s.weight) && s.weight > 0);
-  const total = drawn.reduce((sum, s) => sum + s.weight, 0);
-  if (total <= 0) return [];
-  if (drawn.length === 1) {
-    const r = radius;
-    return [
-      {
-        key: drawn[0].key,
-        path: `M ${-r} 0 A ${r} ${r} 0 1 1 ${r} 0 A ${r} ${r} 0 1 1 ${-r} 0 Z`,
-      },
-    ];
-  }
-  let from = 0;
-  return drawn.map((s) => {
-    const to = from + (s.weight / total) * 2 * Math.PI;
-    const point = (angle: number) =>
-      `${(radius * Math.sin(angle)).toFixed(3)} ${(-radius * Math.cos(angle)).toFixed(3)}`;
-    const large = to - from > Math.PI ? 1 : 0;
-    const path = `M 0 0 L ${point(from)} A ${radius} ${radius} 0 ${large} 1 ${point(to)} Z`;
-    from = to;
-    return { key: s.key, path };
-  });
-}
-
 /** A share as the API sends it (`"21.2054"`), shown to one decimal place. */
 export function shortPercent(percent: string | null | undefined): string {
   if (percent === null || percent === undefined) return "";

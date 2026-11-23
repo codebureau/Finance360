@@ -1,8 +1,19 @@
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 
-import { pieArcs, shortPercent } from "@/lib/tax";
+import { shortPercent } from "@/lib/tax";
 import { renderAppAt } from "@/test-utils";
+
+// jsdom has no canvas: stand in for the ECharts host and keep the option it was given.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const options: { label: string; current: any }[] = [];
+vi.mock("@/components/echart", () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  default: ({ option, label }: { option: any; label: string }) => {
+    options.push({ label, current: option });
+    return <div data-testid="mock-echart" role="img" aria-label={label} />;
+  },
+}));
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -74,14 +85,19 @@ function fakeBackend(members: unknown[]) {
 
 afterEach(() => vi.unstubAllGlobals());
 
-test("each Member's table shows the slices and Unreconciled, with the percentages and the pie", async () => {
+const openFigures = (card: HTMLElement) => fireEvent.click(within(card).getByRole("button", { name: /Show figures/ }));
+
+test("each Member's card leads with a headline and a stacked bar; the table is behind Show figures", async () => {
   fakeBackend([alex, jordan]);
   await renderAppAt("/tax/reconciliation?fy=2097");
   const card = await screen.findByLabelText("Income reconciliation for Alex Sample");
+  expect(within(card).getByText(/Take-home is 61\.6% of the package; tax withheld is the next largest\./)).toBeInTheDocument();
+  expect(await within(card).findByTestId("mock-echart")).toHaveAccessibleName(/Stacked bar chart/);
+  expect(within(card).queryByRole("table")).not.toBeInTheDocument();
+  fireEvent.click(within(card).getByRole("button", { name: /Show figures/ }));
   const table = within(card).getByRole("table");
   expect(within(table).getByRole("row", { name: /Take-home/ })).toHaveTextContent("61.6%");
   expect(within(table).getByTestId("unreconciled")).toHaveTextContent("1,000.00");
-  expect(within(card).getByRole("img", { name: /Where the total package goes: Tax withheld/ })).toBeInTheDocument();
   expect(within(card).getByText("Total package (100%)")).toBeInTheDocument();
 });
 
@@ -92,9 +108,11 @@ test("take-home worked out from the statements that state no net pay says so, wh
   fakeBackend([worked, mixed]);
   await renderAppAt("/tax/reconciliation?fy=2097");
   const alexCard = await screen.findByLabelText("Income reconciliation for Alex Sample");
+  openFigures(alexCard);
   expect(within(alexCard).getByTestId("take-home-worked-out")).toHaveTextContent(/^Worked out, not stated$/);
   expect(within(alexCard).getByTestId("unreconciled")).toHaveTextContent("0.00");
   const jordanCard = screen.getByLabelText("Income reconciliation for Jordan Sample");
+  openFigures(jordanCard);
   expect(within(jordanCard).getByTestId("take-home-worked-out")).toHaveTextContent("Includes 30,000.00 worked out, not stated");
 });
 
@@ -102,6 +120,7 @@ test("a Member whose statements all state net pay shows no worked-out note", asy
   fakeBackend([alex]);
   await renderAppAt("/tax/reconciliation?fy=2097");
   const card = await screen.findByLabelText("Income reconciliation for Alex Sample");
+  openFigures(card);
   expect(within(card).queryByTestId("take-home-worked-out")).not.toBeInTheDocument();
 });
 
@@ -109,7 +128,8 @@ test("reportable fringe benefits and super insurance premiums are beside and und
   fakeBackend([alex]);
   await renderAppAt("/tax/reconciliation?fy=2097");
   const card = await screen.findByLabelText("Income reconciliation for Alex Sample");
-  expect(within(card).getByText("Reportable fringe benefits").nextElementSibling).toHaveTextContent("8,000.00");
+  expect(within(card).getByText("Reportable fringe benefits").parentElement).toHaveTextContent("8,000.00");
+  openFigures(card);
   expect(within(within(card).getByRole("table")).queryByText(/fringe/i)).not.toBeInTheDocument();
   expect(within(card).getByTestId("insurance-note")).toHaveTextContent("600.00");
   expect(within(within(card).getByRole("table")).queryByText(/insurance/i)).not.toBeInTheDocument();
@@ -119,13 +139,14 @@ test("a negative Unreconciled is shown, signed, as a note: not a slice, and the 
   fakeBackend([jordan, alex]);
   await renderAppAt("/tax/reconciliation?fy=2097");
   const card = await screen.findByLabelText("Income reconciliation for Jordan Sample");
+  expect(within(card).getByTestId("negative-note")).toHaveTextContent("-500.00");
+  const bar = options.filter((o) => /Jordan Sample/.test(o.label)).at(-1)!.current;
+  // tax, super, take-home: no segment for the negative gap
+  expect(bar.series.map((x: { name: string }) => x.name)).toEqual(["Tax withheld", "Super", "Take-home"]);
+  openFigures(card);
   const row = within(card).getByTestId("unreconciled");
   expect(row).toHaveTextContent("-500.00");
   expect(row).toHaveTextContent("Not drawn");
-  expect(within(card).getByTestId("negative-note")).toBeInTheDocument();
-  const chart = within(card).getByRole("img");
-  expect(chart.querySelectorAll("path")).toHaveLength(3); // tax, super, take-home; no empty or negative arc
-  expect(chart.getAttribute("aria-label")).not.toMatch(/Unreconciled/);
 });
 
 test("the Household is shown after the Members when there are several", async () => {
@@ -140,20 +161,44 @@ test("a year with no income statement says so", async () => {
   expect(await screen.findByTestId("reconciliation-empty")).toHaveTextContent("FY 2096-97");
 });
 
-test("pieArcs draws the shares in proportion, skips an empty slice and handles one whole slice", () => {
-  expect(pieArcs([])).toEqual([]);
-  expect(pieArcs([{ key: "a", percent: "0" }])).toEqual([]);
-  const whole = pieArcs([
-    { key: "a", percent: "100" },
-    { key: "b", percent: "0" },
+test("a positive Unreconciled is drawn as its own segment, last, and a part with nothing is not", async () => {
+  fakeBackend([alex]);
+  await renderAppAt("/tax/reconciliation?fy=2097");
+  await screen.findByLabelText("Income reconciliation for Alex Sample");
+  const bar = options.filter((o) => /Alex Sample/.test(o.label)).at(-1)!.current;
+  expect(bar.series.map((x: { name: string }) => x.name)).toEqual([
+    "Tax withheld",
+    "Super",
+    "Novated lease costs",
+    "Other deductions",
+    "Take-home",
+    "Unreconciled",
   ]);
-  expect(whole.map((a) => a.key)).toEqual(["a"]);
-  expect(whole[0].path).toContain("A 50 50");
-  const halves = pieArcs([
-    { key: "a", percent: "50" },
-    { key: "b", percent: "50" },
-  ]);
-  expect(halves.map((a) => a.key)).toEqual(["a", "b"]);
+});
+
+test("a Member whose figures are all nil shows a note, not an empty chart", async () => {
+  const empty = { ...alex, gross_pay: "0.00", employer_super: "0.00", package: "0.00", unreconciled: "0.00", slices: alex.slices.map((s) => ({ ...s, amount: "0.00" })), reportable_fringe_benefits: "0.00", super_insurance_premiums: "0.00" };
+  fakeBackend([empty]);
+  await renderAppAt("/tax/reconciliation?fy=2097");
+  const card = await screen.findByLabelText("Income reconciliation for Alex Sample");
+  expect(within(card).getByText("No figures on the income statements.")).toBeInTheDocument();
+  expect(within(card).queryByTestId("mock-echart")).not.toBeInTheDocument();
+});
+
+test("shortPercent shows one decimal place", () => {
   expect(shortPercent("21.4286")).toBe("21.4%");
   expect(shortPercent(null)).toBe("");
+});
+
+test("every card starts on the stacked bar, each with its own chart-type switch", async () => {
+  fakeBackend([alex, jordan]);
+  await renderAppAt("/tax/reconciliation?fy=2097");
+  await screen.findByLabelText("Income reconciliation for Household");
+  const charts = await screen.findAllByTestId("share-chart");
+  expect(charts).toHaveLength(3);
+  charts.forEach((c) => expect(c).toHaveAttribute("data-form", "stacked-bar"));
+  // One radio group per card: all three show "Stacked bar" selected.
+  const selected = screen.getAllByRole("radio", { name: "Stacked bar" });
+  expect(selected).toHaveLength(3);
+  selected.forEach((r) => expect(r).toBeChecked());
 });
