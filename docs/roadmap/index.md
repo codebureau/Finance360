@@ -23,8 +23,44 @@ visible for investment-platform and super Accounts, with fund-of-funds resolved.
   screen); #84 region, sector and exposure currency; #85 fund-of-funds and #86 super options with the
   unallocated remainder; #87 the Analytics view by Category, Member and Household; #88 concentration
   and target gap; #6 the lifecycle glide path; #89 asset-class returns in the projection (last).
-- **Not in M4:** AI-assisted factsheet extraction (#90), a candidate after it. Profiles are entered
-  by hand in M4.
+- **Not in M4:** the factsheet Importer (#90), now in Document intake. Profiles are entered by hand
+  in M4.
+
+**Approved order (2026-11-23): M4 interleaves with the Visual layer and Document intake.** M4 stays
+the current milestone and closes when its own Definition of Done holds, but its remaining slices no
+longer run back to back. Work proceeds in this order:
+
+1. #93 (region, sector and exposure currency, M4).
+2. #96 V0a, the Visual layer ADR (ADR-0031), with #103 R0 (Questions ADR) in parallel.
+3. #97 V1 Position, #98 V2 Projection, #99 V3 Income reconciliation.
+4. #85 fund-of-funds, #86 super options, #87 the Analytics view (M4).
+5. #100 V4 Compare Scenarios, and V5 the Tax estimate waterfall (not yet filed).
+6. V6 Home, with #104 R1 Question cards, #101 What's due cards and #102 notices.
+7. #105 R2 "Did this answer your question?".
+8. Document intake: #106 D1 (the table construct), #17 and #18, #90, #9.
+9. #88 concentration and target gap, #6 the glide path, #89 asset-class returns (M4); V7 and V8.
+10. M5 Super import (#7, which keeps #8 and #10).
+
+**Visual layer** ([#94](https://github.com/codebureau/Finance360/issues/94), milestone 6): Position,
+Projection, Compare Scenarios, the Tax estimate and Income reconciliation lead with a Designed view
+(a headline card and a chart or stat tile, the tables one disclosure away); Home shows net Position
+and how ready each Question is; after a Valuation or Import the household sees what changed.
+- **Definition of Done:** each sub-issue's designed view holds on the synthetic household, light and
+  dark, at 390px and desktop; a label keeps one colour across screens and filters; no screen that
+  shows percentages or a time series lacks a chart; the Guide pages for each changed screen describe
+  the new view.
+- **Sub-issues of #94:** #96 ADR (ADR-0031) and #103 ADR (Questions); #97 V1, #98 V2, #99 V3, #100
+  V4, V5 (not yet filed); V6 Home with #104, #101, #102; #105; V7 and V8 once scoped.
+
+**Document intake** ([#95](https://github.com/codebureau/Finance360/issues/95), milestone 7): a PDF
+the household already receives is read by a Document profile into the form it belongs to, beside the
+document, checks run, the owner confirming; a new provider's layout needs no code or release
+(ADR-0024, ADR-0027). Shown for two Fill targets: the Super statement and the Exposure profile.
+- **Definition of Done:** the epic's acceptance criteria hold: a table construct for repeated rows; a
+  synthetic statement fills the Super statement form with Investment options and a synthetic
+  factsheet fills the Exposure profile form; profiles are authored and tested over MCP, proposed and
+  activated by the owner; each fill reports what it read and what is left to type.
+- **Sub-issues of #95:** #106, #17, #18, #90, #9 (moved from M5); #19 stays optional.
 
 **In flight alongside:**
 - **Orientation** (inserted 2026-11-03): someone can open Finance360 cold and know why
@@ -69,6 +105,8 @@ visible for investment-platform and super Accounts, with fund-of-funds resolved.
 | T1 | Tax planning (closed 2026-11-20) ([#11](https://github.com/codebureau/Finance360/issues/11)) | Records for a financial year produce a Tax estimate that matches a lodged return to the cent; Tax what-ifs can be saved, compared and break-even searched |
 | T2 | Tax in the plan (done; delivered under #11) | The tax engine supplies take-home pay to the projection, and Division 293 is predicted with its lag |
 | M4 | Look-through analytics ([#5](https://github.com/codebureau/Finance360/issues/5)) | Exposure of investment-platform and super Accounts by asset class, region, sector and currency, with fund-of-funds resolved |
+| V | Visual layer ([#94](https://github.com/codebureau/Finance360/issues/94); interleaved with M4 from 2026-11-23) | The main screens lead with a Designed view (headline card, chart or stat tile, figures one disclosure away); Home shows net Position and Question readiness; a write shows what it changed |
+| D | Document intake ([#95](https://github.com/codebureau/Finance360/issues/95)) | A PDF the household already receives fills the Super statement or Exposure profile form through a Document profile, checked and owner-confirmed, with no code per provider |
 | M5 | Super import ([#7](https://github.com/codebureau/Finance360/issues/7)) | Super fund statements and exports replace manual super Valuations and option mix |
 
 ## Candidate milestones (unordered)
@@ -81,9 +119,9 @@ visible for investment-platform and super Accounts, with fund-of-funds resolved.
 - Property valuation
 - Overseas pensions (partial transfer, a foreign-jurisdiction Rule pack)
 - Age Pension in full
-- Question-first navigation: the Guide, Ask and What's due built around the questions (#72, with #24)
+- Question-first navigation: the Guide, Ask and What's due built around the questions (#72, with
+  #24); now folded into the Visual layer's Questions ADR (#103)
 - Tax: provisional figures and document parsing (#56)
-- Factsheet Importer: Exposure profiles proposed from fund factsheets (#90)
 - Monte Carlo engine
 - Investment accounting (cost base, CGT, performance)
 - Representative budget (AI)
