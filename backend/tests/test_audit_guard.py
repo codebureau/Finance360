@@ -1124,6 +1124,8 @@ NOT_AUDITED: dict[str, str] = {
     "reference.instruments.resolve": "read (the identifier crosswalk lookup)",
     "reference.exposure_profiles.vocabulary": "read",
     "reference.exposure_profiles.label_order": "read",
+    "reference.exposure_profiles.profile_facts_closure": "read",
+    "reference.exposure_profiles.instrument_names": "read",
     "reference.exposure_profiles.get_profile": "read",
     "reference.exposure_profiles.list_profiles": "read",
     "reference.exposure_profiles.current_profile_facts": "read",

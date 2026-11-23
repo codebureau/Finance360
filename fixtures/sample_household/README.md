@@ -35,8 +35,9 @@ them through the service layer on first run, so audit and validation apply:
   The top-level `fx_rates` (six invented GBP to AUD rates, Oct 2024 to Aug 2026, some with more than
   two decimal places) are read by `finance360.capabilities.reference.fx_rates.load_fixture_fx_rates`
   only while no FX rate exists. They are audited with source `fixture`.
-  The top-level `instruments` (four invented Instruments: `Sample Broad Market ETF`, `Sample Mining
-  Ltd`, the unlisted `Sample Balanced Growth Fund` and the AUD-listed `Sample Global Equity ETF`, each with invented ticker, yahoo, ISIN,
+  The top-level `instruments` (five invented Instruments: `Sample Broad Market ETF`, `Sample Mining
+  Ltd`, the unlisted `Sample Balanced Growth Fund`, the AUD-listed `Sample Global Equity ETF` and the
+  fund-of-funds `Sample Diversified Fund` (described below), each with invented ticker, yahoo, ISIN,
   vendor-id and product-name-alias identifiers where it has them, all AUD) are read by
   `finance360.capabilities.reference.instruments.load_fixture_instruments` only while no Instrument
   exists. They are audited with source `fixture`. The fund has no ticker and no provider symbol, as
@@ -54,6 +55,15 @@ them through the service layer on first run, so audit and validation apply:
   AUD 8%). It is not held by any fixture Account: record an Opening position of it in the sample
   Account (Prices are in the fixture) to see it in the look-through. The `Sample New Horizons ETF`
   that an import creates has no profile, so it shows as No profile.
+  The fifth Instrument, `Sample Diversified Fund` (kind fund, ticker `SDVF`, a manual Price of 1.52
+  on 2026-09-30), is the fund-of-funds case (ADR-0030 section 5). Its profile has a `references` map
+  of Instrument name to percent: 55% `Sample Broad Market ETF` and 35% `Sample Global Equity ETF`,
+  plus a 10% cash sleeve it holds itself (asset class Cash, region Australia, exposure currency
+  AUD; it publishes no sectors). Its look-through resolves through the two ETFs' profiles. To hold
+  it, add `imports/investment_transactions_accSAMPLE-PI-0001_24-Sep-2026_24-Sep-2026.csv` (one buy
+  of 1,000 units, in the trades Stream's existing Coverage) after committing the sample trades, or
+  record an Opening position. It has no matching cash row, like the `SNHX` buy.
+  With it held, the sample Account's look-through reads 8,165.13 (6,645.13 + 1,000 x 1.52).
   The top-level `income_streams` (an invented salary for each Member: Alex 120,000.00 gross and
   91,000.00 take-home, Jordan 85,000.00 gross and 66,000.00 take-home; both end at the owner's
   retirement) are read by
@@ -286,6 +296,11 @@ them through the service layer on first run, so audit and validation apply:
     category Investments, type *Brokerage account*, then add the file, choose that Account and
     tick "Remember this reference". `SKGF` is then created from the Unmatched references panel.
     Mapping `Managed Fund Transaction` to Buy and committing both files leaves 738.5 units.
+  - `investment_transactions_accSAMPLE-PI-0001_24-Sep-2026_24-Sep-2026.csv` (fund-of-funds): one
+    `Buy Trade` of `Sample Diversified Fund` (Product ID `SDVF`, Product Type `Managed Fund`, 1,000
+    units at 1.5000), an Instrument in the roster, so it matches without creating anything. Add it
+    after the trades are committed. Once the Account is on a holdings type its look-through shows the
+    fund resolved through its two underlying ETFs.
   - `sample_bank_statement.csv`: not an investment platform export; staging refuses it with a clear message.
 
 - **Switching the sample investment platform Account to a derived value.** `Sample Brokerage account` stays a simple

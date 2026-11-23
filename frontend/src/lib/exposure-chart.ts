@@ -1,5 +1,11 @@
 import { toneOf, type Tone } from "@/lib/entity-colour";
-import { percentToPpm, ppmToPercent, type ExposureDimension, type LookThrough } from "@/lib/exposure";
+import {
+  percentToPpm,
+  ppmToPercent,
+  type ExposureDimension,
+  type ExposureProfile,
+  type LookThrough,
+} from "@/lib/exposure";
 import { foldRows, type ShareRow } from "@/lib/charts/share";
 import { formatMoney } from "@/lib/money";
 
@@ -47,11 +53,16 @@ export function lookThroughRows(data: LookThrough, vocab: ExposureDimension[]): 
   return foldRows(labels, explicit);
 }
 
-/** Rows for one Dimension of an Exposure profile (weights are percent strings). */
+/**
+ * Rows for one Dimension of an Exposure profile (weights are percent strings). For a fund-of-funds,
+ * `throughPpm` is the share held in underlying funds: it is shown as an explicit muted part, so a
+ * chart of the fund's own 10% reads as 10% of a ring, not a whole one.
+ */
 export function profileRows(
   weights: { dimension_key: string; label_key: string; percent: string }[],
   dimension: ExposureDimension,
   vocab: ExposureDimension[],
+  throughPpm = 0,
 ): ShareRow[] {
   const rows: ShareRow[] = [];
   for (const w of weights) {
@@ -67,7 +78,20 @@ export function profileRows(
       tone: labelTone(dimension.key, w.label_key, vocab),
     });
   }
-  return foldRows(rows, []);
+  const through: ShareRow[] =
+    throughPpm > 0 && rows.length > 0
+      ? [
+          {
+            key: "through-funds",
+            name: "Through underlying funds",
+            ppm: throughPpm,
+            percentText: `${ppmToPercent(throughPpm)}%`,
+            amountText: null,
+            tone: "muted",
+          },
+        ]
+      : [];
+  return foldRows(rows, through);
 }
 
 const NOTICE_PPM = 10_000; // one point: the named weight tolerance
@@ -103,4 +127,64 @@ export function totalBarGeometry(totalPpm: number) {
     bandStart: ((1_000_000 - NOTICE_PPM) / SCALE) * 100,
     bandEnd: ((1_000_000 + NOTICE_PPM) / SCALE) * 100,
   };
+}
+
+const WHOLE_PPM = 1_000_000;
+
+/**
+ * The plain-language headline of an Exposure profile card: for a fund-of-funds how much is held in
+ * other funds, otherwise what the asset-class weights mostly are.
+ */
+export function profileHeadline(profile: ExposureProfile, vocab: ExposureDimension[]): string {
+  const ppm = (percent: string) => percentToPpm(percent) ?? 0;
+  const references = [...profile.references].sort((a, b) => ppm(b.percent) - ppm(a.percent));
+  if (references.length > 0) {
+    const total = references.reduce((sum, r) => sum + ppm(r.percent), 0);
+    const named = references
+      .slice(0, 2)
+      .map((r) => `${r.instrument_name} (${r.percent}%)`)
+      .join(" and ");
+    const more = references.length > 2 ? ` and ${references.length - 2} more` : "";
+    return `A fund of funds: ${ppmToPercent(total)}% is held in ${named}${more}`;
+  }
+  const labels = vocab.find((d) => d.key === "asset_class")?.labels ?? [];
+  const top = profile.weights
+    .filter((w) => w.dimension_key === "asset_class")
+    .sort((a, b) => ppm(b.percent) - ppm(a.percent))
+    .slice(0, 2)
+    .map((w) => labels.find((l) => l.key === w.label_key)?.name ?? w.label_key);
+  return top.length === 0 ? "No asset class weights are published" : `Mostly ${top.join(" and ")}`;
+}
+
+/**
+ * The parts of a fund-of-funds as shares of the whole profile: each underlying fund, and whatever
+ * the fund holds directly. A fund keeps one colour within the profile, by its order in it.
+ */
+export function referenceRows(profile: ExposureProfile): ShareRow[] {
+  const rows: ShareRow[] = [];
+  let held = 0;
+  profile.references.forEach((r, i) => {
+    const ppm = percentToPpm(r.percent) ?? 0;
+    held += ppm;
+    rows.push({
+      key: `fund-${r.instrument_id}`,
+      name: r.instrument_name,
+      ppm,
+      percentText: `${r.percent}%`,
+      amountText: null,
+      tone: toneOf("dimension", `fund-${r.instrument_id}`, i),
+    });
+  });
+  if (held < WHOLE_PPM && rows.length > 0) {
+    const ppm = WHOLE_PPM - held;
+    rows.push({
+      key: "held-directly",
+      name: "Held directly",
+      ppm,
+      percentText: `${ppmToPercent(ppm)}%`,
+      amountText: null,
+      tone: toneOf("dimension", "held-directly", rows.length),
+    });
+  }
+  return foldRows(rows, []);
 }

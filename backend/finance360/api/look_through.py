@@ -21,6 +21,13 @@ from finance360.core.exposure import ASSET_CLASS, percent_string
 router = APIRouter(prefix="/api", tags=["look-through"])
 
 
+class ContributionOut(BaseModel):
+    path: list[str] = Field(
+        description="Instrument names from the held fund down to the one that gave."
+    )
+    amount: MoneyOut
+
+
 class LookThroughLineOut(BaseModel):
     kind: Literal["label", "no_profile", "not_classified", "unallocated"]
     key: str | None = Field(description="The Exposure label key of a label line.")
@@ -30,11 +37,30 @@ class LookThroughLineOut(BaseModel):
         description="Of the Account value, two decimal places; display only."
     )
     instrument_id: int | None = Field(description="The Instrument a No profile line asks for.")
+    through_fund: bool = Field(
+        description="An underlying fund of a fund-of-funds gave to this line (see contributions)."
+    )
+    contributions: list[ContributionOut] = Field(
+        description="Each route through the funds that gave to this line, summing to its amount."
+    )
+    reason: Literal["cycle", "too_deep"] | None = Field(
+        description="A No profile line behind a loop of funds, or nested beyond the cap."
+    )
 
 
 class TrimmedOut(BaseModel):
     label_key: str
     percent: str
+
+
+class UnderlyingOut(BaseModel):
+    path: list[str] = Field(description="Instrument names from the held fund down to this one.")
+    amount: MoneyOut
+    profile_as_at: date
+    dated_after: bool
+    shortfall_percent: str
+    trimmed: list[TrimmedOut]
+    omitted: bool
 
 
 class LookThroughPartOut(BaseModel):
@@ -47,6 +73,9 @@ class LookThroughPartOut(BaseModel):
     trimmed: list[TrimmedOut] = Field(description="Trimmed from the largest weight (over 100).")
     omitted: bool = Field(
         description="The profile gives this Dimension no weights, so all of it is Not classified."
+    )
+    underlying: list[UnderlyingOut] = Field(
+        description="The underlying funds a fund-of-funds Holding resolved through."
     )
 
 
@@ -73,6 +102,15 @@ def _lines(c: Composition) -> list[LookThroughLineOut]:
             amount=money_out(line.amount),  # type: ignore[arg-type]
             percent=line.percent,
             instrument_id=line.instrument_id,
+            through_fund=bool(line.contributions),
+            contributions=[
+                ContributionOut(
+                    path=list(x.path),
+                    amount=money_out(x.amount),  # type: ignore[arg-type]
+                )
+                for x in line.contributions
+            ],
+            reason=line.reason,
         )
         for line in c.lines
     ]
@@ -89,6 +127,20 @@ def _parts(c: Composition) -> list[LookThroughPartOut]:
             shortfall_percent=percent_string(p.shortfall_ppm),
             trimmed=[TrimmedOut(label_key=k, percent=percent_string(w)) for k, w in p.trimmed],
             omitted=p.omitted,
+            underlying=[
+                UnderlyingOut(
+                    path=list(u.path),
+                    amount=money_out(u.amount),  # type: ignore[arg-type]
+                    profile_as_at=u.profile_as_at,
+                    dated_after=u.dated_after,
+                    shortfall_percent=percent_string(u.shortfall_ppm),
+                    trimmed=[
+                        TrimmedOut(label_key=k, percent=percent_string(w)) for k, w in u.trimmed
+                    ],
+                    omitted=u.omitted,
+                )
+                for u in p.underlying
+            ],
         )
         for p in c.parts
     ]

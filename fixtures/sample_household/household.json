@@ -588,6 +588,40 @@
         { "as_at": "2026-06-30", "value": "24.1500", "source": "manual", "note": "Invented unit price from a sample statement" },
         { "as_at": "2026-09-30", "value": "25.2300", "source": "manual", "note": "Invented unit price from a sample statement" }
       ]
+    },
+    {
+      "name": "Sample Diversified Fund",
+      "kind": "fund",
+      "currency": "AUD",
+      "notes": "Invented fund-of-funds: it holds two of the Instruments above and a cash sleeve of its own, so its Exposure resolves through theirs.",
+      "identifiers": [
+        { "scheme": "ticker", "value": "SDVF" },
+        { "scheme": "name", "value": "Sample Diversified Fund" }
+      ],
+      "exposure_profiles": [
+        {
+          "as_at": "2026-06-30",
+          "note": "Invented fund-of-funds fact sheet, as at 30 June 2026. 55% Sample Broad Market ETF, 35% Sample Global Equity ETF and a 10% cash sleeve held directly: the 10% is all the fund itself gives, so sector (not published) shows that part as Not classified.",
+          "references": {
+            "Sample Broad Market ETF": "55",
+            "Sample Global Equity ETF": "35"
+          },
+          "weights": {
+            "asset_class": {
+              "cash": "10"
+            },
+            "region": {
+              "australia": "10"
+            },
+            "exposure_currency": {
+              "aud": "10"
+            }
+          }
+        }
+      ],
+      "prices": [
+        { "as_at": "2026-09-30", "value": "1.5200", "source": "manual", "note": "Invented unit price from a sample statement" }
+      ]
     }
   ],
   "income_streams": [

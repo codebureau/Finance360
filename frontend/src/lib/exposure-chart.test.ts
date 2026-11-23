@@ -1,8 +1,16 @@
 import { expect, test } from "vitest";
 
-import type { ExposureDimension, LookThrough } from "@/lib/exposure";
+import type { ExposureDimension, ExposureProfile, LookThrough } from "@/lib/exposure";
 import { buildBarOption, foldRows, type ShareRow } from "@/lib/charts/share";
-import { headline, labelTone, lookThroughRows, profileRows, totalBarGeometry } from "@/lib/exposure-chart";
+import {
+  headline,
+  labelTone,
+  lookThroughRows,
+  profileHeadline,
+  profileRows,
+  referenceRows,
+  totalBarGeometry,
+} from "@/lib/exposure-chart";
 
 const aud = (amount: string, minor: number) => ({ amount, amount_minor: minor, currency: "AUD" });
 const vocab = [
@@ -123,4 +131,56 @@ test("the total bar geometry puts the accepted band around 100%", () => {
   expect(g.bandEnd).toBeGreaterThan(g.fill);
   expect(totalBarGeometry(0).fill).toBe(0);
   expect(totalBarGeometry(5_000_000).fill).toBe(100);
+});
+
+const fundProfile = (percents: string[]) =>
+  ({
+    weights: [{ dimension_key: "asset_class", label_key: "cash", percent: "10" }],
+    references: percents.map((percent, i) => ({ instrument_id: i + 2, instrument_name: `Fund ${i + 1}`, percent })),
+  }) as unknown as ExposureProfile;
+
+test("a fund of funds' shares are each underlying fund and what it holds directly, summed in ppm", () => {
+  const rows = referenceRows(fundProfile(["55", "35"]));
+  expect(rows.map((r) => [r.name, r.ppm, r.percentText])).toEqual([
+    ["Fund 1", 550_000, "55%"],
+    ["Fund 2", 350_000, "35%"],
+    ["Held directly", 100_000, "10%"],
+  ]);
+  expect(rows.reduce((sum, r) => sum + r.ppm, 0)).toBe(1_000_000);
+  // a fund keeps its colour by its order in the profile, and no two share one
+  const tokens = rows.map((r) => (typeof r.tone === "object" ? r.tone.token : -1));
+  expect(new Set(tokens).size).toBe(3);
+  // nothing held directly when the funds cover all of it
+  expect(referenceRows(fundProfile(["60", "40"])).map((r) => r.name)).toEqual(["Fund 1", "Fund 2"]);
+  expect(referenceRows(fundProfile([])).length).toBe(0);
+});
+
+test("the profile headline leads with the funds held, or with the largest asset classes", () => {
+  expect(profileHeadline(fundProfile(["35", "55", "5"]), vocab)).toBe(
+    "A fund of funds: 95% is held in Fund 2 (55%) and Fund 1 (35%) and 1 more",
+  );
+  const plain = {
+    references: [],
+    weights: [
+      { dimension_key: "asset_class", label_key: "cash", percent: "10" },
+      { dimension_key: "asset_class", label_key: "other", percent: "90" },
+    ],
+  } as unknown as ExposureProfile;
+  const withLabels = [{ key: "asset_class", name: "Asset class", labels: [{ key: "cash", name: "Cash" }, { key: "other", name: "Other" }] }] as ExposureDimension[];
+  expect(profileHeadline(plain, withLabels)).toBe("Mostly Other and Cash");
+  expect(profileHeadline({ references: [], weights: [] } as unknown as ExposureProfile, withLabels)).toBe(
+    "No asset class weights are published",
+  );
+});
+
+test("a fund-of-funds' own holdings chart beside the share held through its underlying funds", () => {
+  const weights = [{ dimension_key: "region", label_key: "australia", percent: "10" }];
+  const rows = profileRows(weights, vocab[1], vocab, 900_000);
+  expect(rows.map((r) => [r.name, r.percentText, r.tone])).toEqual([
+    ["Australia", "10%", expect.anything()],
+    ["Through underlying funds", "90%", "muted"],
+  ]);
+  expect(rows.reduce((s, r) => s + r.ppm, 0)).toBe(1_000_000);
+  // A Dimension the fund leaves to its underlying funds stays empty, not a ring of one muted part.
+  expect(profileRows(weights, vocab[2], vocab, 900_000)).toEqual([]);
 });

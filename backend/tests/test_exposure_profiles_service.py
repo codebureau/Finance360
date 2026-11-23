@@ -503,7 +503,7 @@ def test_the_fixture_loads_profiles_through_the_service_once(
     with session_factory.begin() as s:
         seed_exposure_vocab(s)
         inst_svc.load_fixture_instruments(s, tmp_path)
-        assert svc.load_fixture_exposure_profiles(s, tmp_path) == 4
+        assert svc.load_fixture_exposure_profiles(s, tmp_path) == 5
         assert svc.load_fixture_exposure_profiles(s, tmp_path) == 0  # not twice
     with session_factory() as s:
         by_name = {i.name: svc.list_profiles(s, i.id) for i in inst_svc.list_instruments(s)}
@@ -515,6 +515,7 @@ def test_the_fixture_loads_profiles_through_the_service_once(
             "Sample Mining Ltd": 1,
             "Sample Balanced Growth Fund": 1,
             "Sample Global Equity ETF": 1,
+            "Sample Diversified Fund": 1,
         }
         # every profile gives all four Dimensions bar one: the fund publishes no sectors
         dimensions = {
@@ -525,6 +526,8 @@ def test_the_fixture_loads_profiles_through_the_service_once(
         assert dimensions["Sample Broad Market ETF"] == every
         assert dimensions["Sample Global Equity ETF"] == every
         assert dimensions["Sample Balanced Growth Fund"] == every - {"sector"}
+        # the fund-of-funds holds two of the above and gives only its own cash sleeve directly
+        assert dimensions["Sample Diversified Fund"] == every - {"sector"}
         # the AUD-listed global ETF is mostly non-AUD by Exposure currency
         global_etf = by_name["Sample Global Equity ETF"][0]
         aud = sum(
@@ -534,6 +537,6 @@ def test_the_fixture_loads_profiles_through_the_service_once(
         )
         assert aud == 80_000
     events = _events(session_factory)
-    assert len(events) == 4 and {e.source for e in events} == {"fixture"}
+    assert len(events) == 5 and {e.source for e in events} == {"fixture"}
     data = json.loads((tmp_path / "household.json").read_text(encoding="utf-8"))
     assert all("exposure_profiles" in i for i in data["instruments"])

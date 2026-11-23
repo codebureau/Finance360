@@ -24,6 +24,7 @@ import json
 import re
 import shutil
 import sqlite3
+import tempfile
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -36,7 +37,7 @@ import pytest
 from alembic import command
 from alembic.script import ScriptDirectory
 from sqlalchemy import Engine, event, inspect
-from sqlalchemy.orm import ORMExecuteState, Session, defer
+from sqlalchemy.orm import ORMExecuteState, Session, defer, noload
 
 from finance360.capabilities.household import service as household_service
 from finance360.capabilities.household.facts import EffectiveFacts, StoredFacts, resolve_facts
@@ -55,6 +56,9 @@ from finance360.plugins.importers.vanguard_pi import IMPORTER
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "fixtures" / "sample_household" / "household.json"
+
+# ``noload`` (a relationship to a table the old database lacks) is deprecated, not removed.
+pytestmark = pytest.mark.filterwarnings("ignore:The noload:sqlalchemy.exc.SADeprecationWarning")
 
 #: The last revision before M2 (ADR-0013): everything up to here is live household data.
 BASELINE = "0009"
@@ -614,7 +618,16 @@ def _seed_exposure_profiles(session: Session, data_dir: Path) -> None:
     from finance360.core.models.instrument import Instrument
 
     seed_exposure_vocab(session)
-    assert profiles.load_fixture_exposure_profiles(session, data_dir) == 4
+    # The fixture's fund-of-funds needs the ``exposure_reference`` table that 0036 adds: this
+    # revision loads the profiles that need none (0036's seeder records the fund-of-funds).
+    with tempfile.TemporaryDirectory() as plain:
+        household = json.loads((data_dir / "household.json").read_text(encoding="utf-8"))
+        for instrument in household["instruments"]:
+            instrument["exposure_profiles"] = [
+                p for p in instrument.get("exposure_profiles", []) if "references" not in p
+            ]
+        (Path(plain) / "household.json").write_text(json.dumps(household), encoding="utf-8")
+        assert profiles.load_fixture_exposure_profiles(session, Path(plain)) == 4
     etf = session.scalars(
         select(Instrument).where(Instrument.name == "Sample Broad Market ETF")
     ).one()
@@ -642,6 +655,42 @@ def _seed_display_preferences(session: Session, data_dir: Path) -> None:
     login = logins.create_login(session, "synthetic-upgrade-passphrase-1", now=datetime(2026, 1, 1))
     preferences.put_preferences(
         session, login.id, {"position.composition": "bars", "default.share": "stacked-bar"}
+    )
+
+
+def _seed_exposure_references(session: Session, data_dir: Path) -> None:
+    """Revision 0036 created ``exposure_reference``: record the fixture's fund-of-funds through the
+    real service (two references and a cash sleeve), so a populated database holds references."""
+    from datetime import date
+
+    from sqlalchemy import select
+
+    from finance360.capabilities.reference import exposure_profiles as profiles
+    from finance360.core.audit import AuditContext
+    from finance360.core.models.instrument import Instrument
+
+    ids = {i.name: i.id for i in session.scalars(select(Instrument))}
+    household = json.loads((data_dir / "household.json").read_text(encoding="utf-8"))
+    fund = next(i for i in household["instruments"] if i["name"] == "Sample Diversified Fund")
+    [item] = fund["exposure_profiles"]
+    profiles.record_profile(
+        session,
+        AuditContext("owner", "owner", "api"),
+        ids["Sample Diversified Fund"],
+        profiles.ProfileInput(
+            as_at=date.fromisoformat(item["as_at"]),
+            retrieved_on=date(2026, 11, 23),
+            provenance_note=item["note"],
+            weights=tuple(
+                profiles.WeightInput(dimension, label, percent)
+                for dimension, labels in item["weights"].items()
+                for label, percent in labels.items()
+            ),
+            references=tuple(
+                profiles.ReferenceInput(ids[name], percent)
+                for name, percent in item["references"].items()
+            ),
+        ),
     )
 
 
@@ -674,6 +723,7 @@ SEEDERS: dict[str, Callable[[Session, Path], None]] = {
     "0033": _seed_household_facts,
     "0034": _seed_exposure_profiles,
     "0035": _seed_display_preferences,
+    "0036": _seed_exposure_references,
 }
 
 
@@ -754,11 +804,32 @@ def _schema_as_it_stood(engine: Engine) -> Iterator[None]:
             for mapper in state.all_mappers
             if mapper.class_ in selected
             for key in absent.get(mapper.class_, ())
+        ] + [
+            noload(getattr(mapper.class_, key))
+            for mapper in state.all_mappers
+            if mapper.class_ in selected
+            for key in unloaded.get(mapper.class_, ())
         ]
         if not options:
             return None
         return state.invoke_statement(statement=state.statement.options(*options))
 
+    # A relationship to a table this database does not have yet (``ExposureProfile.references``
+    # before 0036) loads nothing: the table's rows cannot exist.
+    absent_tables = {
+        str(getattr(m.local_table, "name", ""))
+        for m in Base.registry.mappers
+        if not have.has_table(str(getattr(m.local_table, "name", "")))
+    }
+    unloaded = {
+        m.class_: [
+            r.key
+            for r in m.relationships
+            if str(getattr(r.mapper.local_table, "name", "")) in absent_tables
+        ]
+        for m in Base.registry.mappers
+        if have.has_table(str(getattr(m.local_table, "name", "")))
+    }
     mappers = {m.class_: m for m in Base.registry.mappers}
     saved = {cls: mappers[cls].eager_defaults for cls in absent}
     # A database from before 0024 has no ``rule_capture`` table, so it has no captures: services
@@ -1388,13 +1459,20 @@ def test_the_upgraded_database_keeps_both_lodged_results_and_still_refuses_to_ch
 def test_downgrading_0034_drops_only_the_exposure_tables(tmp_path: Path) -> None:
     upgrade_populated(tmp_path)
     before = snapshot(tmp_path)
-    assert len(before.tables["exposure_profile"].rows) == 5  # four, and a corrected ETF
-    # 19 + 5 + 17 + 26 weights across four Dimensions, then 1 more
-    assert len(before.tables["exposure_weight"].rows) == 68
+    # four, a corrected ETF, and 0036's fund-of-funds
+    assert len(before.tables["exposure_profile"].rows) == 6
+    # 19 + 5 + 17 + 26 weights across four Dimensions, 1 more, and the fund-of-funds' own 3
+    assert len(before.tables["exposure_weight"].rows) == 71
     config = alembic_config(tmp_path, MIGRATIONS_DIR)
     command.downgrade(config, "0033")
     after = snapshot(tmp_path)
-    gone = {"exposure_dimension", "exposure_label", "exposure_profile", "exposure_weight"}
+    gone = {
+        "exposure_dimension",
+        "exposure_label",
+        "exposure_profile",
+        "exposure_weight",
+        "exposure_reference",
+    }
     assert not gone & after.tables.keys()
     assert not {n for n in after.triggers if n.startswith("exposure_")}
     assert after.indexes == {k: v for k, v in before.indexes.items() if "exposure_" not in k}
@@ -1405,6 +1483,61 @@ def test_downgrading_0034_drops_only_the_exposure_tables(tmp_path: Path) -> None
     command.check(config)
 
 
+def test_downgrading_0036_drops_only_the_exposure_reference_table(tmp_path: Path) -> None:
+    upgrade_populated(tmp_path)
+    before = snapshot(tmp_path)
+    assert sorted(int(str(r[3])) for r in before.tables["exposure_reference"].rows) == [
+        350_000,
+        550_000,
+    ]
+    config = alembic_config(tmp_path, MIGRATIONS_DIR)
+    command.downgrade(config, "0035")
+    after = snapshot(tmp_path)
+    assert "exposure_reference" not in after.tables
+    assert not {n for n in after.triggers if n.startswith("exposure_reference")}
+    assert after.indexes == {
+        k: v for k, v in before.indexes.items() if "exposure_reference" not in k
+    }
+    for name, table in after.tables.items():
+        assert table.rows == before.tables[name].rows, name  # every profile and weight stays
+    assert len(after.tables["exposure_profile"].rows) == 6
+    command.upgrade(config, "head")
+    command.check(config)
+
+
+def test_the_upgraded_database_keeps_its_references_exactly_and_refuses_to_change_them(
+    tmp_path: Path,
+) -> None:
+    """0036 adds fund-of-funds references. After the whole chain the fixture fund's two references
+    are there with their exact weights, and the immutability and integer guards are in place."""
+    upgrade_populated(tmp_path)
+    after = snapshot(tmp_path)
+    assert {
+        "exposure_reference_no_update",
+        "exposure_reference_no_delete",
+        "exposure_reference_ppm_integer",
+    } <= after.triggers.keys()
+    conn = sqlite3.connect(db_path(tmp_path))
+    try:
+        conn.execute("PRAGMA foreign_keys=ON")
+        rows = conn.execute(
+            "SELECT i.name, r.weight_ppm FROM exposure_reference r "
+            "JOIN instrument i ON i.id = r.instrument_id ORDER BY r.id"
+        ).fetchall()
+        assert rows == [("Sample Broad Market ETF", 550000), ("Sample Global Equity ETF", 350000)]
+        with pytest.raises(sqlite3.DatabaseError, match="immutable"):
+            conn.execute("UPDATE exposure_reference SET weight_ppm = 1")
+        with pytest.raises(sqlite3.DatabaseError, match="immutable"):
+            conn.execute("DELETE FROM exposure_reference")
+        with pytest.raises(sqlite3.DatabaseError, match="must be an integer"):
+            conn.execute(
+                "INSERT INTO exposure_reference (profile_id, instrument_id, weight_ppm) "
+                "VALUES (1, 1, 500000.5)"
+            )
+    finally:
+        conn.close()
+
+
 def test_downgrading_0035_drops_only_the_display_preference_table(tmp_path: Path) -> None:
     upgrade_populated(tmp_path)
     before = snapshot(tmp_path)
@@ -1413,6 +1546,8 @@ def test_downgrading_0035_drops_only_the_display_preference_table(tmp_path: Path
         (1, "position.composition", "bars"),
     ]
     config = alembic_config(tmp_path, MIGRATIONS_DIR)
+    command.downgrade(config, "0035")  # 0036 sits above this table: step it off first
+    before = snapshot(tmp_path)
     command.downgrade(config, "0034")
     after = snapshot(tmp_path)
     assert "display_preference" not in after.tables

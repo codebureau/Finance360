@@ -4,7 +4,8 @@ Services: ``capabilities/reference`` (``exposure_profiles``). Dimensions and Exp
 seeded data (``core/exposure_vocab.py``). An ``exposure_profile`` is a ``SupersessionMixin`` row
 that is never updated or deleted; its ``exposure_weight`` children are immutable (a correction
 writes new ones). Weights are integer parts per million (a ``Weight``), never a float. Triggers in
-the migration enforce all of this.
+the migration enforce all of this. An ``exposure_reference`` (fund-of-funds, ADR-0030 section 5) is
+a weighted pointer from a profile to another Instrument, immutable like a weight.
 """
 
 from __future__ import annotations
@@ -89,6 +90,9 @@ class ExposureProfile(SupersessionMixin, Base):
     weights: Mapped[list[ExposureWeight]] = relationship(
         order_by="ExposureWeight.id", lazy="selectin"
     )
+    references: Mapped[list[ExposureReference]] = relationship(
+        order_by="ExposureReference.id", lazy="selectin"
+    )
 
 
 class ExposureWeight(Base):
@@ -109,5 +113,24 @@ class ExposureWeight(Base):
     profile_id: Mapped[int] = mapped_column(ForeignKey("exposure_profile.id"), index=True)
     dimension_key: Mapped[str] = mapped_column(String(30))
     label_key: Mapped[str] = mapped_column(String(50))
+    #: Exact parts per million of 1 (a ``Weight``).
+    weight_ppm: Mapped[int] = mapped_column(Integer)
+
+
+class ExposureReference(Base):
+    """A fund-of-funds reference: part of a profile is the Instrument ``instrument_id``, resolved
+    through that Instrument's own profile on the look-through date (never a pinned version)."""
+
+    __tablename__ = "exposure_reference"
+    __table_args__ = (
+        CheckConstraint("weight_ppm > 0 AND weight_ppm <= 1000000", name="weight_range"),
+        UniqueConstraint(
+            "profile_id", "instrument_id", name="uq_exposure_reference_profile_instrument"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    profile_id: Mapped[int] = mapped_column(ForeignKey("exposure_profile.id"), index=True)
+    instrument_id: Mapped[int] = mapped_column(ForeignKey("instrument.id"), index=True)
     #: Exact parts per million of 1 (a ``Weight``).
     weight_ppm: Mapped[int] = mapped_column(Integer)

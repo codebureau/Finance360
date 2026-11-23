@@ -7,14 +7,17 @@ integer parts per million (``core.weight.Weight``); a Dimension's total is judge
 ``WEIGHT_TOLERANCE_PPM`` here, and a total beyond it is rejected with the difference shown. How a
 within-tolerance total resolves (shortfall to Not classified, excess trimmed from the largest
 weight) is applied when the profile is read (``core.exposure.effective_weights``): nothing is
-normalised on write. Every write is audited in the caller's session (the caller owns the
-transaction); seeding the vocabulary is not.
+normalised on write. A profile may also hold fund-of-funds references (ADR-0030 section 5):
+weighted pointers to other Instruments. A write that would make a loop of references, or nest them
+deeper than ``MAX_DEPTH``, is rejected with a message naming it; a reference to an Instrument that
+has no profile is allowed (it shows as No profile in a look-through). Every write is audited in
+the caller's session (the caller owns the transaction); seeding the vocabulary is not.
 """
 
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -28,9 +31,13 @@ from finance360.core import audit
 from finance360.core.audit import AuditContext
 from finance360.core.errors import FieldError, NotFoundError, ValidationError
 from finance360.core.exposure import (
+    MAX_DEPTH,
     WEIGHT_TOLERANCE_PPM,
     OutsideTolerance,
     ProfileFacts,
+    ReferenceCycle,
+    ReferencesTooDeep,
+    check_references,
     effective_weights,
     percent_string,
 )
@@ -38,6 +45,7 @@ from finance360.core.models.exposure import (
     ExposureDimension,
     ExposureLabel,
     ExposureProfile,
+    ExposureReference,
     ExposureWeight,
 )
 from finance360.core.models.instrument import Instrument
@@ -63,6 +71,15 @@ class WeightInput:
 
 
 @dataclass(frozen=True)
+class ReferenceInput:
+    """A fund-of-funds reference: part of the profile is another Instrument."""
+
+    instrument_id: int
+    #: A percent decimal string, at most 4 decimal places. Never a float.
+    percent: str
+
+
+@dataclass(frozen=True)
 class ProfileInput:
     as_at: date
     weights: tuple[WeightInput, ...]
@@ -70,6 +87,7 @@ class ProfileInput:
     #: The day it was entered or retrieved; the caller supplies it (the Household's today).
     retrieved_on: date
     source: str = MANUAL
+    references: tuple[ReferenceInput, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -148,6 +166,7 @@ def facts(profile: ExposureProfile) -> ProfileFacts:
         profile.age_from,
         profile.source,
         tuple((w.dimension_key, w.label_key, w.weight_ppm) for w in profile.weights),
+        tuple((r.instrument_id, r.weight_ppm) for r in profile.references),
     )
 
 
@@ -171,6 +190,37 @@ def current_profile_facts(
     return {k: tuple(v) for k, v in found.items()}
 
 
+def profile_facts_closure(
+    session: Session, instrument_ids: Sequence[int]
+) -> dict[int, tuple[ProfileFacts, ...]]:
+    """The current profiles of these Instruments and of every Instrument they reference, however
+    deep (a loop in bad data ends where it starts): all the pure resolver needs, preloaded."""
+    found: dict[int, tuple[ProfileFacts, ...]] = {}
+    queue = list(dict.fromkeys(instrument_ids))
+    while queue:
+        batch = [i for i in queue if i not in found]
+        if not batch:
+            break
+        loaded = current_profile_facts(session, batch)
+        for instrument_id in batch:
+            found[instrument_id] = loaded.get(instrument_id, ())
+        queue = [
+            ref
+            for profiles in loaded.values()
+            for profile in profiles
+            for ref, _ in profile.references
+        ]
+    return {k: v for k, v in found.items() if v}
+
+
+def instrument_names(session: Session, instrument_ids: Collection[int]) -> dict[int, str]:
+    """The names of these Instruments (for a fund-of-funds' references and look-through routes)."""
+    if not instrument_ids:
+        return {}
+    query = select(Instrument.id, Instrument.name).where(Instrument.id.in_(set(instrument_ids)))
+    return {instrument_id: name for instrument_id, name in session.execute(query)}
+
+
 @dataclass(frozen=True)
 class DimensionResolution:
     """How one Dimension of a stored profile resolves (shown on the profile and the panel)."""
@@ -181,6 +231,8 @@ class DimensionResolution:
     difference_ppm: int
     not_classified_ppm: int
     trimmed: tuple[tuple[str, int], ...]
+    #: ``(instrument_id, ppm)`` trimmed from the largest reference when no direct weight took it.
+    trimmed_references: tuple[tuple[int, int], ...] = ()
 
 
 def resolutions(session: Session, profile: ExposureProfile) -> list[DimensionResolution]:
@@ -189,8 +241,10 @@ def resolutions(session: Session, profile: ExposureProfile) -> list[DimensionRes
     stored = facts(profile)
     for dimension_key in dict.fromkeys(d for d, _, _ in stored.weights):
         direct = stored.for_dimension(dimension_key)
-        total = sum(ppm for _, ppm in direct)
-        effective = effective_weights(direct, label_order(session, dimension_key))
+        total = sum(ppm for _, ppm in direct) + sum(ppm for _, ppm in stored.references)
+        effective = effective_weights(
+            direct, label_order(session, dimension_key), stored.references
+        )
         found.append(
             DimensionResolution(
                 dimension_key,
@@ -198,6 +252,7 @@ def resolutions(session: Session, profile: ExposureProfile) -> list[DimensionRes
                 total - PPM,
                 effective.not_classified_ppm,
                 effective.trimmed,
+                effective.trimmed_references,
             )
         )
     return found
@@ -223,6 +278,13 @@ def _snapshot(profile: ExposureProfile) -> dict[str, Any]:
             }
             for w in profile.weights
         ],
+        "references": [
+            {
+                "instrument_id": r.instrument_id,
+                "percent": Weight(r.weight_ppm).to_percent(),
+            }
+            for r in profile.references
+        ],
     }
 
 
@@ -236,12 +298,96 @@ class _Checked:
     source: str
     note: str
     weights: tuple[tuple[str, str, int], ...]
+    references: tuple[tuple[int, int], ...] = ()
 
 
 _points = percent_string
 
 
-def _check(session: Session, instrument: Instrument, data: ProfileInput) -> _Checked:
+def _reference_edges(session: Session, replacing: int | None) -> dict[int, set[int]]:
+    """The graph of current references: Instrument to the Instruments its current profiles
+    reference, leaving out the profile being superseded."""
+    edges: dict[int, set[int]] = {}
+    query = (
+        select(ExposureProfile.instrument_id, ExposureReference.instrument_id)
+        .join(ExposureReference, ExposureReference.profile_id == ExposureProfile.id)
+        .where(ExposureProfile.superseded_at.is_(None))
+    )
+    if replacing is not None:
+        query = query.where(ExposureProfile.id != replacing)
+    for holder, referenced in session.execute(query):
+        edges.setdefault(holder, set()).add(referenced)
+    return edges
+
+
+def _check_references(
+    session: Session, instrument: Instrument, data: ProfileInput, replacing: int | None
+) -> tuple[list[tuple[int, int]], list[FieldError]]:
+    """Parse and judge the references: each exists, once, with a valid weight; no loop; no deeper
+    than ``MAX_DEPTH``. Returns the ``(instrument_id, ppm)`` pairs and any errors."""
+    errors: list[FieldError] = []
+    parsed: list[tuple[int, int]] = []
+    seen: set[int] = set()
+    for entry in data.references:
+        where = f"references.{entry.instrument_id}"
+        if session.get(Instrument, entry.instrument_id) is None:
+            errors.append(FieldError(where, "This Instrument does not exist."))
+            continue
+        if entry.instrument_id in seen:
+            errors.append(FieldError(where, "This Instrument is entered twice."))
+            continue
+        seen.add(entry.instrument_id)
+        try:
+            weight = Weight.from_percent(entry.percent)
+        except (WeightError, TypeError, ValueError):
+            errors.append(
+                FieldError(
+                    where,
+                    "Enter a percentage above 0 and at most 100, with at most 4 decimal places.",
+                )
+            )
+            continue
+        parsed.append((entry.instrument_id, weight.ppm))
+    total = sum(ppm for _, ppm in parsed)
+    if total > PPM + WEIGHT_TOLERANCE_PPM:
+        errors.append(
+            FieldError(
+                "references",
+                f"The underlying funds total {_points(total)}%, over 100% by "
+                f"{_points(total - PPM)} points. Up to {_points(WEIGHT_TOLERANCE_PPM)} point "
+                "either way is accepted: check the figures.",
+            )
+        )
+    if errors or not parsed:  # no reference can make a loop or a deeper chain
+        return parsed, errors
+    names = {i.id: i.name for i in session.scalars(select(Instrument))}
+    try:
+        check_references(
+            _reference_edges(session, replacing), instrument.id, [i for i, _ in parsed]
+        )
+    except ReferenceCycle as loop:
+        chain = " > ".join(names.get(i, str(i)) for i in loop.loop)
+        errors.append(
+            FieldError(
+                "references",
+                f"This would make a loop of funds: {chain}. A fund cannot hold itself, "
+                "directly or through other funds.",
+            )
+        )
+    except ReferencesTooDeep as deep:
+        errors.append(
+            FieldError(
+                "references",
+                f"Funds would nest {deep.depth} levels deep; a look-through follows at most "
+                f"{MAX_DEPTH}.",
+            )
+        )
+    return parsed, errors
+
+
+def _check(
+    session: Session, instrument: Instrument, data: ProfileInput, replacing: int | None = None
+) -> _Checked:
     errors: list[FieldError] = []
     source = data.source.strip().lower()
     if source not in SOURCES:
@@ -253,8 +399,10 @@ def _check(session: Session, instrument: Instrument, data: ProfileInput) -> _Che
         errors.append(
             FieldError("provenance_note", f"The note must be at most {NOTE_MAX} characters.")
         )
-    if not data.weights:
-        errors.append(FieldError("weights", "Enter at least one weight."))
+    if not data.weights and not data.references:
+        errors.append(FieldError("weights", "Enter at least one weight or underlying fund."))
+    references, reference_errors = _check_references(session, instrument, data, replacing)
+    errors.extend(reference_errors)
 
     names = {d.key: d.name for d in vocabulary(session)}
     known = {(d.key, label.key) for d in vocabulary(session) for label in d.labels}
@@ -291,14 +439,16 @@ def _check(session: Session, instrument: Instrument, data: ProfileInput) -> _Che
         for dimension_key in dict.fromkeys(d for d, _, _ in parsed):
             direct = [(label, ppm) for d, label, ppm in parsed if d == dimension_key]
             try:
-                effective_weights(direct, label_order(session, dimension_key))
+                effective_weights(direct, label_order(session, dimension_key), references)
             except OutsideTolerance as outside:
                 gap = abs(outside.difference_ppm)
                 way = "short of" if outside.difference_ppm < 0 else "over"
                 errors.append(
                     FieldError(
                         "weights",
-                        f"{names[dimension_key]} weights total {_points(outside.total_ppm)}% "
+                        f"{names[dimension_key]} weights"
+                        f"{' and underlying funds' if references else ''} "
+                        f"total {_points(outside.total_ppm)}% "
                         f"({_points(gap)} points {way} 100%). Up to "
                         f"{_points(WEIGHT_TOLERANCE_PPM)} point either way is accepted: "
                         "check the figures.",
@@ -306,7 +456,7 @@ def _check(session: Session, instrument: Instrument, data: ProfileInput) -> _Che
                 )
     if errors:
         raise ValidationError(errors)
-    return _Checked(data.as_at, data.retrieved_on, source, note, tuple(parsed))
+    return _Checked(data.as_at, data.retrieved_on, source, note, tuple(parsed), tuple(references))
 
 
 # --- mutations -----------------------------------------------------------------------------
@@ -341,6 +491,10 @@ def _insert(session: Session, instrument: Instrument, checked: _Checked) -> Expo
         ExposureWeight(dimension_key=d, label_key=label, weight_ppm=ppm)
         for d, label, ppm in checked.weights
     ]
+    profile.references = [
+        ExposureReference(instrument_id=instrument_id, weight_ppm=ppm)
+        for instrument_id, ppm in checked.references
+    ]
     session.add(profile)
     session.flush()
     return profile
@@ -360,8 +514,8 @@ def record_profile(
     history, linked to its replacement.
     """
     instrument = get_instrument(session, instrument_id)
-    checked = _check(session, instrument, data)
-    old = _current_at(session, instrument.id, checked.as_at)
+    old = _current_at(session, instrument.id, data.as_at)
+    checked = _check(session, instrument, data, old.id if old else None)
     if old is None:
         profile = _insert(session, instrument, checked)
         audit.record(
@@ -377,6 +531,8 @@ def record_profile(
     same = (
         sorted((w.dimension_key, w.label_key, w.weight_ppm) for w in old.weights)
         == sorted(checked.weights)
+        and sorted((r.instrument_id, r.weight_ppm) for r in old.references)
+        == sorted(checked.references)
         and old.provenance_note == checked.note
         and old.source == checked.source
     )
@@ -409,7 +565,8 @@ def load_fixture_exposure_profiles(session: Session, data_dir: Path) -> int:
 
     Reads ``exposure_profiles`` from each Instrument entry in ``<data_dir>/household.json``
     (matched by name): rows of ``as_at``, ``note`` and ``weights``, a map of Dimension key to a
-    map of label key to a percent string.
+    map of label key to a percent string. An optional ``references`` map of Instrument name to a
+    percent string makes the profile a fund-of-funds (the Instruments are the fixture's own).
     """
     path = data_dir / FIXTURE_FILENAME
     if not path.is_file() or session.scalar(select(func.count()).select_from(ExposureProfile)):
@@ -432,8 +589,12 @@ def load_fixture_exposure_profiles(session: Session, data_dir: Path) -> int:
                     provenance_note=item["note"],
                     weights=tuple(
                         WeightInput(dimension, label, str(percent))
-                        for dimension, labels in item["weights"].items()
+                        for dimension, labels in item.get("weights", {}).items()
                         for label, percent in labels.items()
+                    ),
+                    references=tuple(
+                        ReferenceInput(ids[name], str(percent))
+                        for name, percent in item.get("references", {}).items()
                     ),
                 ),
             )
