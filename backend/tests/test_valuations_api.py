@@ -234,7 +234,7 @@ def test_the_sample_household_has_about_two_years_of_valuations_with_gaps_per_ac
     sample: TestClient,
 ) -> None:
     accounts = sample.get("/api/accounts").json()
-    assert len(accounts) == 12
+    assert len(accounts) == 13
     for account in accounts:
         history = sample.get(f"/api/accounts/{account['id']}/valuations").json()
         dates = sorted(date.fromisoformat(v["as_at"]) for v in history)
@@ -250,6 +250,10 @@ def test_the_sample_household_has_about_two_years_of_valuations_with_gaps_per_ac
             if account["name"].startswith("Dormant super"):
                 wanted.append("2025-06-30")
             assert [d.isoformat() for d in dates] == wanted
+            continue
+        if account["name"].startswith("Joint investment account"):
+            # Opened empty (#87): one opening 0.00; its value comes from imports, not Valuations.
+            assert [d.isoformat() for d in dates] == ["2026-07-02"]
             continue
         assert 12 <= len(history) <= 30, account["name"]
         assert (dates[-1] - dates[0]).days >= 600, account["name"]  # about 24 months

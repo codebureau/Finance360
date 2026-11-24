@@ -549,8 +549,8 @@ def test_without_a_fixture_no_accounts_are_loaded(
 def test_the_shipped_fixture_has_the_required_shape() -> None:
     fixture = Path(__file__).resolve().parents[2] / "fixtures/sample_household/household.json"
     accounts = json.loads(fixture.read_text(encoding="utf-8"))["accounts"]
-    assert len(accounts) == 12
-    assert sum(len(a["owners"]) > 1 for a in accounts) == 1
+    assert len(accounts) == 13
+    assert sum(len(a["owners"]) > 1 for a in accounts) == 2  # savings, joint investments
     assert [a["currency"] for a in accounts if a.get("currency", "AUD") != "AUD"] == ["GBP"]
     assert {a["category"] for a in accounts} == {
         "cash", "investments", "superannuation", "overseas_pensions", "property",

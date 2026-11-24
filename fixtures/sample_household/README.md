@@ -75,6 +75,17 @@ them through the service layer on first run, so audit and validation apply:
   (2026-09-30), so the look-through shows Unallocated as "change since 30 June 2026", 3,728.06
   (1.73%): beyond the 1% reconcile tolerance but within the 15% stale tolerance, so quiet. A fixture
   that changes this needs `review --reset`, as the review slot loads the fixture only once.
+  The last Account, `Joint investment account (Sample Brokerage)` (#87; investments, type `brokerage_holdings`,
+  owned 50/50 by Alex and Jordan, opened 2026-07-02, identifier `SAMPLE-PI-0002`), exercises the Exposure
+  screen's Member split of a joint Account. Its one Valuation (0.00 on 2026-07-02) says it opened empty, so
+  it adds nothing to the Position until the imports are committed. Its value is derived from two files in `imports/`: `investment_transactions_accSAMPLE-PI-0002_...csv`
+  (33 SBME, 151 SMPM and 2,000 SDVF) and `cash_transactions_accSAMPLE-PI-0002_...csv`. Stage and commit **both** (the
+  trades first) on that Account (Imports, choose the Account), so each Stream has Coverage to 2026-09-30. It is then worth
+  9,951.01 on 2026-09-30 (SBME 3,171.55, SMPM 955.89, SDVF 3,040.00, cash 2,783.57), an odd cent, so the 50/50 split is
+  4,975.51 (Alex) and 4,975.50 (Jordan). Before the imports are committed it is shown as Not analysed. It has no Instrument
+  without a profile, so it shows no No profile line.
+  Alex's Sample Super Fund Account is the other analysed Account (from its Super statement); every other Account is Not
+  analysed on the Exposure screen. A fixture that changes this needs `review --reset`.
   The top-level `income_streams` (an invented salary for each Member: Alex 120,000.00 gross and
   91,000.00 take-home, Jordan 85,000.00 gross and 66,000.00 take-home; both end at the owner's
   retirement) are read by

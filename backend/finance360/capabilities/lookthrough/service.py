@@ -95,9 +95,10 @@ def account_look_through(
     on: date | None = None,
     dimension: str = ASSET_CLASS,
     stale_days: int = DEFAULT_STALE_DAYS,
+    position: Position | None = None,
 ) -> LookThrough:
     """The Account's value on ``on`` (default: the latest date its Coverage reaches, at most today)
-    split by ``dimension``."""
+    split by ``dimension``. A roll-up passes the ``position`` it already holds for ``on``."""
     account = accounts.get_account(session, account_id)  # NotFoundError for an unknown Account
     vocab = {d.key: d for d in exposure_profiles.vocabulary(session)}
     if dimension not in vocab:
@@ -181,7 +182,7 @@ def account_look_through(
             )
         parts_total = Money(sum(p.amount.amount_minor for p in parts), statement.currency)
 
-    line = _account_line(position_service.position_on(session, on), account_id)
+    line = _account_line(position or position_service.position_on(session, on), account_id)
     if line is None:
         return out(f"The Account does not count in the Position on {on.isoformat()}.")
     if line.value is None:

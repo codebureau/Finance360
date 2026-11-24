@@ -1,0 +1,8 @@
+Date,Type,Product Type,Product Name,Product ID,Units,Total
+30-Sep-2026,Interest,Cash account,Interest on cash,CASH,,2.33
+24-Sep-2026,Buy,Managed Fund,Sample Diversified Fund,SDVF,2000,-3000.00
+12-Aug-2026,Fees and Charges,Cash account,Brokerage SMPM,CASH,,-9.50
+12-Aug-2026,Buy,Share,Sample Mining Limited,SMPM,151,-936.20
+03-Aug-2026,Fees and Charges,Cash account,Brokerage SBME,CASH,,-9.50
+03-Aug-2026,Buy,ETF,Sample Broad Market Index ETF,SBME,33,-3263.56
+02-Jul-2026,Deposit,Cash account,Deposit from linked bank,CASH,,10000.00

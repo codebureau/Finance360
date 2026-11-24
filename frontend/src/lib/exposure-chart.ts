@@ -4,7 +4,7 @@ import {
   ppmToPercent,
   type ExposureDimension,
   type ExposureProfile,
-  type LookThrough,
+  type LookThroughLine,
 } from "@/lib/exposure";
 import { foldRows, type ShareRow } from "@/lib/charts/share";
 import { formatMoney } from "@/lib/money";
@@ -28,8 +28,14 @@ export function labelTone(dimensionKey: string, labelKey: string, vocab: Exposur
   return toneOf("dimension", labelKey, labels.findIndex((l) => l.key === labelKey));
 }
 
+/** What the chart rows and the headline read of an Account's look-through or a roll-up's figures. */
+export type LineSet = {
+  dimension_key: string;
+  lines: Pick<LookThroughLine, "kind" | "key" | "name" | "percent" | "amount">[];
+};
+
 /** Rows for a look-through: positive lines only; the table keeps every line, zeros included. */
-export function lookThroughRows(data: LookThrough, vocab: ExposureDimension[]): ShareRow[] {
+export function lookThroughRows(data: LineSet, vocab: ExposureDimension[]): ShareRow[] {
   const labels: ShareRow[] = [];
   const explicit: ShareRow[] = [];
   for (const line of data.lines) {
@@ -97,7 +103,9 @@ export function profileRows(
 const NOTICE_PPM = 10_000; // one point: the named weight tolerance
 
 /** The plain-language headline of a look-through: what to notice, computed from the data. */
-export function headline(data: LookThrough): string {
+export function headline(
+  data: { dimension_name: string; lines: LineSet["lines"]; flagged?: boolean; change_since?: string | null },
+): string {
   const dimension = data.dimension_name.toLowerCase();
   const ppm = (percent: string | null) => (percent === null ? 0 : (percentToPpm(percent) ?? 0));
   const sumOf = (kind: string) => data.lines.filter((l) => l.kind === kind).reduce((s, l) => s + ppm(l.percent), 0);

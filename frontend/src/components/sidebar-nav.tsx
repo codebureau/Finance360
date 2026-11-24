@@ -12,6 +12,7 @@ import {
   FlaskConical,
   ClipboardList,
   Home,
+  Layers,
   Library,
   LineChart,
   ListChecks,
@@ -52,7 +53,10 @@ export const SIDEBAR_GROUPS: { heading: string; guide: string; tone: GroupTone; 
     heading: "Where we stand",
     guide: "/guide/position",
     tone: 0,
-    items: [{ to: "/position", label: "Position", icon: LineChart }],
+    items: [
+      { to: "/position", label: "Position", icon: LineChart },
+      { to: "/exposure", label: "Exposure", icon: Layers },
+    ],
   },
   {
     heading: "Where we're heading",

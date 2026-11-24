@@ -9,6 +9,10 @@ export type ExposureProfileInput = components["schemas"]["ProfileIn"];
 export type ExposureResolution = components["schemas"]["ResolutionOut"];
 export type LookThrough = components["schemas"]["LookThroughOut"];
 export type LookThroughLine = components["schemas"]["LookThroughLineOut"];
+export type Rollup = components["schemas"]["RollupOut"];
+export type RolledFigures = components["schemas"]["RolledOut"];
+export type RolledLine = components["schemas"]["RolledLineOut"];
+export type NotAnalysed = components["schemas"]["NotAnalysedOut"];
 export type LookThroughPart = components["schemas"]["LookThroughPartOut"];
 export type ExposureReference = components["schemas"]["ReferenceOut"];
 export type OptionLinkInput = components["schemas"]["OptionLinkIn"];
@@ -64,6 +68,16 @@ export async function fetchLookThrough(
       path: { account_id: accountId },
       query: { ...(asAt ? { on: asAt } : {}), ...(dimension ? { dimension } : {}) },
     },
+  });
+  if (!data) throw toApiError(error, response.status);
+  return data;
+}
+
+/** The whole Household split by one Dimension at every level, on a date (default: where the
+ * imports reach, at most today). */
+export async function fetchLookThroughRollup(asAt: string | undefined, dimension: string | undefined): Promise<Rollup> {
+  const { data, error, response } = await client.GET("/api/look-through", {
+    params: { query: { ...(asAt ? { on: asAt } : {}), ...(dimension ? { dimension } : {}) } },
   });
   if (!data) throw toApiError(error, response.status);
   return data;

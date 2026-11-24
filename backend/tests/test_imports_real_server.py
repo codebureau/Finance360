@@ -183,6 +183,7 @@ def test_the_same_identifier_added_at_once_is_stored_once(instance: Instance) ->
     everyday = next(
         a["id"] for a in http.get("/api/accounts").json() if a["name"].startswith("Everyday")
     )
+    audited_before = instance.count("audit_event WHERE entity_type = 'account_identifier'")
 
     def add(_: int) -> httpx.Response:
         return http.post(
@@ -200,7 +201,8 @@ def test_the_same_identifier_added_at_once_is_stored_once(instance: Instance) ->
         (r.status_code, r.text[:80]) for r in responses
     ]
     assert len(http.get(f"/api/accounts/{everyday}/identifiers").json()) == 1
-    assert instance.count("audit_event WHERE entity_type = 'account_identifier'") == 2  # + fixture
+    audited = instance.count("audit_event WHERE entity_type = 'account_identifier'")
+    assert audited == audited_before + 1  # one write audited, whatever the fixture already has
 
 
 def test_mapping_a_new_transaction_type_works_over_a_real_server(instance: Instance) -> None:

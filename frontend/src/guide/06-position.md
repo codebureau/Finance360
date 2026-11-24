@@ -19,6 +19,9 @@ Pictures first, figures one click behind them.
   - **Layout**: Tree or Table for the figures.
 - Inside the figures, a line shows how the net figure adds up: each Member's solely held Accounts, plus Joint, equals the Household.
 
+## What it is made of, underneath
+The [Exposure](/exposure) screen splits the same Position by what the investments hold (asset class, region and so on), for the Household, each Member, Category or Account. See [Exposure](/guide/exposure).
+
 ## Where each figure comes from
 - A manually valued Account (cash, super, loans, property, vehicles) shows its latest Valuation on or before the date. A super fund Account's page can also split that value by what its Investment options hold; see [Accounts and imports](/guide/accounts-and-imports).
 - An investment platform Account shows a value worked out from its Holdings and the Prices on that date. See [Accounts and imports](/guide/accounts-and-imports).

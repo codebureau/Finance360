@@ -138,12 +138,14 @@ source_modules = [
     "finance360.capabilities.lookthrough.resolve",
     "finance360.capabilities.lookthrough.lines",
     "finance360.capabilities.lookthrough.reconcile",
+    "finance360.capabilities.lookthrough.apportion",
 ]
 forbidden_modules = [
     "finance360.core.db",
     "finance360.core.models",
     "finance360.core.audit",
     "finance360.capabilities.lookthrough.service",
+    "finance360.capabilities.lookthrough.rollup",
     "finance360.capabilities.position",
     "finance360.capabilities.household",
     "finance360.capabilities.reference",
