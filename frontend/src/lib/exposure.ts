@@ -11,6 +11,8 @@ export type LookThrough = components["schemas"]["LookThroughOut"];
 export type LookThroughLine = components["schemas"]["LookThroughLineOut"];
 export type LookThroughPart = components["schemas"]["LookThroughPartOut"];
 export type ExposureReference = components["schemas"]["ReferenceOut"];
+export type OptionLinkInput = components["schemas"]["OptionLinkIn"];
+export type OptionLink = components["schemas"]["OptionLinkOut"];
 
 /** The named tolerance (ADR-0030): a Dimension may total 100% plus or minus this many ppm. The
  * server decides; the form only previews it. */
@@ -62,6 +64,19 @@ export async function fetchLookThrough(
       path: { account_id: accountId },
       query: { ...(asAt ? { on: asAt } : {}), ...(dimension ? { dimension } : {}) },
     },
+  });
+  if (!data) throw toApiError(error, response.status);
+  return data;
+}
+
+/**
+ * Map a super Account's Investment option to an Instrument, or create a fund from its name
+ * (ADR-0030 section 4). Later Super statements with the same name need no new mapping.
+ */
+export async function mapInvestmentOption(accountId: number, input: OptionLinkInput): Promise<OptionLink> {
+  const { data, error, response } = await client.PUT("/api/accounts/{account_id}/investment-option-links", {
+    params: { path: { account_id: accountId } },
+    body: input,
   });
   if (!data) throw toApiError(error, response.status);
   return data;

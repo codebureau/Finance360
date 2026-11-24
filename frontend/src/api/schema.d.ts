@@ -155,6 +155,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/accounts/{account_id}/investment-option-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Map Investment Option
+         * @description Map a super Account's Investment option to an Instrument, or create a fund from its name.
+         *     Later Super statements with the same name (any case or spacing) need no new mapping.
+         */
+        put: operations["mapInvestmentOption"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/accounts/{account_id}/look-through": {
         parameters: {
             query?: never;
@@ -164,12 +185,13 @@ export interface paths {
         };
         /**
          * Get Look Through
-         * @description An investment Account's value on a date split by an Exposure Dimension (asset class, region,
-         *     sector or exposure currency), from
-         *     its Holdings' manually entered Exposure profiles. The lines, including No profile, Not
+         * @description An Account's value on a date split by an Exposure Dimension (asset class, region, sector or
+         *     exposure currency), from its Holdings' (or, for a super fund, its Super statement's Investment
+         *     options') manually entered Exposure profiles. The lines, including No profile, Not
          *     classified and Unallocated, sum exactly to the Account's value in the Position. ``on``
          *     defaults to the latest date the Account's Streams' Coverage reaches (at most today), as the
-         *     Derived value does; ``applies`` is false when the value is not built from Holdings.
+         *     Derived value does; ``applies`` is false when the Account is neither built from Holdings nor
+         *     a super fund.
          */
         get: operations["getLookThrough"];
         put?: never;
@@ -5240,6 +5262,11 @@ export interface components {
             /** Name */
             name: string;
             /**
+             * Option Name
+             * @description A No profile line for an Investment option not mapped to a fund yet.
+             */
+            option_name: string | null;
+            /**
              * Percent
              * @description Of the Account value, two decimal places; display only.
              */
@@ -5259,7 +5286,7 @@ export interface components {
         LookThroughOut: {
             /**
              * Applies
-             * @description False when the Account's value is not built from Holdings.
+             * @description False when the Account has no look-through (neither Holdings nor a super fund).
              */
             applies: boolean;
             /**
@@ -5267,6 +5294,11 @@ export interface components {
              * Format: date
              */
             as_at: string;
+            /**
+             * Change Since
+             * @description Set when the Valuation is dated after the Super statement: Unallocated is then the change since this date, judged against the stale tolerance.
+             */
+            change_since: string | null;
             /** Dimension Key */
             dimension_key: string;
             /** Dimension Name */
@@ -5282,6 +5314,21 @@ export interface components {
             parts: components["schemas"]["LookThroughPartOut"][];
             /** Reason */
             reason: string | null;
+            /**
+             * Source
+             * @description Where the parts come from: the Holdings, or the Super statement's options.
+             */
+            source: ("holdings" | "super_statement") | null;
+            /**
+             * Statement Date
+             * @description That Super statement's date (30 June).
+             */
+            statement_date: string | null;
+            /**
+             * Statement Id
+             * @description The Super statement the parts come from.
+             */
+            statement_id: number | null;
             /**
              * Status
              * @enum {string}
@@ -5301,6 +5348,11 @@ export interface components {
             dated_after: boolean;
             /** Instrument Id */
             instrument_id: number | null;
+            /**
+             * Instrument Name
+             * @description The Instrument an Investment option is mapped to; null while unmapped.
+             */
+            instrument_name: string | null;
             /** Name */
             name: string;
             /**
@@ -5308,6 +5360,11 @@ export interface components {
              * @description The profile gives this Dimension no weights, so all of it is Not classified.
              */
             omitted: boolean;
+            /**
+             * Option Name
+             * @description An Investment option part: its name on the Super statement.
+             */
+            option_name: string | null;
             /** Profile As At */
             profile_as_at: string | null;
             /**
@@ -5527,6 +5584,35 @@ export interface components {
             units: string | null;
             /** Value */
             value: string;
+        };
+        /** OptionLinkIn */
+        OptionLinkIn: {
+            /**
+             * Create Instrument
+             * @description Create a fund Instrument from the option's name instead (Account currency).
+             * @default false
+             */
+            create_instrument: boolean;
+            /**
+             * Instrument Id
+             * @description An existing Instrument to map the option to.
+             */
+            instrument_id?: number | null;
+            /**
+             * Option Name
+             * @description The Investment option's name, as stated.
+             * @default
+             */
+            option_name: string;
+        };
+        /** OptionLinkOut */
+        OptionLinkOut: {
+            /** Instrument Id */
+            instrument_id: number;
+            /** Instrument Name */
+            instrument_name: string;
+            /** Option Name */
+            option_name: string;
         };
         /** OwnConfirmOut */
         OwnConfirmOut: {
@@ -10119,6 +10205,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RevealedOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    mapInvestmentOption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OptionLinkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OptionLinkOut"];
                 };
             };
             /** @description Not Found */

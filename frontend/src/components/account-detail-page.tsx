@@ -270,7 +270,15 @@ function AccountDetail({
       />
 
       {account.account_type_key === SUPER_ACCOUNT_TYPE && (
-        <SuperStatementsPanel account={account} />
+        <>
+          <SuperStatementsPanel account={account} />
+          <LookThroughPanel
+            account={account}
+            asAt={transactions.asat}
+            dimension={transactions.dimension}
+            onDimension={(dimension) => onTransactions({ dimension })}
+          />
+        </>
       )}
 
       {account.category_key === "investments" && (

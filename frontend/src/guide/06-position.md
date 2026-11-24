@@ -20,7 +20,7 @@ Pictures first, figures one click behind them.
 - Inside the figures, a line shows how the net figure adds up: each Member's solely held Accounts, plus Joint, equals the Household.
 
 ## Where each figure comes from
-- A manually valued Account (cash, super, loans, property, vehicles) shows its latest Valuation on or before the date.
+- A manually valued Account (cash, super, loans, property, vehicles) shows its latest Valuation on or before the date. A super fund Account's page can also split that value by what its Investment options hold; see [Accounts and imports](/guide/accounts-and-imports).
 - An investment platform Account shows a value worked out from its Holdings and the Prices on that date. See [Accounts and imports](/guide/accounts-and-imports).
 - Liabilities, such as a home loan, are listed under their own heading and taken off to give the net figure.
 - A foreign currency Account is converted to AUD with the latest FX rate on or before the date.

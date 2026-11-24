@@ -12,11 +12,12 @@ from typing import Literal
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
-from finance360.api.household import ERRORS, SessionDep
+from finance360.api.household import ERRORS, ContextDep, SessionDep
 from finance360.api.transactions import MoneyOut, money_out
-from finance360.capabilities.lookthrough import service
+from finance360.capabilities.lookthrough import option_links, service
 from finance360.capabilities.lookthrough.lines import Composition
 from finance360.core.exposure import ASSET_CLASS, percent_string
+from finance360.core.models.instrument import Instrument
 
 router = APIRouter(prefix="/api", tags=["look-through"])
 
@@ -45,6 +46,9 @@ class LookThroughLineOut(BaseModel):
     )
     reason: Literal["cycle", "too_deep"] | None = Field(
         description="A No profile line behind a loop of funds, or nested beyond the cap."
+    )
+    option_name: str | None = Field(
+        description="A No profile line for an Investment option not mapped to a fund yet."
     )
 
 
@@ -77,10 +81,27 @@ class LookThroughPartOut(BaseModel):
     underlying: list[UnderlyingOut] = Field(
         description="The underlying funds a fund-of-funds Holding resolved through."
     )
+    option_name: str | None = Field(
+        description="An Investment option part: its name on the Super statement."
+    )
+    instrument_name: str | None = Field(
+        description="The Instrument an Investment option is mapped to; null while unmapped."
+    )
 
 
 class LookThroughOut(BaseModel):
-    applies: bool = Field(description="False when the Account's value is not built from Holdings.")
+    applies: bool = Field(
+        description="False when the Account has no look-through (not Holdings, not a super fund)."
+    )
+    source: Literal["holdings", "super_statement"] | None = Field(
+        description="Where the parts come from: the Holdings, or the Super statement's options."
+    )
+    statement_id: int | None = Field(description="The Super statement the parts come from.")
+    statement_date: date | None = Field(description="That Super statement's date (30 June).")
+    change_since: date | None = Field(
+        description="Set when the Valuation is dated after the Super statement: Unallocated is "
+        "then the change since this date, judged against the stale tolerance."
+    )
     as_at: date
     status: Literal["ok", "not_analysed"]
     reason: str | None
@@ -111,6 +132,7 @@ def _lines(c: Composition) -> list[LookThroughLineOut]:
                 for x in line.contributions
             ],
             reason=line.reason,
+            option_name=line.option_name,
         )
         for line in c.lines
     ]
@@ -141,6 +163,8 @@ def _parts(c: Composition) -> list[LookThroughPartOut]:
                 )
                 for u in p.underlying
             ],
+            option_name=p.option,
+            instrument_name=p.instrument_name,
         )
         for p in c.parts
     ]
@@ -159,12 +183,13 @@ def get_look_through(
     on: date | None = None,
     dimension: str = ASSET_CLASS,
 ) -> LookThroughOut:
-    """An investment Account's value on a date split by an Exposure Dimension (asset class, region,
-    sector or exposure currency), from
-    its Holdings' manually entered Exposure profiles. The lines, including No profile, Not
+    """An Account's value on a date split by an Exposure Dimension (asset class, region, sector or
+    exposure currency), from its Holdings' (or, for a super fund, its Super statement's Investment
+    options') manually entered Exposure profiles. The lines, including No profile, Not
     classified and Unallocated, sum exactly to the Account's value in the Position. ``on``
     defaults to the latest date the Account's Streams' Coverage reaches (at most today), as the
-    Derived value does; ``applies`` is false when the value is not built from Holdings."""
+    Derived value does; ``applies`` is false when the Account is neither built from Holdings nor
+    a super fund."""
     settings = request.app.state.settings
     found = service.account_look_through(
         session, account_id, on, dimension, settings.price_stale_days
@@ -172,6 +197,10 @@ def get_look_through(
     c = found.composition
     return LookThroughOut(
         applies=found.applies,
+        source=found.source,
+        statement_id=found.statement_id,
+        statement_date=found.statement_date,
+        change_since=c.change_since if c else None,
         as_at=found.on,
         status=found.status,
         reason=found.reason,
@@ -182,4 +211,46 @@ def get_look_through(
         parts=_parts(c) if c else [],
         flagged=c.flagged if c else False,
         tolerance=money_out(c.tolerance) if c else None,
+    )
+
+
+class OptionLinkIn(BaseModel):
+    option_name: str = Field(default="", description="The Investment option's name, as stated.")
+    instrument_id: int | None = Field(
+        default=None, description="An existing Instrument to map the option to."
+    )
+    create_instrument: bool = Field(
+        default=False,
+        description="Create a fund Instrument from the option's name instead (Account currency).",
+    )
+
+
+class OptionLinkOut(BaseModel):
+    option_name: str
+    instrument_id: int
+    instrument_name: str
+
+
+@router.put(
+    "/accounts/{account_id}/investment-option-links",
+    response_model=OptionLinkOut,
+    operation_id="mapInvestmentOption",
+    responses=ERRORS,  # type: ignore[arg-type]
+)
+def map_investment_option(
+    account_id: int, body: OptionLinkIn, session: SessionDep, ctx: ContextDep
+) -> OptionLinkOut:
+    """Map a super Account's Investment option to an Instrument, or create a fund from its name.
+    Later Super statements with the same name (any case or spacing) need no new mapping."""
+    link = option_links.map_option(
+        session,
+        ctx,
+        account_id,
+        body.option_name,
+        instrument_id=body.instrument_id,
+        create_instrument=body.create_instrument,
+    )
+    instrument = session.get_one(Instrument, link.instrument_id)
+    return OptionLinkOut(
+        option_name=link.option_name, instrument_id=instrument.id, instrument_name=instrument.name
     )

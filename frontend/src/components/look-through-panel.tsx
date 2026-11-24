@@ -1,13 +1,16 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { TriangleAlert } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 
+import { MapOptionDialog } from "@/components/map-option-dialog";
 import { ShareChart } from "@/components/share-chart";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Money } from "@/components/ui/money";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatDate } from "@/lib/ask";
 import { headline, lookThroughRows } from "@/lib/exposure-chart";
 import {
   DEFAULT_DIMENSION,
@@ -26,7 +29,18 @@ const routeText = (path: string[]) => path.join(" › ");
  * A look-through line. One that an underlying fund gave to is marked, and "Show underlying" lists
  * which fund gave what (the routes add up to the line).
  */
-function LineRow({ line, flagged }: { line: LookThroughLine; flagged: boolean }) {
+function LineRow({
+  line,
+  flagged,
+  changeSince,
+  onMap,
+}: {
+  line: LookThroughLine;
+  flagged: boolean;
+  /** A super Account whose Valuation is dated after its Super statement: Unallocated is the change since. */
+  changeSince: string | null;
+  onMap: (option: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const muted = line.kind === "not_classified" || (line.kind === "unallocated" && !flagged);
   return (
@@ -44,12 +58,22 @@ function LineRow({ line, flagged }: { line: LookThroughLine; flagged: boolean })
                 Enter a profile
               </Link>
             </>
+          ) : line.kind === "no_profile" && line.option_name !== null ? (
+            <>
+              {line.name}{" "}
+              <Button variant="link" className="h-auto p-0" onClick={() => onMap(line.option_name as string)}>
+                Map to a fund
+              </Button>
+            </>
+          ) : line.kind === "unallocated" && changeSince ? (
+            `${line.name}: change since ${formatDate(changeSince)}`
           ) : (
             line.name
           )}
           {line.kind === "unallocated" && flagged && (
             <Badge variant="flagged" className="ml-2">
-              Gap beyond tolerance
+              <TriangleAlert aria-hidden className="mr-1 size-3.5" />
+              {changeSince ? "The option mix may have changed" : "Gap beyond tolerance"}
             </Badge>
           )}
           {line.through_fund && (
@@ -117,6 +141,57 @@ function notes(data: LookThrough): string[] {
   return out;
 }
 
+/**
+ * A super Account's Investment options as the Super statement states them (never scaled), each with
+ * the fund it is mapped to and where to map or change it.
+ */
+function OptionsTable({ data, onMap }: { data: LookThrough; onMap: (option: string) => void }) {
+  const options = data.parts.filter((p) => p.option_name !== null);
+  if (options.length === 0) return null;
+  return (
+    <Table aria-label="Investment options">
+      <TableHeader>
+        <TableRow>
+          <TableHead>Investment option</TableHead>
+          <TableHead>Mapped to</TableHead>
+          <TableHead className="text-right">Value</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {options.map((p) => (
+          <TableRow key={p.option_name}>
+            <TableCell className="break-words">{p.option_name}</TableCell>
+            <TableCell className="break-words">
+              {p.instrument_id !== null ? (
+                <Link
+                  to="/instruments/$instrumentId"
+                  params={{ instrumentId: String(p.instrument_id) }}
+                  className="text-primary underline underline-offset-2"
+                >
+                  {p.instrument_name}
+                </Link>
+              ) : (
+                <span className="text-muted-foreground">Not mapped</span>
+              )}{" "}
+              <Button
+                variant="link"
+                className="h-auto p-0"
+                aria-label={`${p.instrument_id !== null ? "Change the fund for" : "Map to a fund:"} ${p.option_name}`}
+                onClick={() => onMap(p.option_name as string)}
+              >
+                {p.instrument_id !== null ? "Change" : "Map to a fund"}
+              </Button>
+            </TableCell>
+            <TableCell className="text-right">
+              <Money amount={p.amount.amount} currency={p.amount.currency} />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
 /** The Dimension switcher: the selected one lives in the URL, so a view is linkable. */
 function DimensionSwitcher({
   selected,
@@ -145,13 +220,15 @@ function DimensionSwitcher({
 }
 
 /**
- * An investment Account's value split by one Dimension (ADR-0030: asset class, region, sector or
- * exposure currency), from each Holding's Price x quantity and the Instrument's Exposure profile.
+ * An Account's value split by one Dimension (ADR-0030: asset class, region, sector or exposure
+ * currency), from each Holding's Price x quantity (a super fund: each Investment option's value on its
+ * latest Super statement) and the Instrument's Exposure profile. An option is mapped to a fund
+ * Instrument first, from here.
  * A fund-of-funds Holding resolves through its underlying funds: the lines it gave to are marked
  * and can show which fund gave what. The lines include No profile (linking to enter one), Not
  * classified and Unallocated, and add to the Account's value in every Dimension. The as-at date is
- * the one the Derived value panel shows. Shown only when the Account's value is built from
- * Holdings.
+ * the one the Derived value panel shows. Shown only for an Account built from Holdings or a super
+ * fund.
  *
  * A `share` view (ADR-0031): a donut by default, switchable, remembered per Dimension under
  * `lookthrough.<dimension>`. Beyond six parts the smallest fold into one Other for the picture
@@ -169,6 +246,7 @@ export function LookThroughPanel({
   onDimension: (key: string | undefined) => void;
 }) {
   const selected = dimension ?? DEFAULT_DIMENSION;
+  const [mapping, setMapping] = useState<string | null>(null);
   const look = useQuery({
     queryKey: ["look-through", account.id, asAt ?? "latest", selected],
     queryFn: () => fetchLookThrough(account.id, asAt, dimension),
@@ -215,6 +293,7 @@ export function LookThroughPanel({
       chartLabel={`The Account's value by ${name}.`}
       toolbar={<DimensionSwitcher selected={selected} onSelect={select} />}
       figures={
+        <>
         <Table aria-label="Look-through lines">
           <TableHeader>
             <TableRow>
@@ -225,13 +304,29 @@ export function LookThroughPanel({
           </TableHeader>
           <TableBody>
             {data.lines.map((line) => (
-              <LineRow key={`${line.kind}-${line.key ?? line.instrument_id ?? ""}`} line={line} flagged={data.flagged} />
+              <LineRow
+                key={`${line.kind}-${line.key ?? line.option_name ?? line.instrument_id ?? ""}`}
+                line={line}
+                flagged={data.flagged}
+                changeSince={data.change_since}
+                onMap={setMapping}
+              />
             ))}
           </TableBody>
         </Table>
+        <OptionsTable data={data} onMap={setMapping} />
+        </>
       }
       after={
         <>
+          <MapOptionDialog account={account} option={mapping} onClose={() => setMapping(null)} />
+          {data.source === "super_statement" && data.statement_date && (
+            <p className="text-sm text-muted-foreground">
+              The Investment options are as the Super statement of {formatDate(data.statement_date)} states them. They are
+              never scaled to the Account&apos;s value: Unallocated is the Account&apos;s value less the options
+              {data.change_since ? `, the change since ${formatDate(data.change_since)}` : ""}.
+            </p>
+          )}
           <p className="flex flex-wrap items-baseline gap-2 text-sm text-muted-foreground">
             Account value{" "}
             <Money amount={data.total.amount} currency={data.total.currency} className="text-lg font-semibold text-foreground" />{" "}

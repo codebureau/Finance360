@@ -69,6 +69,7 @@ from finance360.capabilities.imports import registry as importers
 from finance360.capabilities.library import profiles as library_profiles
 from finance360.capabilities.library import registry as link_kinds
 from finance360.capabilities.library import service as library_service
+from finance360.capabilities.lookthrough import option_links as lookthrough_option_links
 from finance360.capabilities.position import accounts as position_accounts
 from finance360.capabilities.position import derived as position_derived
 from finance360.capabilities.position import due as position_due
@@ -243,6 +244,7 @@ def create_app(
                 reference_exposure_profiles.load_fixture_exposure_profiles(
                     session, settings.data_dir
                 )
+                lookthrough_option_links.load_fixture_option_links(session, settings.data_dir)
                 rulepack_store.load_fixture_rule_figures(
                     session, settings.data_dir, today=household_today(session)
                 )

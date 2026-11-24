@@ -64,6 +64,17 @@ them through the service layer on first run, so audit and validation apply:
   of 1,000 units, in the trades Stream's existing Coverage) after committing the sample trades, or
   record an Opening position. It has no matching cash row, like the `SNHX` buy.
   With it held, the sample Account's look-through reads 8,165.13 (6,645.13 + 1,000 x 1.52).
+  Three more Instruments (kind fund, AUD) are the super Investment options of `Sample Super Fund`
+  (ADR-0030 section 4, #86): `Sample Super Growth Option` and `Sample Super Balanced Option` carry
+  an invented asset class and region profile, and `Sample Super High Growth Option` has none (No
+  profile). The top-level `investment_option_links` list (`account`, `option`, `instrument`, all
+  names) is read by `finance360.capabilities.lookthrough.option_links.load_fixture_option_links`
+  only while no link exists, through `map_option`, audited with source `fixture`: it maps the
+  Super statement's three options (Growth, Balanced, High Growth) to those Instruments. The
+  statement's options total 211,500.01 at 30 June 2026 and the latest Valuation is 215,228.07
+  (2026-09-30), so the look-through shows Unallocated as "change since 30 June 2026", 3,728.06
+  (1.73%): beyond the 1% reconcile tolerance but within the 15% stale tolerance, so quiet. A fixture
+  that changes this needs `review --reset`, as the review slot loads the fixture only once.
   The top-level `income_streams` (an invented salary for each Member: Alex 120,000.00 gross and
   91,000.00 take-home, Jordan 85,000.00 gross and 66,000.00 take-home; both end at the owner's
   retirement) are read by

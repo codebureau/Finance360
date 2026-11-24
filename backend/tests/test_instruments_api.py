@@ -133,7 +133,7 @@ def test_changes_are_in_the_audit_trail(client: TestClient) -> None:
     assert summaries[0].startswith("Added name 'Sample Alias'") and len(summaries) == 2
 
 
-def test_the_sample_household_has_the_five_invented_instruments(sample: TestClient) -> None:
+def test_the_sample_household_has_the_eight_invented_instruments(sample: TestClient) -> None:
     listed = sample.get("/api/instruments").json()
     assert {i["name"]: i["kind"] for i in listed} == {
         "Sample Broad Market ETF": "etf",
@@ -141,6 +141,9 @@ def test_the_sample_household_has_the_five_invented_instruments(sample: TestClie
         "Sample Balanced Growth Fund": "fund",
         "Sample Global Equity ETF": "etf",
         "Sample Diversified Fund": "fund",
+        "Sample Super Growth Option": "fund",
+        "Sample Super Balanced Option": "fund",
+        "Sample Super High Growth Option": "fund",
     }
     schemes = {i["name"]: {x["scheme"] for x in i["identifiers"]} for i in listed}
     assert schemes["Sample Broad Market ETF"] == {"ticker", "yahoo", "isin", "name"}

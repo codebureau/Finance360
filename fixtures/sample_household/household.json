@@ -622,7 +622,89 @@
       "prices": [
         { "as_at": "2026-09-30", "value": "1.5200", "source": "manual", "note": "Invented unit price from a sample statement" }
       ]
+    },
+    {
+      "name": "Sample Super Growth Option",
+      "kind": "fund",
+      "currency": "AUD",
+      "notes": "Invented super Investment option, held as a fund so it carries an Exposure profile: the Growth option of Sample Super Fund.",
+      "identifiers": [
+        { "scheme": "name", "value": "Sample Super Growth Option" }
+      ],
+      "exposure_profiles": [
+        {
+          "as_at": "2026-06-30",
+          "note": "Invented option fact sheet, as at 30 June 2026. Mostly shares, with some property, infrastructure and bonds.",
+          "weights": {
+            "asset_class": {
+              "australian_shares": "38",
+              "international_shares": "40",
+              "property": "7",
+              "infrastructure": "4",
+              "fixed_income": "6",
+              "cash": "3",
+              "alternatives": "2"
+            },
+            "region": {
+              "australia": "45",
+              "north_america": "25",
+              "europe": "10",
+              "asia_pacific": "8",
+              "emerging_markets": "7",
+              "other": "5"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sample Super Balanced Option",
+      "kind": "fund",
+      "currency": "AUD",
+      "notes": "Invented super Investment option, held as a fund so it carries an Exposure profile: the Balanced option of Sample Super Fund.",
+      "identifiers": [
+        { "scheme": "name", "value": "Sample Super Balanced Option" }
+      ],
+      "exposure_profiles": [
+        {
+          "as_at": "2026-06-30",
+          "note": "Invented option fact sheet, as at 30 June 2026. About half in shares and a quarter in fixed income.",
+          "weights": {
+            "asset_class": {
+              "australian_shares": "25",
+              "international_shares": "27",
+              "property": "7",
+              "infrastructure": "4",
+              "fixed_income": "24",
+              "cash": "10",
+              "alternatives": "3"
+            },
+            "region": {
+              "australia": "50",
+              "north_america": "20",
+              "europe": "10",
+              "asia_pacific": "6",
+              "emerging_markets": "4",
+              "other": "10"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sample Super High Growth Option",
+      "kind": "fund",
+      "currency": "AUD",
+      "notes": "Invented super Investment option, held as a fund with no Exposure profile yet, so the look-through shows it as No profile: the High Growth option of Sample Super Fund.",
+      "identifiers": [
+        { "scheme": "name", "value": "Sample Super High Growth Option" }
+      ]
     }
+  ],
+  "investment_option_links": [
+    { "account": "Sample Super Fund", "option": "Growth", "instrument": "Sample Super Growth Option" },
+    { "account": "Sample Super Fund", "option": "Balanced", "instrument": "Sample Super Balanced Option" },
+    { "account": "Sample Super Fund", "option": "High Growth", "instrument": "Sample Super High Growth Option" }
   ],
   "income_streams": [
     {
