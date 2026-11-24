@@ -5286,7 +5286,7 @@ export interface components {
         LookThroughOut: {
             /**
              * Applies
-             * @description False when the Account has no look-through (neither Holdings nor a super fund).
+             * @description False when the Account has no look-through (not Holdings, not a super fund).
              */
             applies: boolean;
             /**
