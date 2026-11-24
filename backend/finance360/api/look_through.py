@@ -14,7 +14,8 @@ from pydantic import BaseModel, Field
 
 from finance360.api.household import ERRORS, ContextDep, SessionDep
 from finance360.api.transactions import MoneyOut, money_out
-from finance360.capabilities.lookthrough import option_links, service
+from finance360.capabilities.lookthrough import option_links, rollup, service
+from finance360.capabilities.lookthrough.apportion import Rolled
 from finance360.capabilities.lookthrough.lines import Composition
 from finance360.core.exposure import ASSET_CLASS, percent_string
 from finance360.core.models.instrument import Instrument
@@ -253,4 +254,151 @@ def map_investment_option(
     instrument = session.get_one(Instrument, link.instrument_id)
     return OptionLinkOut(
         option_name=link.option_name, instrument_id=instrument.id, instrument_name=instrument.name
+    )
+
+
+class RolledLineOut(BaseModel):
+    kind: Literal["label", "no_profile", "not_classified", "unallocated"]
+    key: str | None = Field(description="The Exposure label key of a label line.")
+    name: str
+    amount: MoneyOut
+    percent: str | None = Field(
+        description="Of the entity's analysed value, two decimal places; display only."
+    )
+
+
+class RolledOut(BaseModel):
+    lines: list[RolledLineOut] = Field(
+        description="The analysed value split by the Dimension, with No profile, Not classified "
+        "and Unallocated as explicit lines; zero lines are left out."
+    )
+    analysed: MoneyOut = Field(description="The lines' total.")
+    not_analysed: MoneyOut = Field(
+        description="Accounts with no look-through (cash, property, vehicles, loans...), signed "
+        "as in the Position."
+    )
+    total: MoneyOut = Field(description="Analysed plus Not analysed: the Position's figure.")
+
+
+class RollupMemberOut(BaseModel):
+    member_id: int
+    name: str
+    figures: RolledOut
+
+
+class RollupCategoryOut(BaseModel):
+    key: str
+    name: str
+    figures: RolledOut
+
+
+class RollupAccountOut(BaseModel):
+    account_id: int = Field(description="The Account whose own look-through shows these lines.")
+    name: str
+    category_key: str
+    ownership: Literal["sole", "joint"]
+    flagged: bool = Field(description="Unallocated is beyond the reconcile tolerance.")
+    figures: RolledOut
+
+
+class NotAnalysedOut(BaseModel):
+    account_id: int
+    name: str
+    category_key: str
+    ownership: Literal["sole", "joint"]
+    value: MoneyOut | None = Field(
+        description="The Account's Position value, signed; null when it has none (left out)."
+    )
+    reason: str | None = Field(
+        description="Why this Account is Not analysed; null when its kind has no look-through."
+    )
+
+
+class RollupOut(BaseModel):
+    as_at: date
+    dimension_key: str
+    dimension_name: str
+    household: RolledOut
+    position_net: MoneyOut = Field(description="The Position's net figure on the date.")
+    members: list[RollupMemberOut]
+    categories: list[RollupCategoryOut]
+    accounts: list[RollupAccountOut] = Field(description="The analysed Accounts.")
+    not_analysed: list[NotAnalysedOut]
+
+
+def _rolled(r: Rolled) -> RolledOut:
+    return RolledOut(
+        lines=[
+            RolledLineOut(
+                kind=line.kind,
+                key=line.key,
+                name=line.name,
+                amount=money_out(line.amount),  # type: ignore[arg-type]
+                percent=line.percent,
+            )
+            for line in r.lines
+        ],
+        analysed=money_out(r.analysed),  # type: ignore[arg-type]
+        not_analysed=money_out(r.not_analysed),  # type: ignore[arg-type]
+        total=money_out(r.total),  # type: ignore[arg-type]
+    )
+
+
+@router.get(
+    "/look-through",
+    response_model=RollupOut,
+    operation_id="getLookThroughRollup",
+    responses=ERRORS,  # type: ignore[arg-type]
+)
+def get_look_through_rollup(
+    request: Request,
+    session: SessionDep,
+    on: date | None = None,
+    dimension: str = ASSET_CLASS,
+) -> RollupOut:
+    """The Household's Position on a date split by an Exposure Dimension at every level: the
+    Household, each Member (a joint Account apportioned by ownership share, so each Member's
+    figures add to their share of the Position and each line to the Account's), each Category and
+    each analysed Account. Accounts with no look-through are Not analysed, with their values, so
+    the Household total equals the Position's net figure. ``on`` defaults to today, or the
+    latest date the holdings-based Accounts' Coverage reaches when that is earlier."""
+    settings = request.app.state.settings
+    found = rollup.exposure_rollup(session, on, dimension, settings.price_stale_days)
+    r = found.rollup
+    return RollupOut(
+        as_at=found.on,
+        dimension_key=found.dimension_key,
+        dimension_name=found.dimension_name,
+        household=_rolled(r.household),
+        position_net=money_out(found.position_net),  # type: ignore[arg-type]
+        members=[
+            RollupMemberOut(member_id=m.member_id, name=m.name, figures=_rolled(m.rolled))
+            for m in r.members
+        ],
+        categories=[
+            RollupCategoryOut(key=c.key, name=c.name, figures=_rolled(c.rolled))
+            for c in r.categories
+        ],
+        accounts=[
+            RollupAccountOut(
+                account_id=a.account_id,
+                name=a.name,
+                category_key=a.category_key,
+                ownership=a.ownership,  # type: ignore[arg-type]
+                flagged=a.flagged,
+                figures=_rolled(a.rolled),
+            )
+            for a in r.accounts
+        ],
+        not_analysed=[
+            NotAnalysedOut(
+                account_id=n.account_id,
+                name=n.name,
+                category_key=n.category_key,
+                ownership=n.ownership,  # type: ignore[arg-type]
+                value=money_out(n.value),
+                reason=n.reason,
+            )
+            for n in r.not_analysed
+        ],
     )

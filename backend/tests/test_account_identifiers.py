@@ -92,13 +92,14 @@ def test_audit_snapshots_and_summaries_store_the_masked_value_only(
                 .order_by(AuditEvent.id)
             )
         )
-        assert [e.action for e in events] == ["create", "create", "delete"]  # fixture, add, remove
+        # two fixture identifiers, then the add and the remove
+        assert [e.action for e in events] == ["create", "create", "create", "delete"]
         text = repr([(e.summary, e.before, e.after) for e in events])
         for real in (SECRET, "99887766", "062-000"):
             assert real not in text
-        assert events[1].after is not None
-        assert events[1].after["value"] == "••• 7766"
-        assert events[2].before is not None and events[2].before["value"].endswith("7766")
+        assert events[2].after is not None
+        assert events[2].after["value"] == "••• 7766"
+        assert events[3].before is not None and events[3].before["value"].endswith("7766")
 
 
 def test_errors_never_echo_a_value(sample_factory: sessionmaker[Session]) -> None:

@@ -185,24 +185,25 @@ def test_deleting_a_member_who_owns_an_account_is_blocked_with_409(
     assert client.delete(f"/api/household/members/{jordan}").status_code == 204
 
 
-def test_the_review_fixture_loads_twelve_accounts_once(tmp_path: Path) -> None:
+def test_the_review_fixture_loads_thirteen_accounts_once(tmp_path: Path) -> None:
     data = tmp_path / "data"
     data.mkdir()
     fixture = REPO / "fixtures" / "sample_household" / household.FIXTURE_FILENAME
     (data / household.FIXTURE_FILENAME).write_text(fixture.read_text(encoding="utf-8"))
     with owner_client(create_app(_settings(data))) as c:
         accounts = c.get("/api/accounts").json()
-        assert len(accounts) == 12
+        assert len(accounts) == 13
         assert {a["category_key"] for a in accounts} == {
             "cash", "investments", "superannuation", "overseas_pensions", "property",
             "vehicles", "loans_credit",
         }  # fmt: skip
-        (joint,) = [a for a in accounts if a["ownership"] == "joint"]
-        assert [o["share_bp"] for o in joint["owners"]] == [5000, 5000]
+        joints = [a for a in accounts if a["ownership"] == "joint"]
+        assert len(joints) == 2  # savings, and the joint investment account (#87)
+        assert all([o["share_bp"] for o in joint["owners"]] == [5000, 5000] for joint in joints)
         assert [a["currency"] for a in accounts if a["currency"] != "AUD"] == ["GBP"]
         assert c.get("/api/tags").json() == ["emergency fund", "everyday", "growth", "retirement"]
     with owner_client(create_app(_settings(data))) as c:  # a restart does not duplicate
-        assert len(c.get("/api/accounts").json()) == 12
+        assert len(c.get("/api/accounts").json()) == 13
 
 
 def test_a_failed_commit_is_an_error_response_not_a_2xx(

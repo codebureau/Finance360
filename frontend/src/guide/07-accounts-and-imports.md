@@ -65,7 +65,7 @@ An investment Account built from its Holdings then has **Look-through** on its p
 - **Not classified**: value a profile does not place in the chosen Dimension: a profile's shortfall from 100%, a profile that leaves that Dimension out (the panel names it), and the Account's cash in region and sector (cash is Cash in asset class, and in its own currency in exposure currency).
 - **Unallocated**: the Account's value less its Holdings and cash. It is zero when the value is built from Holdings; it appears when you record a newer Valuation, and it is flagged only when it is more than the larger of 1% of the value and A$50.
 
-The lines always add up to the Account's value, in every Dimension. A Holding of a fund of funds is resolved through its underlying funds: a line any underlying fund gave to is marked **Through a fund**, and Show underlying (in the figures) lists which fund gave what, so the parts add up to the line. A combined view across Accounts is **coming later**.
+The lines always add up to the Account's value, in every Dimension. A Holding of a fund of funds is resolved through its underlying funds: a line any underlying fund gave to is marked **Through a fund**, and Show underlying (in the figures) lists which fund gave what, so the parts add up to the line. The [Exposure](/exposure) screen adds these up across the whole Household (see [Exposure](/guide/exposure)).
 
 ### Look-through on a super fund Account
 A super fund Account's page has the same **Look-through** panel, built from its latest Super statement on or before the date. Each **Investment option** on the statement is a part, at the value the statement states. Finance360 never scales them to the Account's current value.

@@ -4,6 +4,7 @@ Each question below has one screen. If you are lost, start from the question you
 
 ## Where do we stand?
 - **What do we own and owe, and how has it changed?** The [Position](/position). Pick a date, a view (Household, By Member or Joint) and a Tag. The chart underneath shows month-ends over time, with a table of the same figures.
+- **What is it all made of?** The [Exposure](/exposure): the Position split by asset class, region, sector or exposure currency, for the Household, each Member, Category or Account. See [Exposure](/guide/exposure).
 - **Why is an Account missing from the total?** The Position says how many Accounts are not included and why: no Valuation or FX rate on or before that date.
 
 ## Where are we heading?

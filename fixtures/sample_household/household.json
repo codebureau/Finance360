@@ -303,6 +303,22 @@
       "valuations": [
         { "as_at": "2024-10-01", "amount": "0.00", "source": "estimate", "note": "Invented estimate; nothing entered since" }
       ]
+    },
+    {
+      "name": "Joint investment account (Sample Brokerage)",
+      "category": "investments",
+      "account_type": "brokerage_holdings",
+      "owners": [
+        "Alex Sample",
+        "Jordan Sample"
+      ],
+      "opened_on": "2026-07-02",
+      "notes": "Invented joint investment account, held 50/50. Opened empty: its value is derived from the imports in fixtures/sample_household/imports (SAMPLE-PI-0002); the one Valuation is the opening 0.00 before they are committed.",
+      "tags": ["growth"],
+      "identifiers": [{ "kind": "vendor_account_id", "value": "SAMPLE-PI-0002", "institution": "Vanguard PI" }],
+      "valuations": [
+        { "as_at": "2026-07-02", "amount": "0.00", "source": "manual", "note": "Invented: opened empty, funded by the imports" }
+      ]
     }
   ],
   "super_statements": [

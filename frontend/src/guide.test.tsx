@@ -87,6 +87,7 @@ test("the Guide opens with Start here and has a page for every area", () => {
     "position",
     "accounts-and-imports",
     "projection",
+    "exposure",
   ]) {
     expect(slugs).toContain(slug);
   }
@@ -107,6 +108,7 @@ test("every sidebar group links to a Guide page that exists", () => {
 const EARLIER_DESTINATIONS = [
   "/",
   "/position",
+  "/exposure",
   "/projection",
   "/tax",
   "/tax/reconciliation",

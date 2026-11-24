@@ -140,12 +140,13 @@ def test_the_review_fixture_is_loaded_on_first_start(tmp_path: Path) -> None:
         assert all(m["name"].endswith("Sample") for m in body["members"])
         audit = _audit(c)
         assert (
-            audit[:14]
-            == [("member", "create", "fixture")] * 2 + [("account", "create", "fixture")] * 12
+            audit[:15]
+            == [("member", "create", "fixture")] * 2 + [("account", "create", "fixture")] * 13
         )
-        assert audit[14] == ("household", "update", "fixture")  # the principal home
-        assert audit[15] == ("account_identifier", "create", "fixture")  # the sample PI Account
-        assert {a for a in audit[16:]} == {
+        assert audit[15] == ("household", "update", "fixture")  # the principal home
+        # the two investment Accounts' identifiers (the sample PI Account, the joint one)
+        assert audit[16:18] == [("account_identifier", "create", "fixture")] * 2
+        assert {a for a in audit[18:]} == {
             ("valuation", "create", "fixture"),
             ("fx_rate", "create", "fixture"),
             ("instrument", "create", "fixture"),

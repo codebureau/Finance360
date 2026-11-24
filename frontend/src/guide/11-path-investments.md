@@ -11,6 +11,7 @@ For when you want to see what you own, and how it has moved. This is one common 
 ## Screens that matter
 - [Accounts](/accounts) and [Imports](/imports): where figures go in.
 - [Position](/position): what you own and owe, today and over time.
+- [Exposure](/exposure): the whole Household's investments split by asset class, region, sector or exposure currency, by Member, Category or Account. See [Exposure](/guide/exposure).
 - [Instruments](/instruments): open one to enter its exposure profile. An investment Account's page then has its look-through, which you can switch between asset class, region, sector and exposure currency.
 - [Reference data](/reference-data): whether Prices and FX rates are arriving.
 - A fund of funds: list its underlying funds in its profile (typed by hand for now; reading them from documents is **coming later**). The look-through marks what came through them. See [Accounts and imports](/guide/accounts-and-imports).

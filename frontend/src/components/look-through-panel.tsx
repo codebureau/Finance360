@@ -193,7 +193,7 @@ function OptionsTable({ data, onMap }: { data: LookThrough; onMap: (option: stri
 }
 
 /** The Dimension switcher: the selected one lives in the URL, so a view is linkable. */
-function DimensionSwitcher({
+export function DimensionSwitcher({
   selected,
   onSelect,
 }: {

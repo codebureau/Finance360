@@ -33,6 +33,7 @@ import { InstrumentsPage } from "@/components/instruments-page";
 import { LibraryDocumentPage } from "@/components/library-document-page";
 import { LibraryPage } from "@/components/library-page";
 import { PasteProfilePage } from "@/components/paste-profile-page";
+import { ExposurePage } from "@/components/exposure-page";
 import { PositionPage } from "@/components/position-page";
 import { ProjectionPage, parseProjectionSearch } from "@/components/projection-page";
 import { ReferenceDataPage } from "@/components/reference-data-page";
@@ -58,6 +59,7 @@ import { parseRuleFiguresSearch } from "@/lib/rule-figures";
 import { parseTaxRecordsSearch, parseTaxSearch } from "@/lib/tax";
 import { parseCompareSearch, parseYearSearch } from "@/lib/tax-estimates";
 import { parseLodgedSearch } from "@/lib/tax-lodged";
+import { parseExposureSearch } from "@/lib/exposure-rollup";
 import { parsePositionSearch } from "@/lib/position-search";
 import { parseTransactionsSearch } from "@/lib/transactions";
 
@@ -336,6 +338,29 @@ const positionRoute = createRoute({
   },
 });
 
+/** Exposure state (Dimension, level, as-at date) is in the URL, so views are linkable. */
+const exposureRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/exposure",
+  validateSearch: (search: Record<string, unknown>) => parseExposureSearch(search),
+  component: function ExposureRoute() {
+    const search = exposureRoute.useSearch();
+    const navigate = exposureRoute.useNavigate();
+    return (
+      <ExposurePage
+        search={search}
+        onSearch={(patch) =>
+          void navigate({
+            search: (prev: Record<string, unknown>) => parseExposureSearch({ ...parseExposureSearch(prev), ...patch }),
+            replace: true,
+            resetScroll: false,
+          })
+        }
+      />
+    );
+  },
+});
+
 const accountsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/accounts",
@@ -502,6 +527,7 @@ const routeTree = rootRoute.addChildren([
   guideRoute,
   guidePageRoute,
   positionRoute,
+  exposureRoute,
   projectionRoute,
   route("/projection/compare", ComparePage),
   route("/projection/runs", SavedRunsPage),

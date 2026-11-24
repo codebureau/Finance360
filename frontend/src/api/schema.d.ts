@@ -1675,6 +1675,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/look-through": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Look Through Rollup
+         * @description The Household's Position on a date split by an Exposure Dimension at every level: the
+         *     Household, each Member (a joint Account apportioned by ownership share, so each Member's
+         *     figures add to their share of the Position and each line to the Account's), each Category and
+         *     each analysed Account. Accounts with no look-through are Not analysed, with their values, so
+         *     the Household total equals the Position's net figure. ``on`` defaults to today, or the
+         *     latest date the holdings-based Accounts' Coverage reaches when that is earlier.
+         */
+        get: operations["getLookThroughRollup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/position": {
         parameters: {
             query?: never;
@@ -5502,6 +5527,27 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** NotAnalysedOut */
+        NotAnalysedOut: {
+            /** Account Id */
+            account_id: number;
+            /** Category Key */
+            category_key: string;
+            /** Name */
+            name: string;
+            /**
+             * Ownership
+             * @enum {string}
+             */
+            ownership: "sole" | "joint";
+            /**
+             * Reason
+             * @description Why this Account is Not analysed; null when its kind has no look-through.
+             */
+            reason: string | null;
+            /** @description The Account's Position value, signed; null when it has none (left out). */
+            value: components["schemas"]["MoneyOut"] | null;
+        };
         /** NotFoundOut */
         NotFoundOut: {
             /** Key */
@@ -6626,6 +6672,106 @@ export interface components {
             scope_ref: string;
             /** Scope Type */
             scope_type: string;
+        };
+        /** RolledLineOut */
+        RolledLineOut: {
+            amount: components["schemas"]["MoneyOut"];
+            /**
+             * Key
+             * @description The Exposure label key of a label line.
+             */
+            key: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "label" | "no_profile" | "not_classified" | "unallocated";
+            /** Name */
+            name: string;
+            /**
+             * Percent
+             * @description Of the entity's analysed value, two decimal places; display only.
+             */
+            percent: string | null;
+        };
+        /** RolledOut */
+        RolledOut: {
+            /** @description The lines' total. */
+            analysed: components["schemas"]["MoneyOut"];
+            /**
+             * Lines
+             * @description The analysed value split by the Dimension, with No profile, Not classified and Unallocated as explicit lines; zero lines are left out.
+             */
+            lines: components["schemas"]["RolledLineOut"][];
+            /** @description Accounts with no look-through (cash, property, vehicles, loans...), signed as in the Position. */
+            not_analysed: components["schemas"]["MoneyOut"];
+            /** @description Analysed plus Not analysed: the Position's figure. */
+            total: components["schemas"]["MoneyOut"];
+        };
+        /** RollupAccountOut */
+        RollupAccountOut: {
+            /**
+             * Account Id
+             * @description The Account whose own look-through shows these lines.
+             */
+            account_id: number;
+            /** Category Key */
+            category_key: string;
+            figures: components["schemas"]["RolledOut"];
+            /**
+             * Flagged
+             * @description Unallocated is beyond the reconcile tolerance.
+             */
+            flagged: boolean;
+            /** Name */
+            name: string;
+            /**
+             * Ownership
+             * @enum {string}
+             */
+            ownership: "sole" | "joint";
+        };
+        /** RollupCategoryOut */
+        RollupCategoryOut: {
+            figures: components["schemas"]["RolledOut"];
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+        };
+        /** RollupMemberOut */
+        RollupMemberOut: {
+            figures: components["schemas"]["RolledOut"];
+            /** Member Id */
+            member_id: number;
+            /** Name */
+            name: string;
+        };
+        /** RollupOut */
+        RollupOut: {
+            /**
+             * Accounts
+             * @description The analysed Accounts.
+             */
+            accounts: components["schemas"]["RollupAccountOut"][];
+            /**
+             * As At
+             * Format: date
+             */
+            as_at: string;
+            /** Categories */
+            categories: components["schemas"]["RollupCategoryOut"][];
+            /** Dimension Key */
+            dimension_key: string;
+            /** Dimension Name */
+            dimension_name: string;
+            household: components["schemas"]["RolledOut"];
+            /** Members */
+            members: components["schemas"]["RollupMemberOut"][];
+            /** Not Analysed */
+            not_analysed: components["schemas"]["NotAnalysedOut"][];
+            /** @description The Position's net figure on the date. */
+            position_net: components["schemas"]["MoneyOut"];
         };
         /** RowsOut */
         RowsOut: {
@@ -14570,6 +14716,56 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    getLookThroughRollup: {
+        parameters: {
+            query?: {
+                on?: string | null;
+                dimension?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RollupOut"];
+                };
             };
             /** @description Not Found */
             404: {
