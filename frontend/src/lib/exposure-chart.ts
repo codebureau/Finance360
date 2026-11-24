@@ -114,7 +114,12 @@ export function headline(data: LookThrough): string {
   const notClassified = sumOf("not_classified");
   if (notClassified >= NOTICE_PPM && top.length > 0) parts.push(`${ppmToPercent(notClassified)}% is not classified`);
   const unallocated = sumOf("unallocated");
-  if (data.flagged && unallocated > 0) parts.push(`${ppmToPercent(unallocated)}% is unallocated, beyond tolerance`);
+  if (data.flagged && unallocated > 0)
+    parts.push(
+      data.change_since
+        ? `${ppmToPercent(unallocated)}% is unallocated: the option mix may have changed`
+        : `${ppmToPercent(unallocated)}% is unallocated, beyond tolerance`,
+    );
   return parts.join("; ");
 }
 

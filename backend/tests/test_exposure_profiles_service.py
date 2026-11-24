@@ -503,7 +503,7 @@ def test_the_fixture_loads_profiles_through_the_service_once(
     with session_factory.begin() as s:
         seed_exposure_vocab(s)
         inst_svc.load_fixture_instruments(s, tmp_path)
-        assert svc.load_fixture_exposure_profiles(s, tmp_path) == 5
+        assert svc.load_fixture_exposure_profiles(s, tmp_path) == 7
         assert svc.load_fixture_exposure_profiles(s, tmp_path) == 0  # not twice
     with session_factory() as s:
         by_name = {i.name: svc.list_profiles(s, i.id) for i in inst_svc.list_instruments(s)}
@@ -516,11 +516,15 @@ def test_the_fixture_loads_profiles_through_the_service_once(
             "Sample Balanced Growth Fund": 1,
             "Sample Global Equity ETF": 1,
             "Sample Diversified Fund": 1,
+            "Sample Super Growth Option": 1,
+            "Sample Super Balanced Option": 1,
+            "Sample Super High Growth Option": 0,  # no profile: the No profile case
         }
         # every profile gives all four Dimensions bar one: the fund publishes no sectors
         dimensions = {
             name: {w.dimension_key for w in profiles[0].weights}
             for name, profiles in by_name.items()
+            if profiles
         }
         every = {"asset_class", "region", "sector", "exposure_currency"}
         assert dimensions["Sample Broad Market ETF"] == every
@@ -537,6 +541,7 @@ def test_the_fixture_loads_profiles_through_the_service_once(
         )
         assert aud == 80_000
     events = _events(session_factory)
-    assert len(events) == 5 and {e.source for e in events} == {"fixture"}
+    assert len(events) == 7 and {e.source for e in events} == {"fixture"}
     data = json.loads((tmp_path / "household.json").read_text(encoding="utf-8"))
-    assert all("exposure_profiles" in i for i in data["instruments"])
+    bare = {i["name"] for i in data["instruments"] if "exposure_profiles" not in i}
+    assert bare == {"Sample Super High Growth Option"}

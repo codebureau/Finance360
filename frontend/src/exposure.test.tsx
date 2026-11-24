@@ -37,6 +37,10 @@ const PI = { ...everyday, id: 20, name: "Sample Brokerage account", category_key
 
 const LOOK = {
   applies: true,
+  source: "holdings",
+  statement_id: null,
+  statement_date: null,
+  change_since: null,
   as_at: "2026-09-30",
   status: "ok",
   reason: null,
@@ -44,16 +48,16 @@ const LOOK = {
   dimension_name: "Asset class",
   total: aud("6645.13", 664513),
   lines: [
-    { kind: "label", key: "australian_shares", name: "Australian shares", amount: aud("3263.05", 326305), percent: "49.10", instrument_id: null, through_fund: false, contributions: [], reason: null },
-    { kind: "label", key: "international_shares", name: "International shares", amount: aud("1898.12", 189812), percent: "28.56", instrument_id: null, through_fund: false, contributions: [], reason: null },
-    { kind: "label", key: "cash", name: "Cash", amount: aud("834.93", 83493), percent: "12.56", instrument_id: null, through_fund: false, contributions: [], reason: null },
-    { kind: "no_profile", key: null, name: "No profile: Sample New Horizons ETF", amount: aud("625.00", 62500), percent: "9.41", instrument_id: 3, through_fund: false, contributions: [], reason: null },
-    { kind: "not_classified", key: null, name: "Not classified", amount: aud("24.03", 2403), percent: "0.36", instrument_id: null, through_fund: false, contributions: [], reason: null },
-    { kind: "unallocated", key: null, name: "Unallocated", amount: aud("0.00", 0), percent: "0.00", instrument_id: null, through_fund: false, contributions: [], reason: null },
+    { kind: "label", key: "australian_shares", name: "Australian shares", amount: aud("3263.05", 326305), percent: "49.10", instrument_id: null, option_name: null, through_fund: false, contributions: [], reason: null },
+    { kind: "label", key: "international_shares", name: "International shares", amount: aud("1898.12", 189812), percent: "28.56", instrument_id: null, option_name: null, through_fund: false, contributions: [], reason: null },
+    { kind: "label", key: "cash", name: "Cash", amount: aud("834.93", 83493), percent: "12.56", instrument_id: null, option_name: null, through_fund: false, contributions: [], reason: null },
+    { kind: "no_profile", key: null, name: "No profile: Sample New Horizons ETF", amount: aud("625.00", 62500), percent: "9.41", instrument_id: 3, option_name: null, through_fund: false, contributions: [], reason: null },
+    { kind: "not_classified", key: null, name: "Not classified", amount: aud("24.03", 2403), percent: "0.36", instrument_id: null, option_name: null, through_fund: false, contributions: [], reason: null },
+    { kind: "unallocated", key: null, name: "Unallocated", amount: aud("0.00", 0), percent: "0.00", instrument_id: null, option_name: null, through_fund: false, contributions: [], reason: null },
   ],
   parts: [
-    { instrument_id: 1, name: "Sample Broad Market ETF", amount: aud("4805.38", 480538), profile_as_at: "2026-06-30", dated_after: false, shortfall_percent: "0.5", trimmed: [], omitted: false, underlying: [] },
-    { instrument_id: 3, name: "Sample New Horizons ETF", amount: aud("625.00", 62500), profile_as_at: "2026-12-31", dated_after: true, shortfall_percent: "0", trimmed: [], omitted: false, underlying: [] },
+    { instrument_id: 1, name: "Sample Broad Market ETF", amount: aud("4805.38", 480538), option_name: null, instrument_name: null, profile_as_at: "2026-06-30", dated_after: false, shortfall_percent: "0.5", trimmed: [], omitted: false, underlying: [] },
+    { instrument_id: 3, name: "Sample New Horizons ETF", amount: aud("625.00", 62500), option_name: null, instrument_name: null, profile_as_at: "2026-12-31", dated_after: true, shortfall_percent: "0", trimmed: [], omitted: false, underlying: [] },
   ],
   flagged: false,
   tolerance: aud("66.45", 6645),
@@ -123,6 +127,8 @@ test("the investment Account shows its asset-class split, with No profile linkin
 });
 
 const PART_OMITTING = {
+  option_name: null,
+  instrument_name: null,
   instrument_id: 1,
   name: "Sample Balanced Growth Fund",
   amount: aud("500.00", 50000),
@@ -142,9 +148,9 @@ test("the Dimension switcher lists every Dimension, asks the server for the chos
           dimension_key: "sector",
           dimension_name: "Sector",
           lines: [
-            { kind: "label", key: "materials", name: "Materials", amount: aud("379.82", 37982), percent: "5.72", instrument_id: null, through_fund: false, contributions: [], reason: null },
-            { kind: "not_classified", key: null, name: "Not classified", amount: aud("6265.31", 626531), percent: "94.28", instrument_id: null, through_fund: false, contributions: [], reason: null },
-            { kind: "unallocated", key: null, name: "Unallocated", amount: aud("0.00", 0), percent: "0.00", instrument_id: null, through_fund: false, contributions: [], reason: null },
+            { kind: "label", key: "materials", name: "Materials", amount: aud("379.82", 37982), percent: "5.72", instrument_id: null, option_name: null, through_fund: false, contributions: [], reason: null },
+            { kind: "not_classified", key: null, name: "Not classified", amount: aud("6265.31", 626531), percent: "94.28", instrument_id: null, option_name: null, through_fund: false, contributions: [], reason: null },
+            { kind: "unallocated", key: null, name: "Unallocated", amount: aud("0.00", 0), percent: "0.00", instrument_id: null, option_name: null, through_fund: false, contributions: [], reason: null },
           ],
           parts: [PART_OMITTING],
         }
@@ -177,8 +183,8 @@ test("a Dimension in the URL is the one shown, and exposure currency is set apar
     dimension_key: "exposure_currency",
     dimension_name: "Exposure currency",
     lines: [
-      { kind: "label", key: "usd", name: "USD", amount: aud("6645.13", 664513), percent: "100.00", instrument_id: null, through_fund: false, contributions: [], reason: null },
-      { kind: "unallocated", key: null, name: "Unallocated", amount: aud("0.00", 0), percent: "0.00", instrument_id: null, through_fund: false, contributions: [], reason: null },
+      { kind: "label", key: "usd", name: "USD", amount: aud("6645.13", 664513), percent: "100.00", instrument_id: null, option_name: null, through_fund: false, contributions: [], reason: null },
+      { kind: "unallocated", key: null, name: "Unallocated", amount: aud("0.00", 0), percent: "0.00", instrument_id: null, option_name: null, through_fund: false, contributions: [], reason: null },
     ],
   });
   await renderAppAt("/accounts/20?dimension=exposure_currency");
@@ -555,15 +561,15 @@ const FUND_LOOK = {
       amount: aud("3764.65", 376465),
       percent: "46.11",
       instrument_id: null,
-      through_fund: true,
+      option_name: null, through_fund: true,
       reason: null,
       contributions: [
         { path: ["Sample Broad Market ETF"], amount: aud("2883.23", 288323) },
         { path: ["Sample Diversified Fund", "Sample Broad Market ETF"], amount: aud("501.60", 50160) },
       ],
     },
-    { kind: "label", key: "cash", name: "Cash", amount: aud("992.25", 99225), percent: "12.15", instrument_id: null, through_fund: false, contributions: [], reason: null },
-    { kind: "unallocated", key: null, name: "Unallocated", amount: aud("0.00", 0), percent: "0.00", instrument_id: null, through_fund: false, contributions: [], reason: null },
+    { kind: "label", key: "cash", name: "Cash", amount: aud("992.25", 99225), percent: "12.15", instrument_id: null, option_name: null, through_fund: false, contributions: [], reason: null },
+    { kind: "unallocated", key: null, name: "Unallocated", amount: aud("0.00", 0), percent: "0.00", instrument_id: null, option_name: null, through_fund: false, contributions: [], reason: null },
   ],
   parts: [
     {
@@ -749,4 +755,146 @@ test("underlying funds count towards a Dimension's running total, and only where
   expect(judgeTotal(["40"], 600_000)).toMatchObject({ totalPpm: 1_000_000, state: "exact" });
   expect(judgeTotal(["30"], 600_000)).toMatchObject({ state: "rejected", differencePpm: -100_000 });
   expect(judgeTotal([""], 600_000).state).toBe("empty"); // left out, however much the funds cover
+});
+
+// --- super Investment options (#86) ----------------------------------------------------------
+
+const SUPER = {
+  ...everyday,
+  id: 21,
+  name: "Sample Super Fund",
+  category_key: "superannuation",
+  account_type_key: "super_fund_account",
+};
+
+const optionLine = (over: Record<string, unknown>) => ({
+  key: null,
+  instrument_id: null,
+  option_name: null,
+  through_fund: false,
+  contributions: [],
+  reason: null,
+  ...over,
+});
+const optionPart = (over: Record<string, unknown>) => ({
+  profile_as_at: "2026-06-30",
+  dated_after: false,
+  shortfall_percent: "0",
+  trimmed: [],
+  omitted: false,
+  underlying: [],
+  ...over,
+});
+
+const SUPER_LOOK = {
+  applies: true,
+  source: "super_statement",
+  statement_id: 7,
+  statement_date: "2026-06-30",
+  change_since: "2026-06-30",
+  as_at: "2026-09-30",
+  status: "ok",
+  reason: null,
+  dimension_key: "asset_class",
+  dimension_name: "Asset class",
+  total: aud("215228.07", 21522807),
+  lines: [
+    optionLine({ kind: "label", key: "australian_shares", name: "Australian shares", amount: aud("48435.00", 4843500), percent: "22.50" }),
+    optionLine({ kind: "label", key: "international_shares", name: "International shares", amount: aud("51600.00", 5160000), percent: "23.98" }),
+    optionLine({ kind: "no_profile", name: "No profile: High Growth (not mapped to a fund)", amount: aud("53250.01", 5325001), percent: "24.74", option_name: "High Growth" }),
+    optionLine({ kind: "unallocated", name: "Unallocated", amount: aud("3728.06", 372806), percent: "1.73" }),
+  ],
+  parts: [
+    optionPart({ option_name: "Growth", instrument_id: 31, instrument_name: "Sample Super Growth Option", name: "Growth", amount: aud("68250.00", 6825000) }),
+    optionPart({ option_name: "High Growth", instrument_id: null, instrument_name: null, name: "High Growth", amount: aud("53250.01", 5325001), profile_as_at: null }),
+  ],
+  flagged: false,
+  tolerance: aud("32284.21", 3228421),
+};
+
+function superBackend(look: unknown) {
+  accountsBackend([SUPER]);
+  const inner = globalThis.fetch;
+  const puts: unknown[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (request: Request) => {
+      const url = new URL(request.url);
+      const pref = await preferences(request);
+      if (pref) return pref;
+      if (url.pathname === "/api/accounts/21/look-through") return json(look);
+      if (url.pathname === "/api/accounts/21/investment-option-links") {
+        puts.push(await request.json());
+        return json({ option_name: "High Growth", instrument_id: 40, instrument_name: "High Growth (Sample Super Fund)" });
+      }
+      if (url.pathname === "/api/exposure/vocabulary") return json(DIMENSIONS);
+      if (url.pathname === "/api/accounts/21/super-statements") return json([]);
+      if (url.pathname === "/api/instruments")
+        return json([{ id: 31, name: "Sample Super Growth Option", kind: "fund", currency: "AUD", notes: null, identifiers: [] }]);
+      return inner(request);
+    }),
+  );
+  return puts;
+}
+
+test("a super Account shows the same look-through panel, with Unallocated as the change since the statement", async () => {
+  superBackend(SUPER_LOOK);
+  await renderAppAt("/accounts/21");
+  const panel = within(await screen.findByRole("region", { name: /^Look-through/ }));
+  expect(await panel.findByText(/Largest: International shares and Australian shares; 24.74% has no profile yet/)).toBeInTheDocument();
+  fireEvent.click(panel.getByRole("button", { name: "Show figures" }));
+  const lines = within(await panel.findByRole("table", { name: "Look-through lines" }));
+  // quiet: the change since the statement is muted, with no warning
+  const row = lines.getByText(/Unallocated: change since 30 June 2026/).closest("tr")!;
+  expect(row).toHaveClass("text-muted-foreground");
+  expect(panel.queryByText("The option mix may have changed")).not.toBeInTheDocument();
+  // each option's mapping is in the figures; an unmapped one offers the mapping
+  const options = within(panel.getByRole("table", { name: "Investment options" }));
+  expect(options.getByRole("link", { name: "Sample Super Growth Option" })).toHaveAttribute("href", "/instruments/31");
+  expect(options.getByText("Not mapped")).toBeInTheDocument();
+  expect(panel.getByText(/never scaled to the Account's value/)).toBeInTheDocument();
+});
+
+test("a stale option mix beyond tolerance is flagged with a warning icon and words", async () => {
+  superBackend({ ...SUPER_LOOK, flagged: true });
+  await renderAppAt("/accounts/21");
+  const panel = within(await screen.findByRole("region", { name: /^Look-through/ }));
+  expect(await panel.findByText(/24.74% has no profile yet; 1.73% is unallocated: the option mix may have changed/)).toBeInTheDocument();
+  fireEvent.click(panel.getByRole("button", { name: "Show figures" }));
+  const badge = await panel.findByText("The option mix may have changed");
+  expect(badge.querySelector("svg")).not.toBeNull();
+});
+
+test("an unmapped option opens the mapping dialog and creates a fund from its name", async () => {
+  const puts = superBackend(SUPER_LOOK);
+  await renderAppAt("/accounts/21");
+  const panel = within(await screen.findByRole("region", { name: /^Look-through/ }));
+  fireEvent.click(await panel.findByRole("button", { name: "Show figures" }));
+  const lines = within(await panel.findByRole("table", { name: "Look-through lines" }));
+  fireEvent.click(lines.getByRole("button", { name: "Map to a fund" }));
+  const dialog = within(await screen.findByRole("dialog", { name: "Map High Growth to a fund" }));
+  expect(dialog.getByRole("option", { name: "Create a fund from “High Growth”" })).toBeInTheDocument();
+  expect(await dialog.findByRole("option", { name: "Sample Super Growth Option" })).toBeInTheDocument();
+  fireEvent.click(dialog.getByRole("button", { name: "Map to a fund" }));
+  await waitFor(() =>
+    expect(puts).toEqual([{ option_name: "High Growth", create_instrument: true, instrument_id: null }]),
+  );
+});
+
+test("a super Account with no Super statement asks for one", async () => {
+  superBackend({
+    ...SUPER_LOOK,
+    status: "not_analysed",
+    statement_id: null,
+    statement_date: null,
+    change_since: null,
+    total: null,
+    lines: [],
+    parts: [],
+    reason: "There is no Super statement on or before 2026-05-01. Provide a Super statement to see what this Account's Investment options hold.",
+  });
+  await renderAppAt("/accounts/21");
+  const panel = within(await screen.findByRole("region", { name: /^Look-through/ }));
+  expect(await panel.findByText(/Not analysed\. There is no Super statement/)).toBeInTheDocument();
+  expect(panel.getByText(/Provide a Super statement/)).toBeInTheDocument();
 });

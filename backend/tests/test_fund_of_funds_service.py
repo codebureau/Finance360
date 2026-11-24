@@ -265,7 +265,7 @@ def test_the_fixture_fund_of_funds_loads_resolves_and_reconciles_through_the_dat
     with session_factory.begin() as s:
         seed_exposure_vocab(s)
         inst_svc.load_fixture_instruments(s, tmp_path)
-        assert svc.load_fixture_exposure_profiles(s, tmp_path) == 5
+        assert svc.load_fixture_exposure_profiles(s, tmp_path) == 7
     with session_factory() as s:
         ids = {i.name: i.id for i in inst_svc.list_instruments(s)}
         fund = ids["Sample Diversified Fund"]

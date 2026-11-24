@@ -72,3 +72,38 @@ def test_super_statement_writes_work_over_a_real_server_and_are_read_back_at_onc
         "/api/audit", params={"entity_type": "super_statement", "account_id": fund}
     ).json()["items"]
     assert [e["action"] for e in trail][::-1] == ["create", "supersede", "supersede"]
+
+
+def test_mapping_an_investment_option_works_over_a_real_server_and_is_read_back_at_once(
+    signed_in: httpx.Client,  # noqa: F811
+) -> None:
+    http = signed_in
+    fund = _fund(http)
+    before = http.get(f"/api/accounts/{fund}/look-through", params={"on": "2026-09-30"}).json()
+    assert (before["source"], before["change_since"]) == ("super_statement", "2026-06-30")
+    high_growth = next(p for p in before["parts"] if p["option_name"] == "High Growth")
+
+    # a mapping to a fund created from the option's name, in the Account's currency
+    res = http.put(
+        f"/api/accounts/{fund}/investment-option-links",
+        json={"option_name": "high  GROWTH", "create_instrument": True},
+    )
+    assert res.status_code == 200, res.text
+    made = res.json()
+    assert made["instrument_name"] == "high GROWTH (Sample Super Fund)"
+    # committed before the response returned: the next read resolves through the new Instrument
+    after = http.get(f"/api/accounts/{fund}/look-through", params={"on": "2026-09-30"}).json()
+    part = next(p for p in after["parts"] if p["option_name"] == "High Growth")
+    assert (part["instrument_id"], part["instrument_name"]) == (
+        made["instrument_id"],
+        made["instrument_name"],
+    )
+    assert part["instrument_id"] != high_growth["instrument_id"]
+
+    # the shared error shape, and nothing written
+    bad = http.put(f"/api/accounts/{fund}/investment-option-links", json={"option_name": "x"})
+    assert bad.status_code == 422 and bad.json()["errors"][0]["field"] == "instrument_id"
+    trail = http.get(
+        "/api/audit", params={"entity_type": "investment_option_link", "account_id": fund}
+    ).json()["items"]
+    assert [e["action"] for e in trail][0] == "update"

@@ -134,3 +134,26 @@ class ExposureReference(Base):
     instrument_id: Mapped[int] = mapped_column(ForeignKey("instrument.id"), index=True)
     #: Exact parts per million of 1 (a ``Weight``).
     weight_ppm: Mapped[int] = mapped_column(Integer)
+
+
+class InvestmentOptionLink(Base):
+    """The mapping of a super Investment option, per Account, to the Instrument that holds its
+    Exposure profile (ADR-0030 section 4). Edited in place; the audit trail is its history. Super
+    statement option lines resolve through it by ``option_name_norm``, so a later statement with the
+    same name needs no new mapping."""
+
+    __tablename__ = "investment_option_link"
+    __table_args__ = (
+        CheckConstraint("length(trim(option_name)) > 0", name="option_name_required"),
+        UniqueConstraint(
+            "account_id", "option_name_norm", name="uq_investment_option_link_account_name"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("account.id"), index=True)
+    #: As entered (whitespace tidied), for display.
+    option_name: Mapped[str] = mapped_column(String(100))
+    #: ``normalise_option_name(option_name)``: what uniqueness and lookup compare.
+    option_name_norm: Mapped[str] = mapped_column(String(100))
+    instrument_id: Mapped[int] = mapped_column(ForeignKey("instrument.id"), index=True)

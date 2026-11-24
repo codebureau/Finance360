@@ -212,3 +212,10 @@ class ProfileFacts:
 
     def for_dimension(self, dimension_key: str) -> tuple[tuple[str, int], ...]:
         return tuple((label, ppm) for dim, label, ppm in self.weights if dim == dimension_key)
+
+
+def normalise_option_name(name: str) -> str:
+    """The key an Investment option's mapping is found by (ADR-0030 section 4): case-folded, with
+    runs of whitespace collapsed to one space and the ends trimmed, so a later statement that
+    spells the option with other case or spacing still finds its mapping."""
+    return " ".join(name.split()).casefold()

@@ -627,7 +627,7 @@ def _seed_exposure_profiles(session: Session, data_dir: Path) -> None:
                 p for p in instrument.get("exposure_profiles", []) if "references" not in p
             ]
         (Path(plain) / "household.json").write_text(json.dumps(household), encoding="utf-8")
-        assert profiles.load_fixture_exposure_profiles(session, Path(plain)) == 4
+        assert profiles.load_fixture_exposure_profiles(session, Path(plain)) == 6
     etf = session.scalars(
         select(Instrument).where(Instrument.name == "Sample Broad Market ETF")
     ).one()
@@ -694,6 +694,14 @@ def _seed_exposure_references(session: Session, data_dir: Path) -> None:
     )
 
 
+def _seed_investment_option_links(session: Session, data_dir: Path) -> None:
+    """Revision 0037 created ``investment_option_link``: map the fixture's three super Investment
+    options through the real service, so a populated database holds mappings."""
+    from finance360.capabilities.lookthrough import option_links
+
+    assert option_links.load_fixture_option_links(session, data_dir) == 3
+
+
 #: revision -> loads the data its migration created tables for. Extend with each schema slice.
 SEEDERS: dict[str, Callable[[Session, Path], None]] = {
     BASELINE: _seed_baseline,
@@ -724,6 +732,7 @@ SEEDERS: dict[str, Callable[[Session, Path], None]] = {
     "0034": _seed_exposure_profiles,
     "0035": _seed_display_preferences,
     "0036": _seed_exposure_references,
+    "0037": _seed_investment_option_links,
 }
 
 
@@ -1459,10 +1468,11 @@ def test_the_upgraded_database_keeps_both_lodged_results_and_still_refuses_to_ch
 def test_downgrading_0034_drops_only_the_exposure_tables(tmp_path: Path) -> None:
     upgrade_populated(tmp_path)
     before = snapshot(tmp_path)
-    # four, a corrected ETF, and 0036's fund-of-funds
-    assert len(before.tables["exposure_profile"].rows) == 6
-    # 19 + 5 + 17 + 26 weights across four Dimensions, 1 more, and the fund-of-funds' own 3
-    assert len(before.tables["exposure_weight"].rows) == 71
+    # six, a corrected ETF, and 0036's fund-of-funds
+    assert len(before.tables["exposure_profile"].rows) == 8
+    # 19 + 5 + 17 + 26 weights across four Dimensions, 13 + 13 for the two super options, 1 more,
+    # and the fund-of-funds' own 3
+    assert len(before.tables["exposure_weight"].rows) == 97
     config = alembic_config(tmp_path, MIGRATIONS_DIR)
     command.downgrade(config, "0033")
     after = snapshot(tmp_path)
@@ -1475,7 +1485,11 @@ def test_downgrading_0034_drops_only_the_exposure_tables(tmp_path: Path) -> None
     }
     assert not gone & after.tables.keys()
     assert not {n for n in after.triggers if n.startswith("exposure_")}
-    assert after.indexes == {k: v for k, v in before.indexes.items() if "exposure_" not in k}
+    assert after.indexes == {
+        k: v
+        for k, v in before.indexes.items()
+        if "exposure_" not in k and "investment_option_link" not in k
+    }
     for name, table in after.tables.items():
         if name != "audit_event":  # the profiles' audit rows stay: the trail is append-only
             assert table.rows == before.tables[name].rows, name
@@ -1496,11 +1510,13 @@ def test_downgrading_0036_drops_only_the_exposure_reference_table(tmp_path: Path
     assert "exposure_reference" not in after.tables
     assert not {n for n in after.triggers if n.startswith("exposure_reference")}
     assert after.indexes == {
-        k: v for k, v in before.indexes.items() if "exposure_reference" not in k
+        k: v
+        for k, v in before.indexes.items()
+        if "exposure_reference" not in k and "investment_option_link" not in k
     }
     for name, table in after.tables.items():
         assert table.rows == before.tables[name].rows, name  # every profile and weight stays
-    assert len(after.tables["exposure_profile"].rows) == 6
+    assert len(after.tables["exposure_profile"].rows) == 8
     command.upgrade(config, "head")
     command.check(config)
 
@@ -1625,7 +1641,9 @@ def test_downgrading_0032_drops_only_the_lodged_result_table(tmp_path: Path) -> 
     assert after.indexes == {
         k: v
         for k, v in before.indexes.items()
-        if "tax_lodged_result" not in k and "exposure_" not in k  # 0034's went too
+        if "tax_lodged_result" not in k
+        and "exposure_" not in k  # 0034's went too
+        and "investment_option_link" not in k  # and 0037's
     }
     for name, table in after.tables.items():
         if name != "audit_event":  # the notices' audit rows stay: the trail is append-only
@@ -1648,7 +1666,9 @@ def test_downgrading_0031_drops_only_the_tax_estimate_tables(tmp_path: Path) -> 
     assert after.indexes == {
         k: v
         for k, v in before.indexes.items()
-        if "tax_lodged_result" not in k and "exposure_" not in k  # 0034's went too
+        if "tax_lodged_result" not in k
+        and "exposure_" not in k  # 0034's went too
+        and "investment_option_link" not in k  # and 0037's
     }
     for name, table in after.tables.items():
         if name != "audit_event":  # the estimate's audit rows stay: the trail is append-only
@@ -1683,7 +1703,9 @@ def test_downgrading_0030_makes_a_carried_capture_typed_and_keeps_everything_els
     assert after.indexes == {
         k: v
         for k, v in before.indexes.items()
-        if "tax_lodged_result" not in k and "exposure_" not in k  # 0034's went too
+        if "tax_lodged_result" not in k
+        and "exposure_" not in k  # 0034's went too
+        and "investment_option_link" not in k  # and 0037's
     }
     for name, table in after.tables.items():
         if name not in ("rule_capture", "audit_event"):
@@ -2000,3 +2022,65 @@ def test_downgrading_0029_drops_only_the_document_profile_table(tmp_path: Path) 
             assert_rows_kept(table, before.tables[name], name)
     command.upgrade(config, "head")
     command.check(config)
+
+
+def test_downgrading_0037_drops_only_the_investment_option_link_table(tmp_path: Path) -> None:
+    upgrade_populated(tmp_path)
+    before = snapshot(tmp_path)
+    assert sorted(str(r[2]) for r in before.tables["investment_option_link"].rows) == [
+        "Balanced",
+        "Growth",
+        "High Growth",
+    ]
+    config = alembic_config(tmp_path, MIGRATIONS_DIR)
+    command.downgrade(config, "0036")
+    after = snapshot(tmp_path)
+    assert "investment_option_link" not in after.tables
+    assert after.triggers == before.triggers
+    assert after.indexes == {
+        k: v for k, v in before.indexes.items() if "investment_option_link" not in k
+    }
+    for name, table in after.tables.items():
+        if name != "audit_event":  # the mappings' audit rows stay: the trail is append-only
+            assert table.rows == before.tables[name].rows, name  # instruments and profiles stay
+    command.upgrade(config, "head")
+    command.check(config)
+
+
+def test_the_upgraded_database_keeps_its_option_mappings_and_one_per_normalised_name(
+    tmp_path: Path,
+) -> None:
+    """0037 adds the mapping: after the whole chain the fixture's three options are mapped to
+    their Instruments, and the database itself refuses a second mapping of the same name."""
+    upgrade_populated(tmp_path)
+    conn = sqlite3.connect(db_path(tmp_path))
+    try:
+        conn.execute("PRAGMA foreign_keys=ON")
+        rows = conn.execute(
+            "SELECT l.option_name, l.option_name_norm, i.name FROM investment_option_link l "
+            "JOIN instrument i ON i.id = l.instrument_id ORDER BY l.id"
+        ).fetchall()
+        assert rows == [
+            ("Growth", "growth", "Sample Super Growth Option"),
+            ("Balanced", "balanced", "Sample Super Balanced Option"),
+            ("High Growth", "high growth", "Sample Super High Growth Option"),
+        ]
+        account, instrument = conn.execute(
+            "SELECT account_id, instrument_id FROM investment_option_link LIMIT 1"
+        ).fetchone()
+        with pytest.raises(sqlite3.IntegrityError, match="UNIQUE"):
+            conn.execute(
+                "INSERT INTO investment_option_link "
+                "(account_id, option_name, option_name_norm, instrument_id) VALUES (?, 'growth', "
+                "'growth', ?)",
+                (account, instrument),
+            )
+        with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
+            conn.execute(
+                "INSERT INTO investment_option_link "
+                "(account_id, option_name, option_name_norm, instrument_id) VALUES (?, '  ', "
+                "'', ?)",
+                (account, instrument),
+            )
+    finally:
+        conn.close()

@@ -13,7 +13,12 @@ from hypothesis import assume, given
 from hypothesis import strategies as st
 
 from finance360.capabilities.lookthrough.lines import Part, compose, percent_text
-from finance360.capabilities.lookthrough.reconcile import is_material, reconcile_tolerance
+from finance360.capabilities.lookthrough.reconcile import (
+    is_material,
+    is_stale_material,
+    reconcile_tolerance,
+    stale_tolerance,
+)
 from finance360.capabilities.lookthrough.resolve import resolve, select_profile
 from finance360.core.exposure import (
     ASSET_CLASS,
@@ -467,3 +472,94 @@ def test_cash_in_a_currency_the_vocabulary_does_not_list_is_not_classified() -> 
         ("not_classified", 5_000),
         ("unallocated", 0),
     ]
+
+
+# --- super Investment options (#86) ------------------------------------------------------------
+
+
+def _options(amounts: list[int], mapped: list[bool]) -> list[Part]:
+    """Option parts: a mapped one resolves through Instrument 1 or 2 (alternating), an unmapped
+    one has no Instrument."""
+    return [
+        Part((i % 2) + 1 if m else None, f"Option {i}", aud(a), option=f"Option {i}")
+        for i, (a, m) in enumerate(zip(amounts, mapped, strict=True))
+    ]
+
+
+def test_golden_an_unmapped_option_is_a_no_profile_line_naming_the_option() -> None:
+    parts = _options([60_000, 40_000], [True, False])
+    got = compose(
+        position_value=aud(110_000),
+        parts_value=aud(100_000),
+        parts=parts,
+        dimension=ASSET_CLASS,
+        labels=LABELS,
+        on=ON,
+        profiles=SAMPLE_PROFILES,
+    )
+    unmapped = next(line for line in got.lines if line.option_name == "Option 1")
+    assert (unmapped.kind, unmapped.instrument_id, unmapped.amount.amount_minor) == (
+        "no_profile",
+        None,
+        40_000,
+    )
+    assert [(p.option, p.instrument_id) for p in got.parts] == [("Option 0", 1), ("Option 1", None)]
+    assert got.unallocated.amount_minor == 10_000
+    assert sum(line.amount.amount_minor for line in got.lines) == 110_000
+
+
+def test_golden_a_stale_mix_is_judged_against_fifteen_percent_and_says_since_when() -> None:
+    """A 12% gap: beyond the 1% reconcile tolerance, within the 15% stale one."""
+    kwargs = dict(
+        position_value=aud(1_000_000),
+        parts_value=aud(880_000),
+        parts=_options([880_000], [True]),
+        dimension=ASSET_CLASS,
+        labels=LABELS,
+        on=ON,
+        profiles=SAMPLE_PROFILES,
+    )
+    plain = compose(**kwargs)  # type: ignore[arg-type]
+    stale = compose(**kwargs, change_since=date(2026, 6, 30))  # type: ignore[arg-type]
+    assert (plain.flagged, plain.change_since) == (True, None)
+    assert (stale.flagged, stale.change_since) == (False, date(2026, 6, 30))
+    assert stale.tolerance.amount_minor == 150_000
+    beyond = compose(**{**kwargs, "parts_value": aud(840_000)}, change_since=date(2026, 6, 30))  # type: ignore[arg-type]
+    assert beyond.flagged is True  # 16%: "the option mix may have changed"
+
+
+def test_the_stale_tolerance_is_fifteen_percent_of_the_value_for_either_sign() -> None:
+    assert stale_tolerance(aud(1_000_000)).amount_minor == 150_000
+    assert is_stale_material(aud(150_000), aud(1_000_000)) is False
+    assert is_stale_material(aud(150_001), aud(1_000_000)) is True
+    assert is_stale_material(aud(-150_001), aud(1_000_000)) is True
+
+
+@given(
+    st.lists(st.tuples(st.integers(1, 10**9), st.booleans()), max_size=6),
+    st.integers(-(10**10), 10**10),
+    st.one_of(st.none(), st.just(date(2026, 6, 30))),
+)
+def test_property_option_parts_plus_unallocated_equal_the_account_value_for_any_sign(
+    options: list[tuple[int, bool]], gap: int, since: date | None
+) -> None:
+    """Parts never scale: the lines are the parts' values plus Unallocated (either sign), which
+    always makes up the Account value exactly; nothing but Unallocated is negative."""
+    amounts = [a for a, _ in options]
+    total = sum(amounts)
+    position = total + gap
+    assume(position > 0)
+    got = compose(
+        position_value=aud(position),
+        parts_value=aud(total),
+        parts=_options(amounts, [m for _, m in options]),
+        dimension=ASSET_CLASS,
+        labels=LABELS,
+        on=ON,
+        profiles=SAMPLE_PROFILES,
+        change_since=since,
+    )
+    assert sum(line.amount.amount_minor for line in got.lines) == position
+    assert [p.amount.amount_minor for p in got.parts] == amounts  # never scaled
+    assert got.unallocated.amount_minor == gap
+    assert all(line.amount.amount_minor >= 0 for line in got.lines if line.kind != "unallocated")

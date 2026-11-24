@@ -244,7 +244,7 @@ def test_the_fixture_roster_loads_once_through_the_service(
         REPO / "fixtures" / "sample_household" / "household.json", tmp_path / "household.json"
     )
     with session_factory.begin() as s:
-        assert svc.load_fixture_instruments(s, tmp_path) == 5
+        assert svc.load_fixture_instruments(s, tmp_path) == 8
     with session_factory.begin() as s:
         assert svc.load_fixture_instruments(s, tmp_path) == 0  # only while none exist
     with session_factory() as s:
@@ -257,7 +257,7 @@ def test_the_fixture_roster_loads_once_through_the_service(
         assert "yahoo" not in {x.scheme for x in roster["Sample Global Equity ETF"].identifiers}
     assert {e.source for e in _events(session_factory)} == {"fixture"}
     data = json.loads((tmp_path / "household.json").read_text(encoding="utf-8"))
-    assert len(data["instruments"]) == 5
+    assert len(data["instruments"]) == 8
 
 
 _word = st.text(alphabet="abcdefXYZ019", min_size=1, max_size=6)

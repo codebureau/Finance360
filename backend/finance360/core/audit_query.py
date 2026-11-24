@@ -128,7 +128,12 @@ def list_audit(session: Session, q: AuditQuery) -> Page[AuditEntry]:
                 and_(AuditEvent.entity_type == "account", AuditEvent.entity_id == q.account_id),
                 and_(
                     AuditEvent.entity_type.in_(
-                        ("valuation", "account_identifier", "super_statement")
+                        (
+                            "valuation",
+                            "account_identifier",
+                            "super_statement",
+                            "investment_option_link",
+                        )
                     ),
                     in_snapshot,
                 ),

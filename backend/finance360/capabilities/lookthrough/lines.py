@@ -17,7 +17,12 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Literal
 
-from finance360.capabilities.lookthrough.reconcile import is_material, reconcile_tolerance
+from finance360.capabilities.lookthrough.reconcile import (
+    is_material,
+    is_stale_material,
+    reconcile_tolerance,
+    stale_tolerance,
+)
 from finance360.capabilities.lookthrough.resolve import NoProfileReason, resolve
 from finance360.core.exposure import ASSET_CLASS, CASH, EXPOSURE_CURRENCY, ProfileFacts
 from finance360.core.money import Money, allocate, round_div
@@ -35,6 +40,9 @@ class Part:
     amount: Money
     #: A cash part's currency: its Exposure currency (ADR-0030 section 6). ``None`` for a Holding.
     currency: str | None = None
+    #: A super Investment option part: the option's name as the statement states it. With no
+    #: ``instrument_id`` the option is not mapped to an Instrument yet (a No profile line).
+    option: str | None = None
 
 
 @dataclass(frozen=True)
@@ -53,6 +61,11 @@ class PartResult:
     omitted: bool = False
     #: The underlying funds this part resolved through, each with its own profile's notes.
     underlying: tuple[Underlying, ...] = ()
+    #: An Investment option part: its name on the statement (``instrument_id`` is the mapped
+    #: Instrument, ``None`` while unmapped).
+    option: str | None = None
+    #: The mapped Instrument's name, for an option part.
+    instrument_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -94,6 +107,9 @@ class Line:
     contributions: tuple[Contribution, ...] = ()
     #: A ``no_profile`` line whose Instrument is not the held one: ``cycle`` or ``too_deep``.
     reason: NoProfileReason | None = None
+    #: A ``no_profile`` line for an Investment option not mapped to an Instrument yet: its name,
+    #: so the page can offer the mapping.
+    option_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -105,6 +121,9 @@ class Composition:
     #: The Unallocated gap is beyond the reconcile tolerance (shown quietly otherwise).
     flagged: bool
     tolerance: Money
+    #: The Super statement's date when the Account's Valuation is dated after it: the Unallocated
+    #: line is then "change since" that date and is judged against the stale tolerance.
+    change_since: date | None = None
 
 
 def percent_text(amount: Money, total: Money) -> str | None:
@@ -137,13 +156,16 @@ def compose(
     on: date,
     profiles: Mapping[int, Sequence[ProfileFacts]],
     names_of: Mapping[int, str] | None = None,
+    change_since: date | None = None,
 ) -> Composition:
     """The Account's look-through in one Dimension.
 
     ``position_value`` is the Account's Position value and ``parts_value`` the parts' total, both
     in the Base currency (the service converts); ``labels`` is the Dimension's ``(key, name)`` in
     seed order and ``names_of`` the Instruments' names (including underlying funds). The returned
-    lines sum exactly to ``position_value``.
+    lines sum exactly to ``position_value``. ``change_since`` is set when a super Account's
+    Valuation is dated after its Super statement: Unallocated is then judged against the stale
+    tolerance (ADR-0030 section 6).
     """
     names = dict(labels)
     order = [key for key, _ in labels]
@@ -169,10 +191,18 @@ def compose(
     #: Routes (Instrument names, held fund first) and what each gave, per label and No profile.
     label_routes: dict[str, dict[tuple[str, ...], Money]] = {}
     no_profile: dict[tuple[int, NoProfileReason | None], Money] = {}
+    #: Investment options not mapped to an Instrument yet, by name.
+    unmapped: dict[str, Money] = {}
     no_profile_routes: dict[tuple[int, NoProfileReason | None], dict[tuple[str, ...], Money]] = {}
     not_classified = zero
     results: list[PartResult] = []
     for part, amount in zip(parts, in_base, strict=True):
+        if part.instrument_id is None and part.option is not None:
+            unmapped[part.option] = unmapped.get(part.option, zero) + amount
+            results.append(
+                PartResult(None, part.name, amount, None, False, 0, (), option=part.option)
+            )
+            continue
         if part.instrument_id is None:
             cash_label = _cash_label(dimension, part.currency, names)
             if cash_label is not None:
@@ -226,6 +256,8 @@ def compose(
                     )
                     for visit in resolved.visits
                 ),
+                part.option,
+                called(part.instrument_id) if part.option is not None else None,
             )
         )
 
@@ -272,6 +304,17 @@ def compose(
                 reason,
             )
         )
+    for option, amount in unmapped.items():
+        lines.append(
+            Line(
+                "no_profile",
+                None,
+                f"No profile: {option} (not mapped to a fund)",
+                amount,
+                percent_text(amount, position_value),
+                option_name=option,
+            )
+        )
     if not_classified.amount_minor:
         lines.append(
             Line(
@@ -291,11 +334,13 @@ def compose(
             percent_text(unallocated, position_value),
         )
     )
+    stale = change_since is not None
     return Composition(
         position_value,
         tuple(lines),
         tuple(results),
         unallocated,
-        is_material(unallocated, position_value),
-        reconcile_tolerance(position_value),
+        (is_stale_material if stale else is_material)(unallocated, position_value),
+        (stale_tolerance if stale else reconcile_tolerance)(position_value),
+        change_since,
     )

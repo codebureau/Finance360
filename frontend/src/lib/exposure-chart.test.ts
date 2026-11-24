@@ -96,6 +96,12 @@ test("the headline names the top labels and what is missing", () => {
     { flagged: true },
   );
   expect(headline(gappy)).toBe("Largest: Cash; 70% is not classified; 10% is unallocated, beyond tolerance");
+  // a stale super option mix beyond tolerance says the mix may have changed
+  const stale = look(
+    [line("label", "cash", "Cash", "80"), line("unallocated", null, "Unallocated", "20")],
+    { flagged: true, change_since: "2026-06-30" },
+  );
+  expect(headline(stale)).toBe("Mostly Cash; 20% is unallocated: the option mix may have changed");
   const none = look([line("not_classified", null, "Not classified", "100")], { dimension_name: "Sector" });
   expect(headline(none)).toBe("Nothing is classified by sector yet");
 });
