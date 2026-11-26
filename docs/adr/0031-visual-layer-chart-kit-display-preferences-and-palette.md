@@ -84,7 +84,7 @@ Rules:
 **The kit grows with the first screen that needs each form** (AGENTS.md rule 5). V1 (#97) builds
 `share` (all three forms), the stat tile, the view card, the segmented control, entity colour and
 the preference hook. V2 (#98) adds `share-over-time`; V4 (#100) `series` with end labels and
-`comparison`; V5 (tax, not yet filed) `build-up`; #101 `collection`. `ratio` (meter) and a stat-tile
+`comparison`; #117 (tax) `build-up`; #101 `collection`. `ratio` (meter) and a stat-tile
 sparkline wait for a slice that needs them. No form is built ahead of its screen.
 
 ### 2. The switch

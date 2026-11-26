@@ -1,4 +1,5 @@
-import { EstimateNotices, ResultTable } from "@/components/tax-estimate-view";
+import { EstimateNotices } from "@/components/tax-estimate-view";
+import { TaxWaterfallCard } from "@/components/tax-waterfall-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Money } from "@/components/ui/money";
@@ -95,18 +96,19 @@ function AppliedOverride({ item }: { item: TaxAppliedOverride }) {
 export function TaxEstimateBody({ view }: { view: TaxEstimateView }) {
   return (
     <div className="flex flex-col gap-4">
-      <Card data-testid="estimate-result">
-        <CardContent className="flex flex-col gap-4 pt-6">
-          <EstimateNotices incomplete={view.incomplete} provisional={view.provisional} unmodelled={view.unmodelled} />
-          <ResultTable members={view.members} household={view.household} />
-          <p className="text-sm text-muted-foreground">
-            Net outcome is credits less total tax: a negative amount is payable, a positive amount is a refund.{" "}
-            {view.dependants === 0
+      <div data-testid="estimate-result" className="flex flex-col gap-4">
+        <EstimateNotices incomplete={view.incomplete} provisional={view.provisional} unmodelled={view.unmodelled} />
+        <TaxWaterfallCard
+          members={view.members}
+          household={view.household}
+          incomplete={view.incomplete}
+          footnote={
+            view.dependants === 0
               ? "No dependent children."
-              : `${view.dependants} dependent ${view.dependants === 1 ? "child" : "children"}.`}
-          </p>
-        </CardContent>
-      </Card>
+              : `${view.dependants} dependent ${view.dependants === 1 ? "child" : "children"}.`
+          }
+        />
+      </div>
 
       {view.overrides.length > 0 && (
         <Card data-testid="overrides-applied">

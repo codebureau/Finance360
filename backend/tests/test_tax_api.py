@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import shutil
 from collections.abc import Iterator
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -251,6 +252,11 @@ def test_an_estimate_for_the_synthetic_household(sample: TestClient) -> None:
         "-390.00",
     )
     assert data["household"]["net_outcome"] == "600.00"
+    # The three credits are stated per Member (the waterfall draws each) and add up to Credits.
+    for member in (alex, jordan):
+        parts = (member["tax_withheld"], member["franking_credits"], member["payg_instalments"])
+        assert sum(Decimal(part) for part in parts) == Decimal(member["credits"])
+    assert Decimal(alex["credits"]) > 0
     assert (data["household"]["medicare_levy"], data["household"]["offsets"]) == (
         "3120.00",
         "450.00",

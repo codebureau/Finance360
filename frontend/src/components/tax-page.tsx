@@ -7,7 +7,8 @@ import { FinancialYearSelect } from "@/components/financial-year-select";
 import { FieldMessage, GeneralError, inputClass } from "@/components/form-fields";
 import { SaveEstimateDialog } from "@/components/save-estimate-dialog";
 import { Division293 } from "@/components/tax-division-293";
-import { EstimateNotices, ResultTable, firstName } from "@/components/tax-estimate-view";
+import { EstimateNotices, firstName } from "@/components/tax-estimate-view";
+import { TaxWaterfallCard } from "@/components/tax-waterfall-card";
 import { LabelTotals } from "@/components/tax-label-totals";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -84,57 +85,60 @@ function Results({
   }, [estimate]);
   const navigate = useNavigate();
   return (
-    <Card data-testid="tax-result" aria-labelledby="tax-result-title">
-      <CardHeader>
-        <div className="flex flex-wrap items-center gap-2">
-          <CardTitle id="tax-result-title" ref={ref} tabIndex={-1} className="outline-none">
-            Estimate for FY {estimate.financial_year_label}
-          </CardTitle>
-          {estimate.incomplete && <Badge variant="flagged">Incomplete</Badge>}
-          {estimate.provisional.length > 0 && <Badge variant="flagged">Provisional</Badge>}
-          <div className="ml-auto">
-            <SaveEstimateDialog
-              request={{ ...request, whatifId: null }}
-              onSaved={(saved) =>
-                void navigate({ to: "/tax/estimates/$estimateId", params: { estimateId: String(saved.id) } })
-              }
-            />
+    <div data-testid="tax-result" className="flex flex-col gap-4">
+      <Card aria-labelledby="tax-result-title">
+        <CardHeader>
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle id="tax-result-title" ref={ref} tabIndex={-1} className="outline-none">
+              Estimate for FY {estimate.financial_year_label}
+            </CardTitle>
+            {estimate.incomplete && <Badge variant="flagged">Incomplete</Badge>}
+            {estimate.provisional.length > 0 && <Badge variant="flagged">Provisional</Badge>}
+            <div className="ml-auto">
+              <SaveEstimateDialog
+                request={{ ...request, whatifId: null }}
+                onSaved={(saved) =>
+                  void navigate({ to: "/tax/estimates/$estimateId", params: { estimateId: String(saved.id) } })
+                }
+              />
+            </div>
           </div>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Rule pack {estimate.rule_pack_version}, engine v{estimate.engine_version}. Not saved until you press Save
-          estimate.
-        </p>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <EstimateNotices
-          incomplete={estimate.incomplete}
-          provisional={estimate.provisional}
-          unmodelled={estimate.unmodelled}
-        />
-        <ResultTable members={estimate.members} household={estimate.household} />
-        <p className="text-sm text-muted-foreground">
-          Net outcome is credits less total tax: a negative amount is payable, a positive amount is a refund.
-        </p>
-        {estimate.members.some((m) => m.notes.length > 0) && (
-          <ul className="list-disc space-y-1 pl-5 text-sm">
-            {estimate.members.flatMap((m) =>
-              m.notes.map((note) => (
-                <li key={`${m.member_id}-${note}`}>
-                  {members.length > 1 ? `${firstName(m.name)}: ` : ""}
-                  {note}
-                </li>
-              )),
-            )}
+          <p className="text-sm text-muted-foreground">
+            Rule pack {estimate.rule_pack_version}, engine v{estimate.engine_version}. Not saved until you press Save
+            estimate.
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4 empty:hidden">
+          <EstimateNotices
+            incomplete={estimate.incomplete}
+            provisional={estimate.provisional}
+            unmodelled={estimate.unmodelled}
+          />
+        </CardContent>
+      </Card>
+      <TaxWaterfallCard members={estimate.members} household={estimate.household} incomplete={estimate.incomplete} />
+      <Card>
+        <CardContent className="flex flex-col gap-4 pt-6">
+          {estimate.members.some((m) => m.notes.length > 0) && (
+            <ul className="list-disc space-y-1 pl-5 text-sm">
+              {estimate.members.flatMap((m) =>
+                m.notes.map((note) => (
+                  <li key={`${m.member_id}-${note}`}>
+                    {members.length > 1 ? `${firstName(m.name)}: ` : ""}
+                    {note}
+                  </li>
+                )),
+              )}
+            </ul>
+          )}
+          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+            {TAX_SIMPLIFICATIONS.map((text) => (
+              <li key={text}>{text}</li>
+            ))}
           </ul>
-        )}
-        <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-          {TAX_SIMPLIFICATIONS.map((text) => (
-            <li key={text}>{text}</li>
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
