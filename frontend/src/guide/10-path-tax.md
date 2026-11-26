@@ -10,7 +10,7 @@ For when you want to know how this financial year's tax is shaping up, and keep 
 ## Screens that matter
 - [Tax records](/tax/records): where everything goes in.
 - [Income reconciliation](/tax/reconciliation): where your pay went, from the income statements.
-- [Tax estimate](/tax): the tax for a financial year, worked out from your Tax records.
+- [Tax estimate](/tax): the tax for a financial year, worked out from your Tax records, drawn as a waterfall from the tax on taxable income to the amount payable or the refund.
 - [Tax what-ifs](/tax/whatifs): try a change on a year without touching your records. Optional.
 - [Saved estimates](/tax/estimates): estimates kept exactly as calculated, and a comparison of any two of the same year. Optional.
 - Read [Tax](/guide/tax) first.

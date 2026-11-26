@@ -4,6 +4,17 @@ import { afterEach, expect, test, vi } from "vitest";
 import { estimateBody, financialYearLabel, parseTaxSearch } from "@/lib/tax";
 import { renderAppAt } from "@/test-utils";
 
+// jsdom has no canvas: stand in for the ECharts host and keep the option it was given.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const options: { label: string; current: any }[] = [];
+vi.mock("@/components/echart", () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  default: ({ option, label }: { option: any; label: string }) => {
+    options.push({ label, current: option });
+    return <div data-testid="mock-echart" role="img" aria-label={label} />;
+  },
+}));
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
@@ -49,17 +60,34 @@ const heldYear = {
   provisional: [],
 };
 
-const line = (taxable: string, total: string, net: string) => ({
-  taxable_income: taxable,
-  tax_on_taxable_income: "10610.00",
-  offsets: "0.00",
-  medicare_levy: "2400.00",
+// Invented, and each line adds up: tax + levy - offsets = total; credits - total = net.
+const line = (p: {
+  taxable: string;
+  tax: string;
+  offsets: string;
+  levy: string;
+  total: string;
+  withheld: string;
+  franking: string;
+  credits: string;
+  net: string;
+}) => ({
+  taxable_income: p.taxable,
+  tax_on_taxable_income: p.tax,
+  offsets: p.offsets,
+  medicare_levy: p.levy,
   medicare_levy_surcharge: "0.00",
   help_repayment: "0.00",
-  total_tax: total,
-  credits: "14000.00",
-  net_outcome: net,
+  total_tax: p.total,
+  tax_withheld: p.withheld,
+  franking_credits: p.franking,
+  payg_instalments: "0.00",
+  credits: p.credits,
+  net_outcome: p.net,
 });
+const alexLine = line({ taxable: "80000.00", tax: "10610.00", offsets: "0.00", levy: "2400.00", total: "13010.00", withheld: "14000.00", franking: "0.00", credits: "14000.00", net: "990.00" });
+const jordanLine = line({ taxable: "28000.00", tax: "1000.00", offsets: "450.00", levy: "840.00", total: "1390.00", withheld: "800.00", franking: "200.00", credits: "1000.00", net: "-390.00" });
+const householdLine = line({ taxable: "108000.00", tax: "11610.00", offsets: "450.00", levy: "3240.00", total: "14400.00", withheld: "14800.00", franking: "200.00", credits: "15000.00", net: "600.00" });
 const estimate = (more: Record<string, unknown> = {}) => ({
   financial_year: 2097,
   financial_year_label: "2096-97",
@@ -68,10 +96,10 @@ const estimate = (more: Record<string, unknown> = {}) => ({
   incomplete: false,
   provisional: [],
   members: [
-    { member_id: 1, name: "Alex Sample", total_income: "80000.00", total_deductions: "0.00", low_income_offset: "0.00", small_business_offset: "0.00", surcharge_rate: "0", notes: ["Capital loss of 10.00 carried forward."], ...line("80000.00", "13010.00", "990.00") },
-    { member_id: 2, name: "Jordan Sample", total_income: "28000.00", total_deductions: "0.00", low_income_offset: "450.00", small_business_offset: "0.00", surcharge_rate: "0", notes: [], ...line("28000.00", "1390.00", "-390.00") },
+    { member_id: 1, name: "Alex Sample", total_income: "80000.00", total_deductions: "0.00", low_income_offset: "0.00", small_business_offset: "0.00", surcharge_rate: "0", notes: ["Capital loss of 10.00 carried forward."], ...alexLine },
+    { member_id: 2, name: "Jordan Sample", total_income: "28000.00", total_deductions: "0.00", low_income_offset: "450.00", small_business_offset: "0.00", surcharge_rate: "0", notes: [], ...jordanLine },
   ],
-  household: { ...line("108000.00", "14400.00", "600.00"), surcharge_income: "108000.00", surcharge_thresholds: "family", surcharge_tier: 0 },
+  household: { ...householdLine, surcharge_income: "108000.00", surcharge_thresholds: "family", surcharge_tier: 0 },
   unmodelled: [],
   division_293: { members: [], figures_used: [], waiting_for: [] },
   ...more,
@@ -241,6 +269,7 @@ test("Calculate sends the Members, not totals, and shows each Member and the Hou
   const result = await screen.findByTestId("tax-result");
   const post = calls.find((c) => c.path === "/api/tax/estimate");
   expect(post?.body).toEqual({ financial_year: 2097, dependants: 0, member_ids: [1, 2] });
+  fireEvent.click(within(result).getByRole("button", { name: "Show figures: Estimate" }));
   const table = within(result).getByRole("table", { name: "Estimate" });
   expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
     "Item",
@@ -435,4 +464,29 @@ test("Division 293 says what it is waiting for when the Rule pack lacks a figure
   const waiting = await screen.findByTestId("div293-waiting");
   expect(waiting).toHaveTextContent("Division 293 threshold");
   expect(within(waiting).getByRole("link", { name: /Capture on Rule figures/ })).toBeInTheDocument();
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const lastOption = (): any => options.filter((o) => /Waterfall chart/.test(o.label)).at(-1)!.current;
+
+test("the waterfall starts at the Household and a Member can be chosen; each draws its own steps", async () => {
+  options.length = 0;
+  fakeBackend();
+  await renderAppAt("/tax?fy=2097");
+  fireEvent.click(await screen.findByRole("button", { name: "Calculate" }));
+  const card = await screen.findByRole("region", { name: "How the tax becomes the result" });
+  // Household: the engine's lines, with the credits summed from the Members.
+  expect(within(card).getByText(/The Household gets a refund of 600\.00/)).toBeInTheDocument();
+  expect(within(card).getByRole("combobox", { name: "For" })).toHaveValue("household");
+  expect(lastOption().xAxis.data).toEqual([
+    "Tax on taxable income",
+    "Offsets",
+    "Medicare levy",
+    "Total tax",
+    "Tax withheld",
+    "Franking credits",
+    "Refund",
+  ]);
+  fireEvent.change(within(card).getByRole("combobox", { name: "For" }), { target: { value: "2" } });
+  expect(within(card).getByText(/Jordan pays 390\.00 more than the credits cover/)).toBeInTheDocument();
 });

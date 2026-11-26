@@ -550,6 +550,9 @@ class TaxMemberOut(BaseModel):
     surcharge_rate: str = Field(description="A percent string.")
     help_repayment: str
     total_tax: str
+    tax_withheld: str = Field(description="Credit: tax withheld, with TFN amounts withheld.")
+    franking_credits: str = Field(description="Credit: franking credits, with a trust's.")
+    payg_instalments: str = Field(description="Credit: PAYG instalments paid.")
     credits: str = Field(description="Tax withheld, franking credits and PAYG instalments.")
     net_outcome: str = Field(description="Credits less total tax: negative is an amount payable.")
     notes: list[str]
@@ -1240,6 +1243,9 @@ def member_out(m: engine.MemberResult, name: str) -> TaxMemberOut:
         surcharge_rate=m.surcharge_rate.to_percent(),
         help_repayment=amount_out(m.help_repayment),
         total_tax=amount_out(m.total_tax),
+        tax_withheld=amount_out(m.tax_withheld),
+        franking_credits=amount_out(m.franking_credits),
+        payg_instalments=amount_out(m.payg_instalments),
         credits=amount_out(m.credits),
         net_outcome=amount_out(m.net_outcome),
         notes=list(m.notes),

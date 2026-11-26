@@ -8506,6 +8506,11 @@ export interface components {
              * @description Tax withheld, franking credits and PAYG instalments.
              */
             credits: string;
+            /**
+             * Franking Credits
+             * @description Credit: franking credits, with a trust's.
+             */
+            franking_credits: string;
             /** Help Repayment */
             help_repayment: string;
             /** Low Income Offset */
@@ -8530,6 +8535,11 @@ export interface components {
              * @description Offsets applied; they cannot take the tax below zero.
              */
             offsets: string;
+            /**
+             * Payg Instalments
+             * @description Credit: PAYG instalments paid.
+             */
+            payg_instalments: string;
             /** Small Business Offset */
             small_business_offset: string;
             /**
@@ -8539,6 +8549,11 @@ export interface components {
             surcharge_rate: string;
             /** Tax On Taxable Income */
             tax_on_taxable_income: string;
+            /**
+             * Tax Withheld
+             * @description Credit: tax withheld, with TFN amounts withheld.
+             */
+            tax_withheld: string;
             /** Taxable Income */
             taxable_income: string;
             /** Total Deductions */

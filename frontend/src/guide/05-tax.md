@@ -29,6 +29,8 @@ Underneath the [Tax estimate](/tax) and on [Tax records](/tax/records) you will 
 ### 3. Tax estimate: the answer
 On the [Tax estimate](/tax), choose the financial year, enter the number of dependent children, and press Calculate. You get, for each Member and for the Household: taxable income, tax on it, offsets, the Medicare levy, the Medicare levy surcharge, HELP repayment, total tax, credits and the **net outcome**. A negative net outcome is tax payable. A positive one is a refund.
 
+The answer leads as a **waterfall**, "How the tax becomes the result". It starts at the tax on taxable income and moves one step at a time: offsets take tax off, then the Medicare levy, the Medicare levy surcharge and the HELP repayment add to it, giving **total tax**; then tax withheld, franking credits and PAYG instalments take it off again. The last bar is total tax less credits: **Amount payable** above the line, or **Refund** below it. Each bar names its step and carries a **+** or **-** with its exact figure, so you can see which lines moved the result; a step that is nil is left out of the picture. Taxable income, total income and total deductions sit beside it. Choose **For** to see the Household (the default for a couple) or one Member; the Household's steps are the Members' added together. The full table is under **Show figures**. Division 293 is not part of total tax and is shown further down. The same waterfall appears on a Tax what-if's result and on a Saved estimate.
+
 Things to know:
 - It is worked out fresh each time from your Tax records. Calculating saves nothing. Press **Save estimate** to keep this result exactly as it is now (see Tax what-ifs and saved estimates, below).
 - It covers two Members, assessed as a couple.

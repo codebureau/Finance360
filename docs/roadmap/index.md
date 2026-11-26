@@ -34,7 +34,7 @@ longer run back to back. Work proceeds in this order:
 2. #96 V0a, the Visual layer ADR (ADR-0031), with #103 R0 (Questions ADR) in parallel.
 3. #97 V1 Position, #98 V2 Projection, #99 V3 Income reconciliation.
 4. #85 fund-of-funds, #86 super options, #87 the Analytics view (M4).
-5. #100 V4 Compare Scenarios, and V5 the Tax estimate waterfall (not yet filed).
+5. #100 V4 Compare Scenarios, and #117 V5 the Tax estimate waterfall.
 6. V6 Home, with #104 R1 Question cards, #101 What's due cards and #102 notices.
 7. #105 R2 "Did this answer your question?".
 8. Document intake: #106 D1 (the table construct), #17 and #18, #90, #9.
@@ -50,7 +50,7 @@ and how ready each Question is; after a Valuation or Import the household sees w
   shows percentages or a time series lacks a chart; the Guide pages for each changed screen describe
   the new view.
 - **Sub-issues of #94:** #96 ADR (ADR-0031) and #103 ADR (Questions); #97 V1, #98 V2, #99 V3, #100
-  V4, V5 (not yet filed); V6 Home with #104, #101, #102; #105; V7 and V8 once scoped.
+  V5 (#117); V6 Home with #104, #101, #102; #105; V7 and V8 once scoped.
 
 **Document intake** ([#95](https://github.com/codebureau/Finance360/issues/95), milestone 7): a PDF
 the household already receives is read by a Document profile into the form it belongs to, beside the

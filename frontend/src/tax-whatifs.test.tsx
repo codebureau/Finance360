@@ -4,6 +4,17 @@ import { afterEach, expect, test, vi } from "vitest";
 import { parseCompareSearch, parseYearSearch } from "@/lib/tax-estimates";
 import { renderAppAt } from "@/test-utils";
 
+// jsdom has no canvas: stand in for the ECharts host and keep the option it was given.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const options: { label: string; current: any }[] = [];
+vi.mock("@/components/echart", () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  default: ({ option, label }: { option: any; label: string }) => {
+    options.push({ label, current: option });
+    return <div data-testid="mock-echart" role="img" aria-label={label} />;
+  },
+}));
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
@@ -47,6 +58,9 @@ const line = (taxable: string, total: string, net: string) => ({
   medicare_levy_surcharge: "0.00",
   help_repayment: "0.00",
   total_tax: total,
+  tax_withheld: "14000.00",
+  franking_credits: "0.00",
+  payg_instalments: "0.00",
   credits: "14000.00",
   net_outcome: net,
 });
@@ -371,6 +385,10 @@ test("Calculate shows the what-if's result, each override's effect and the total
   expect(within(applied).getByText(/Jordan Sample: Salary and wages \(gross\) set to a stated total/)).toBeInTheDocument();
   expect(within(applied).getByText(/replacing/)).toBeInTheDocument();
   expect(within(screen.getByTestId("totals-used")).getByText(/Income statement, Sample Employer/)).toBeInTheDocument();
+  // The same waterfall card as the Tax estimate, from the same shared body.
+  const result = screen.getByTestId("estimate-result");
+  expect(within(result).getByRole("heading", { name: "How the tax becomes the result" })).toBeInTheDocument();
+  expect(await within(result).findByTestId("mock-echart")).toHaveAccessibleName(/Waterfall chart/);
   expect(calls.find((c) => c.path === "/api/tax/estimates/preview")?.body).toMatchObject({
     financial_year: 2026,
     member_ids: [1, 2],
