@@ -3,6 +3,7 @@
 Each question below has one screen. If you are lost, start from the question you are asking. The sidebar is grouped the same way.
 
 ## Where do we stand?
+- **How much are we worth right now?** [Home](/) opens with the net figure and how it moved since the last month-end.
 - **What do we own and owe, and how has it changed?** The [Position](/position). Pick a date, a view (Household, By Member or Joint) and a Tag. The chart underneath shows month-ends over time, with a table of the same figures.
 - **What is it all made of?** The [Exposure](/exposure): the Position split by asset class, region, sector or exposure currency, for the Household, each Member, Category or Account. See [Exposure](/guide/exposure).
 - **Why is an Account missing from the total?** The Position says how many Accounts are not included and why: no Valuation or FX rate on or before that date.
@@ -20,7 +21,7 @@ Each question below has one screen. If you are lost, start from the question you
 - Each Account's page lists its Valuations with their dates, and the Position flags an Account with no usable figure.
 - [Reference data](/reference-data) shows whether Prices and FX rates arrived, and when.
 - The sidebar footer shows when the last Backup ran.
-- A single "what is due" list is **coming later**. Until then, [What to provide, when](/guide/what-to-provide) is the checklist.
+- **What could be refreshed?** The What's due section of [Home](/) lists the figures that could be brought up to date. [What to provide, when](/guide/what-to-provide) is the full schedule.
 
 ## I can't find something. Where do I ask?
 - **Where is a screen, or what does a word mean?** Use the **Ask** button at the top of any screen. It searches this Guide, on your server, and shows the best passages with a link to the page each came from, so you can read the whole page. If the host has set up an AI service it also writes a short answer from those passages. [Ask a question](/guide/ask) says how each works.

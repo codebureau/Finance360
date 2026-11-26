@@ -13,7 +13,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PageHeader } from "@/components/ui/page-header";
 import {
   EFFORT_LEVELS,
   FROM_PARAM,
@@ -218,8 +217,8 @@ function SnoozedSection({ snoozed }: { snoozed: SnoozedItem[] }) {
   );
 }
 
-/** The home screen (`/`): where the figures Finance360 uses could be refreshed (ADR-0020). */
-export function WhatsDuePage() {
+/** The What's due section of Home (`/`): where the figures Finance360 uses could be refreshed (ADR-0020). */
+export function WhatsDueSection() {
   // Coming back from an Account (the "Back to What's due" link) shows the list recalculated: it
   // refetches on every mount, and the cached list from before is not shown while that runs.
   const due = useQuery({ queryKey: WHATS_DUE_KEY, queryFn: fetchWhatsDue, refetchOnMount: "always" });
@@ -228,10 +227,12 @@ export function WhatsDuePage() {
   const optional = data?.items.filter((i) => i.importance !== "important") ?? [];
   return (
     <div className="flex max-w-3xl flex-col gap-6">
-      <PageHeader
-        title="What's due"
-        description="Where the figures Finance360 is using could be brought up to date, worked out from what you have entered."
-      />
+      <div className="flex flex-col gap-1">
+        <h2 className="text-xl font-semibold">What's due</h2>
+        <p className="text-sm text-muted-foreground">
+          Where the figures Finance360 is using could be brought up to date, worked out from what you have entered.
+        </p>
+      </div>
       {data && <EffortLevelControl level={data.level} />}
       {due.isPending && <p className="text-sm text-muted-foreground">Loading...</p>}
       <GeneralError error={due.error} />

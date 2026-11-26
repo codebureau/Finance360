@@ -15,7 +15,7 @@ import {
   Layers,
   Library,
   LineChart,
-  ListChecks,
+  LayoutDashboard,
   PieChart,
   Receipt,
   Scale,
@@ -40,7 +40,7 @@ export type GroupTone = number | null;
 
 /** Above the groups: the home screen (ADR-0020) and the Guide. */
 export const TOP_ITEMS: Item[] = [
-  { to: "/", label: "What's due", icon: ListChecks, exact: true },
+  { to: "/", label: "Home", icon: LayoutDashboard, exact: true },
   { to: "/guide", label: "Guide", icon: BookOpen, exact: true },
 ];
 

@@ -2,8 +2,8 @@
 
 A schedule of what Finance360 needs from you, and when. Each item says which starting point it suits, for example **tax**, **investments** or **whole picture** (the whole picture uses everything). Frequencies are a sensible rhythm, not a rule. [What's due](/) lists what has gone stale; the lines marked "Shown in What's due" below are the ones it watches, and how often it asks depends on your Effort level.
 
-## What the home screen is
-[What's due](/) is the home screen. It is calculated from what you have entered, so it can never disagree with your data. It asks only about what you already use: with no Tax records, for example, it never mentions tax. It says what Finance360 is currently using and what refreshing would improve, and never calls anything overdue or late. Snooze (one week, one month, or skip this period) hides an item for a while and you can bring it back from the Snoozed section. If a check cannot run, What's due says "Could not check" rather than hiding it.
+## What What's due is
+What's due is a section of [Home](/), the first screen, below the net Position. It is calculated from what you have entered, so it can never disagree with your data. It asks only about what you already use: with no Tax records, for example, it never mentions tax. It says what Finance360 is currently using and what refreshing would improve, and never calls anything overdue or late. Snooze (one week, one month, or skip this period) hides an item for a while and you can bring it back from the Snoozed section. If a check cannot run, What's due says "Could not check" rather than hiding it.
 
 ## Once, then when it changes
 - **Household and Members** (tax, investments, whole picture). Names and dates of birth, on [Household](/household). Everything else hangs off a Member.

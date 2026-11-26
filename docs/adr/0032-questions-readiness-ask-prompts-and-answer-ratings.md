@@ -1,6 +1,6 @@
 # 0032. Questions as the navigation spine: readiness, the next step, Ask prompts and Answer ratings
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-11-23
 **Issue:** #103 (epic #94; folds in the design of #72 and the Question part of #24)
 **Amends:** ADR-0020 section 5 (the "Back to What's due" marker becomes one return mechanism, section 3)

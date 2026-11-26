@@ -43,7 +43,7 @@ import { SavedRunPage, SavedRunsPage } from "@/components/saved-runs-page";
 import { SettingsPage } from "@/components/settings-page";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { IncomeReconciliationPage } from "@/components/income-reconciliation-page";
-import { WhatsDuePage } from "@/components/whats-due-page";
+import { HomePage } from "@/components/home-page";
 import { TaxComparePage, TaxEstimatePage, TaxEstimatesPage } from "@/components/tax-estimates-page";
 import { TaxLodgedPage } from "@/components/tax-lodged-page";
 import { TaxPage } from "@/components/tax-page";
@@ -110,8 +110,8 @@ const rootRoute = createRootRoute({
 const route = (path: string, component: () => React.ReactNode) =>
   createRoute({ getParentRoute: () => rootRoute, path, component });
 
-/** The home screen: What's due (ADR-0020). Position is one click away in the sidebar. */
-const indexRoute = route("/", WhatsDuePage);
+/** Home: net Position above What's due (ADR-0032). */
+const indexRoute = route("/", HomePage);
 
 /** The chosen Scenario is a URL search param: `/projection?scenario=2`. */
 const projectionRoute = createRoute({
