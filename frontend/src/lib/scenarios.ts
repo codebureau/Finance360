@@ -1,6 +1,7 @@
 import createClient from "openapi-fetch";
 
 import type { components, paths } from "@/api/schema";
+import { toneOf, type Tone } from "@/lib/entity-colour";
 import { toApiError, type Member } from "@/lib/household";
 import { CATEGORY_KEYS, CATEGORY_LABEL } from "@/lib/projection";
 
@@ -192,4 +193,13 @@ export function slotsFor(members: Pick<Member, "id" | "name">[]): Slot[] {
 /** A stored value for display: a percent, a whole number of years, or (rendered as Money) an amount. */
 export function shownValue(slot: Pick<Slot, "unit">, value: string): string {
   return slot.unit === "percent" ? `${value}%` : value;
+}
+
+/**
+ * A Scenario's colour (ADR-0031 section 5: Scenarios by creation order, modulo six). The one
+ * function Compare and Projection both use, so a Scenario keeps its colour on every screen.
+ * `ids` are the ids of every Scenario; creation order is id order.
+ */
+export function scenarioTone(ids: number[], id: number): Tone {
+  return toneOf("scenario", String(id), [...ids].sort((a, b) => a - b).indexOf(id));
 }

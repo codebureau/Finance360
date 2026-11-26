@@ -21,3 +21,10 @@ export function toMinor(amount: string): bigint | null {
   const minor = BigInt(match[2]) * 100n + BigInt((match[3] ?? "").padEnd(2, "0").slice(0, 2));
   return match[1] ? -minor : minor;
 }
+
+/** Integer minor units back to an exact decimal string with two places ("-1250" -> "-12.50"). */
+export function fromMinor(minor: bigint): string {
+  const abs = minor < 0n ? -minor : minor;
+  const cents = (abs % 100n).toString().padStart(2, "0");
+  return `${minor < 0n ? "-" : ""}${abs / 100n}.${cents}`;
+}

@@ -1,11 +1,12 @@
 import { BarChart, LineChart, PieChart } from "echarts/charts";
 import { GridComponent, LegendComponent, MarkAreaComponent, MarkLineComponent, TooltipComponent } from "echarts/components";
+import { LabelLayout } from "echarts/features";
 import { init, use as register, type ECharts, type EChartsCoreOption } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 import { useEffect, useRef } from "react";
 
-// Modular ECharts: only the line, bar and pie charts, the components they need and the canvas renderer.
-register([BarChart, LineChart, PieChart, GridComponent, LegendComponent, MarkAreaComponent, MarkLineComponent, TooltipComponent, CanvasRenderer]);
+// Modular ECharts: only the line, bar and pie charts, the components and label layout they need and the canvas renderer.
+register([BarChart, LineChart, PieChart, GridComponent, LegendComponent, MarkAreaComponent, MarkLineComponent, TooltipComponent, LabelLayout, CanvasRenderer]);
 
 /**
  * A minimal ECharts host: creates the chart once, applies each new ``option`` (so a theme change,

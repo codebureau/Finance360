@@ -15,7 +15,7 @@ import {
 } from "@/lib/charts/share";
 import { categoricalPaletteFromTokens } from "@/lib/chart-palette";
 import { useDisplayPreference } from "@/lib/display-preferences";
-import { TOKEN_BG, type Tone } from "@/lib/entity-colour";
+import { toneBg, type Tone } from "@/lib/entity-colour";
 import { useChartTheme } from "@/lib/use-chart-theme";
 import { cn } from "@/lib/utils";
 
@@ -34,7 +34,7 @@ function Swatch({ tone }: { tone: Tone }) {
       aria-hidden
       className={cn(
         "mt-1 inline-block size-3 shrink-0 rounded-sm",
-        tone === "warning" ? "bg-warning/85" : tone === "muted" ? "bg-muted-foreground/55" : TOKEN_BG[tone.token % TOKEN_BG.length],
+        toneBg(tone),
       )}
     />
   );

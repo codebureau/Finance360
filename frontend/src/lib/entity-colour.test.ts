@@ -22,3 +22,14 @@ test("other and anything with no place are muted, never a chart token", () => {
   expect(toneOf("asset-class", "alternatives")).toBe("muted");
   expect(toneOf("dimension", "x", -1)).toBe("muted");
 });
+
+test("Assets, Liabilities and Net have fixed tones, unchanged by the view, the range or any order", () => {
+  const tones = () => ["assets", "liabilities", "net"].map((k) => toneOf("position-part", k));
+  expect(tones()).toEqual([{ token: 4 }, { token: 5 }, "ink"]);
+  expect(["assets", "liabilities", "net"].map((k) => toneOf("position-part", k, 3))).toEqual(tones());
+  // Never a status colour, and Assets and Liabilities avoid the Categories most households hold.
+  expect(tones()).not.toContain("warning");
+  const common = ["investments", "property", "cash", "superannuation"].map((k) => toneOf("category", k));
+  expect(common).not.toContainEqual(tones()[0]);
+  expect(common).not.toContainEqual(tones()[1]);
+});

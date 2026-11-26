@@ -3568,10 +3568,28 @@ export interface components {
              */
             status: string;
         };
+        /** ComparedBalanceOut */
+        ComparedBalanceOut: {
+            /**
+             * Closing
+             * @description The total closing balance of that year, exact.
+             */
+            closing: string;
+            /**
+             * Year
+             * @description The calendar year the projection year ends in.
+             */
+            year: number;
+        };
         /** ComparedScenarioOut */
         ComparedScenarioOut: {
             /** @description The Age Pension in brief; null when not resolved. */
             age_pension: components["schemas"]["ComparedAgePensionOut"] | null;
+            /**
+             * Balances
+             * @description The total closing balance at the end of each projection year, the same rows the Scenario's own projection shows; empty when not resolved.
+             */
+            balances: components["schemas"]["ComparedBalanceOut"][];
             /**
              * Drawdown Order
              * @description The order Categories fund spending in; empty when not resolved.

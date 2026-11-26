@@ -102,6 +102,7 @@ export function drawnRows(form: ShareForm, rows: ShareRow[]): ShareRow[] {
 export function colourOf(tone: Tone, pal: CategoricalPalette): { color: string; opacity: number } {
   if (tone === "warning") return { color: pal.warning, opacity: 0.85 };
   if (tone === "muted") return { color: pal.muted, opacity: 0.55 };
+  if (tone === "ink") return { color: pal.text, opacity: 1 };
   return { color: pal.lines[tone.token % pal.lines.length], opacity: 1 };
 }
 

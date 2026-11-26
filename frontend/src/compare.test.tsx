@@ -4,6 +4,20 @@ import { afterEach, expect, test, vi } from "vitest";
 import type { ComparedScenario, Comparison } from "@/lib/scenarios";
 import { renderAppAt } from "@/test-utils";
 
+// jsdom has no canvas: stand in for the ECharts host and keep the option it was given.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const options: { label: string; current: any }[] = [];
+vi.mock("@/components/echart", () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  default: ({ option, label }: { option: any; label: string }) => {
+    options.push({ label, current: option });
+    return <div data-testid="mock-echart" role="img" aria-label={label} />;
+  },
+}));
+/** The latest option given to the chart whose accessible label matches. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const optionFor = (label: RegExp): any => options.filter((o) => label.test(o.label)).at(-1)!.current;
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
@@ -37,6 +51,10 @@ const compared = (id: number, name: string, over: Partial<ComparedScenario> = {}
   sustainable: { annual_spending: "90000.00", capped: false },
   spending: null,
   age_pension: null,
+  balances: [
+    { year: 2027, closing: `${id}00000.00` },
+    { year: 2028, closing: `${id}10000.50` },
+  ],
   provenance: [
     {
       key: "annual_saving",
@@ -66,6 +84,12 @@ function stub(data: Comparison) {
 
 afterEach(() => vi.unstubAllGlobals());
 
+/** The comparison table sits behind its disclosure on the Headline results card. */
+async function openTable() {
+  fireEvent.click(await screen.findByRole("button", { name: "Show figures: comparison table" }));
+  return screen.findByTestId("comparison-table");
+}
+
 test("Compare Scenarios is offered beside the Scenario switcher", async () => {
   stub({ scenarios: [], differing: [], drawdown_differs: false, spending_differs: false });
   const { router } = await renderAppAt("/projection");
@@ -89,7 +113,7 @@ test("Scenarios sit side by side with only the differing Assumptions listed", as
     spending_differs: false,
   });
   await renderAppAt("/projection/compare");
-  const table = await screen.findByTestId("comparison-table");
+  const table = await openTable();
 
   expect(within(screen.getByTestId("result-1")).getByText("Beyond the horizon")).toBeInTheDocument();
   expect(within(screen.getByTestId("result-2")).getByText("Funds last to age 81")).toBeInTheDocument();
@@ -125,7 +149,7 @@ test("an unresolvable Scenario shows its message in its own column and the other
     spending_differs: false,
   });
   await renderAppAt("/projection/compare");
-  await screen.findByTestId("comparison-table");
+  await openTable();
 
   const bad = screen.getByTestId("result-2");
   expect(within(bad).getByText("Not projected")).toBeInTheDocument();
@@ -152,7 +176,8 @@ test("the drawdown order is shown only when Scenarios differ in it", async () =>
     spending_differs: false,
   });
   await renderAppAt("/projection/compare");
-  const row = await screen.findByTestId("drawdown-row");
+  await openTable();
+  const row = screen.getByTestId("drawdown-row");
   const [first, second] = within(row).getAllByRole("list");
   expect(within(first).getAllByRole("listitem").map((l) => l.textContent)).toEqual(DEFAULT_ORDER.map((c) => c.name));
   expect(within(second).getAllByRole("listitem").map((l) => l.textContent)).toEqual(own.map((c) => c.name));
@@ -182,7 +207,8 @@ test("spending phases get a row, with each Scenario's list, only when the lists 
     spending_differs: true,
   });
   await renderAppAt("/projection/compare");
-  const row = await screen.findByTestId("spending-row");
+  await openTable();
+  const row = screen.getByTestId("spending-row");
   const [first, second] = within(row).getAllByRole("list");
   const text = (list: HTMLElement) => within(list).getAllByRole("listitem").map((l) => l.textContent);
   expect(text(first)).toEqual([
@@ -210,7 +236,7 @@ test("the Age Pension row gives each Scenario's first paid year, or says none is
     spending_differs: false,
   });
   await renderAppAt("/projection/compare");
-  await screen.findByTestId("comparison-table");
+  await openTable();
   expect(within(screen.getByTestId("age-pension-1")).getByText("None paid in the projection")).toBeInTheDocument();
   const likely = within(screen.getByTestId("age-pension-2"));
   expect(likely.getByText("15,896.96")).toBeInTheDocument();
@@ -221,13 +247,95 @@ test("the Age Pension row gives each Scenario's first paid year, or says none is
 test("no spending row when every Scenario uses the same phases", async () => {
   stub({ scenarios: [compared(1, "Best"), compared(2, "Likely")], differing: [], drawdown_differs: false, spending_differs: false });
   await renderAppAt("/projection/compare");
-  await screen.findByTestId("comparison-table");
+  await openTable();
   expect(screen.queryByTestId("spending-row")).not.toBeInTheDocument();
 });
 
 test("no drawdown row when every Scenario uses the same order", async () => {
   stub({ scenarios: [compared(1, "Best"), compared(2, "Likely")], differing: [], drawdown_differs: false, spending_differs: false });
   await renderAppAt("/projection/compare");
-  await screen.findByTestId("comparison-table");
+  await openTable();
   expect(screen.queryByTestId("drawdown-row")).not.toBeInTheDocument();
+});
+
+test("the cards lead: lines of the total balance, bars of the sustainable income, and the table behind Show figures", async () => {
+  stub({
+    scenarios: [
+      compared(1, "Best"),
+      compared(2, "Likely", {
+        lasts_beyond_horizon: false,
+        funds_last_to_age: 81,
+        sustainable: { annual_spending: "55000.25", capped: false },
+      }),
+    ],
+    differing: [],
+    drawdown_differs: false,
+    spending_differs: false,
+  });
+  await renderAppAt("/projection/compare");
+  const balances = (await screen.findByRole("heading", { name: "Total balance by Scenario" })).closest("section")!;
+  const results = screen.getByRole("heading", { name: "Headline results" }).closest("section")!;
+  expect(balances).toHaveTextContent(
+    "By the end of the projection the balances run from 110,000.50 (Best) to 210,000.50 (Likely), 100,000.00 apart. One Scenario runs short before the horizon.",
+  );
+  expect(results).toHaveTextContent("runs from 55,000.25 a year (Likely) to 90,000.00 a year (Best): 34,999.75 a year apart.");
+  // The comparison table is behind a disclosure, not shown by default.
+  expect(screen.queryByTestId("comparison-table")).not.toBeInTheDocument();
+
+  // Lines: each Scenario's own year-end totals, in the Scenario's colour (the same one Projection uses).
+  const lines = optionFor(/Line chart of total balance/);
+  expect(lines.series.map((x: { name: string }) => x.name)).toEqual(["Best", "Likely"]);
+  expect(lines.series[0].data.map((d: { value: number }) => d.value)).toEqual([100000, 110000.5]);
+  expect(lines.series[1].data.map((d: { value: number }) => d.value)).toEqual([200000, 210000.5]);
+  expect(lines.xAxis.data).toEqual(["2027", "2028"]);
+
+  // Bars: the same Sustainable figures the table shows.
+  const bars = optionFor(/Bar chart of Sustainable retirement income/);
+  expect(bars.series[0].data.map((d: { value: number }) => d.value)).toEqual([90000, 55000.25]);
+  fireEvent.click(within(results).getByRole("button", { name: "Show figures: comparison table" }));
+  const table = await screen.findByTestId("comparison-table");
+  expect(within(within(table).getByTestId("sustainable-1")).getByText("90,000.00")).toBeInTheDocument();
+  expect(within(within(table).getByTestId("sustainable-2")).getByText("55,000.25")).toBeInTheDocument();
+
+  // One stat per Scenario for how long the funds last.
+  const tiles = within(screen.getByTestId("lasts-tiles"));
+  expect(tiles.getByRole("region", { name: "Best: funds last to" })).toHaveTextContent("Beyond age 95");
+  expect(tiles.getByRole("region", { name: "Likely: funds last to" })).toHaveTextContent("Age 81");
+
+  // The year-by-year totals are the text equivalent of the lines.
+  fireEvent.click(within(balances).getByRole("button", { name: "Show figures: total balance by Scenario" }));
+  const rows = within(await screen.findByTestId("balances-table")).getAllByRole("row");
+  expect(rows[1]).toHaveTextContent("2027");
+  expect(rows[1]).toHaveTextContent("100,000.00");
+  expect(rows[2]).toHaveTextContent("210,000.50");
+});
+
+test("only six Scenarios are drawn; the rest are in the table only, with a note", async () => {
+  const many = [1, 2, 3, 4, 5, 6, 7].map((i) => compared(i, `Scenario ${i}`));
+  stub({ scenarios: many, differing: [], drawdown_differs: false, spending_differs: false });
+  await renderAppAt("/projection/compare");
+  expect(await screen.findByTestId("not-drawn")).toHaveTextContent(
+    "Six Scenarios are drawn; Scenario 7 is in the comparison table only.",
+  );
+  expect(optionFor(/Line chart of total balance/).series).toHaveLength(6);
+  expect(within(screen.getByTestId("lasts-tiles")).getAllByRole("region")).toHaveLength(6);
+  fireEvent.click(screen.getByRole("button", { name: "Show figures: comparison table" }));
+  const table = await screen.findByTestId("comparison-table");
+  expect(within(table).getByRole("link", { name: "Scenario 7" })).toBeInTheDocument();
+});
+
+test("a Scenario has the same colour on Projection and on Compare", async () => {
+  stub({ scenarios: [compared(1, "Best"), compared(2, "Likely")], differing: [], drawdown_differs: false, spending_differs: false });
+  const { router } = await renderAppAt("/projection/compare");
+  await screen.findByRole("heading", { name: "Total balance by Scenario" });
+  const lines = optionFor(/Line chart of total balance/);
+  const compareColours = lines.series.map((x: { lineStyle: { color: string } }) => x.lineStyle.color);
+  expect(new Set(compareColours).size).toBe(2);
+  const { scenarioTone } = await import("@/lib/scenarios");
+  expect(scenarioTone([1, 2], 1)).toEqual({ token: 0 });
+  expect(scenarioTone([1, 2], 2)).toEqual({ token: 1 });
+  await router.navigate({ to: "/projection" });
+  const switcher = await screen.findByRole("region", { name: "Scenario" });
+  expect(within(switcher).getByTestId("scenario-swatch-1")).toHaveClass("bg-chart-1");
+  expect(within(switcher).getByTestId("scenario-swatch-2")).toHaveClass("bg-chart-2");
 });

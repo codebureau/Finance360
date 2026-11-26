@@ -53,6 +53,10 @@ def test_each_headline_equals_that_scenarios_own_projection(sample: TestClient) 
         assert item["sustainable"] == own["sustainable"]
         assert item["horizon_age"] == own["reference_member"]["age_now"] + own["years"]
         assert item["provenance"] == own["provenance"]
+        # The chart's lines are the Scenario's own year-end totals, exact.
+        assert item["balances"] == [
+            {"year": int(r["starts_on"][:4]) + 1, "closing": r["closing"]} for r in own["rows"]
+        ]
 
 
 def test_sustainable_income_is_ordered_best_likely_worst(sample: TestClient) -> None:

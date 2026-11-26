@@ -15,13 +15,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Money } from "@/components/ui/money";
 import { PageHeader } from "@/components/ui/page-header";
 import { WorkingGroup, WorkingSection } from "@/components/working-section";
+import { toneBg } from "@/lib/entity-colour";
 import { ApiError, fetchHousehold, type Member } from "@/lib/household";
 import { CATEGORY_LABEL, DEBIT_REASON_LABEL, formatAge, LIFE_EVENT_LABEL, SIMPLIFICATIONS } from "@/lib/projection";
 import type { RunHeader } from "@/lib/projection-runs";
+import { cn } from "@/lib/utils";
 import {
   fetchScenarios,
   runScenario,
   RETIRED_SLOTS,
+  scenarioTone,
   slotId,
   slotsFor,
   type Review,
@@ -301,6 +304,7 @@ function ScenarioSwitcher({
   selected: Scenario;
   onAdded: (added: Scenario) => void;
 }) {
+  const ids = scenarios.map((x) => x.id);
   return (
     <section aria-label="Scenario" className="flex flex-wrap items-center gap-2">
       {scenarios.map((s) => (
@@ -311,6 +315,12 @@ function ScenarioSwitcher({
           aria-current={s.id === selected.id ? "page" : undefined}
           className={buttonVariants({ variant: s.id === selected.id ? "default" : "outline" })}
         >
+          {/* The Scenario's colour, the same as its line and bar on Compare. */}
+          <span
+            aria-hidden
+            data-testid={`scenario-swatch-${s.id}`}
+            className={cn("inline-block size-2.5 shrink-0 rounded-full border border-background", toneBg(scenarioTone(ids, s.id)))}
+          />
           {s.name}
         </Link>
       ))}

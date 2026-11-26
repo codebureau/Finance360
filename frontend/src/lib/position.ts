@@ -1,7 +1,8 @@
 import createClient from "openapi-fetch";
 
 import type { components, paths } from "@/api/schema";
-import { TOKEN_COUNT } from "@/lib/entity-colour";
+import type { SeriesModel } from "@/lib/charts/series";
+import { toneOf, type Tone } from "@/lib/entity-colour";
 import { toApiError } from "@/lib/household";
 
 export type Position = components["schemas"]["PositionOut"];
@@ -82,10 +83,14 @@ export type HistorySeries = {
   key: string;
   label: string;
   /**
-   * A chart token, neutral ink for a Net line, or muted for Assets and Liabilities (so they never
-   * echo a Category colour). Never a status colour (ADR-0031 section 5).
+   * Colour follows the entity (ADR-0031 section 5): Assets, Liabilities and Net have a fixed
+   * `position-part` tone, a Member line its Member's token. Never a status colour.
    */
-  tone: { token: number } | "ink" | "muted";
+  tone: Tone;
+  /** The answer line (Net) is drawn heavier. */
+  bold?: boolean;
+  /** Liabilities keeps its dash, so identity never depends on colour alone. */
+  dash?: "dashed";
   /** The money string for this series at a point; never parsed here. */
   value: (p: HistoryPoint) => string;
 };
@@ -98,27 +103,49 @@ export function seriesFor(
   view: PositionView,
   members: PositionHistory["members"],
 ): HistorySeries[] {
+  const net = toneOf("position-part", "net");
   if (view === "member") {
     return [
       ...members.map((m, i) => ({
         key: `member-${m.id}`,
         label: `${m.name} Net`,
-        tone: { token: i % TOKEN_COUNT },
+        tone: toneOf("member", String(m.id), i),
         value: (p: HistoryPoint) => p.net.members.find((x) => x.member_id === m.id)?.total ?? "0.00",
       })),
-      { key: "net", label: "Household Net",
-        tone: "ink" as const, value: (p: HistoryPoint) => p.net.household },
+      { key: "net", label: "Household Net", tone: net, bold: true, value: (p: HistoryPoint) => p.net.household },
     ];
   }
   const pick = (f: Figures) => (view === "joint" ? f.joint : f.household);
   return [
-    { key: "assets", label: "Assets",
-      tone: "muted" as const, value: (p) => pick(p.assets) },
-    { key: "liabilities", label: "Liabilities",
-      tone: "muted" as const, value: (p) => pick(p.liabilities) },
-    { key: "net", label: "Net",
-      tone: "ink" as const, value: (p) => pick(p.net) },
+    { key: "assets", label: "Assets", tone: toneOf("position-part", "assets"), value: (p) => pick(p.assets) },
+    {
+      key: "liabilities",
+      label: "Liabilities",
+      tone: toneOf("position-part", "liabilities"),
+      dash: "dashed",
+      value: (p) => pick(p.liabilities),
+    },
+    { key: "net", label: "Net", tone: net, bold: true, value: (p) => pick(p.net) },
   ];
+}
+
+/** The `series` kit's model for the history: the same exact strings the table shows. */
+export function historyModel(points: HistoryPoint[], series: HistorySeries[]): SeriesModel {
+  return {
+    labels: points.map((p) => p.on),
+    lines: series.map((s) => ({
+      key: s.key,
+      name: s.label,
+      tone: s.tone,
+      bold: s.bold,
+      dash: s.dash,
+      values: points.map((p) => s.value(p)),
+      incomplete: points.map((p) => p.flagged > 0),
+    })),
+    notes: points.map((p) =>
+      p.flagged > 0 ? [`(incomplete: ${p.flagged} ${p.flagged === 1 ? "Account" : "Accounts"} not counted)`] : [],
+    ),
+  };
 }
 
 /** Why an Account is not in the totals, in words. */

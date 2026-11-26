@@ -37,7 +37,11 @@ Not modelled: deductions, HELP, other income, sacrifice and dependants. Division
 
 ## Keeping and comparing
 - **Save run** keeps a result exactly as computed, with its inputs and versions, so you can open it later: [Saved runs](/projection/runs).
-- [Compare Scenarios](/projection/compare) projects them side by side.
+- [Compare Scenarios](/projection/compare) projects them side by side, and shows how far apart they end up:
+  - **Total balance by Scenario** draws one line per Scenario over the horizon, each labelled at its end with its name and final balance. A Scenario keeps the same colour here and on its button on the Projection page. Hover or tap a year to read every Scenario's balance.
+  - **Headline results** shows the sustainable retirement income of each Scenario as a bar, and for each Scenario how long its funds last.
+  - Up to six Scenarios are drawn; any more appear in the table only, with a note. A Scenario that cannot be projected is not drawn: the table says why.
+  - **Show figures** under each card gives the exact numbers: the balance of each year, and the comparison table (the Assumptions that differ, the drawdown order and the spending phases).
 
 ## The Age Pension
 From each Member's Age Pension age the projection pays the **Age Pension** into that Member's cash, like salary and before any Drawdown. It is calculated from the Rule pack's figures and your [Household facts](/household), never entered: the lower of the income test and the assets test, run each year on the balances the year **opens** with. Two consequences: this year's spending affects next year's pension (a one-year lag), and a year's growth is not yet counted. Cash and Investments count from the start; a Member's super and overseas pensions count from that Member's Age Pension age. Property (other than the home) and Vehicles count at their latest Valuation. A couple is assessed together.
