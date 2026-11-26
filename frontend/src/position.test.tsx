@@ -613,7 +613,7 @@ test("Over time is open by default: the chart and its headline lead, the table i
   await renderPage();
   const card = (await screen.findByRole("heading", { name: "Over time" })).closest("section")!;
   await waitFor(() => expect(historyUrls).toEqual(["/api/position/history"]));
-  expect(await within(card).findByTestId("mock-echart")).toHaveAccessibleName(/Assets, Liabilities, Net over time/);
+  expect(await within(card).findByTestId("mock-echart")).toHaveAccessibleName(/Assets, Liabilities and Net over time/);
   expect(card).toHaveTextContent("Net position moved from 600.01 on 2026-07-31 to 810.01 on 2026-09-30.");
   expect(screen.getByText(/Hollow markers are incomplete/)).toBeInTheDocument();
   expect(within(card).queryByRole("region", { name: "Net position history table" })).not.toBeInTheDocument();
@@ -629,10 +629,16 @@ test("Over time is open by default: the chart and its headline lead, the table i
   expect(rows[2]).toHaveAttribute("data-flagged", "true");
 
   // The (mocked) chart gets an option built from the same points.
-  const option = optionFor(/Assets, Liabilities, Net over time/);
+  const option = optionFor(/Assets, Liabilities and Net over time/);
   expect(option.xAxis.data).toEqual(["2026-07-31", "2026-08-31", "2026-09-30"]);
   expect(option.series.map((s: { name: string }) => s.name)).toEqual(["Assets", "Liabilities", "Net"]);
-  expect(option.series[2].data[1].flagged).toBe(true);
+  expect(option.series[2].data[1].incomplete).toBe(true);
+  // The lines carry the history's own values (Net, then Liabilities), as numbers for geometry only.
+  expect(option.series[2].data.map((d: { value: number }) => d.value)).toEqual([600.01, 1100.01, 810.01]);
+  expect(option.series[1].data[0].value).toBe(-400);
+  // Net is the bold line and Liabilities keeps its dash.
+  expect(option.series[2].lineStyle.width).toBeGreaterThan(option.series[0].lineStyle.width);
+  expect(option.series[1].lineStyle.type).toBe("dashed");
 });
 
 test("the cards follow the Tag filter and the view", async () => {

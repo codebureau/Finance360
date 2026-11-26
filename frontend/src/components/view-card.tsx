@@ -14,6 +14,7 @@ export function ViewCard({
   toolbar,
   figures,
   figuresOpen,
+  figuresName,
   children,
 }: {
   title: string;
@@ -24,6 +25,8 @@ export function ViewCard({
   figures?: ReactNode;
   /** Open at first only where the table is the task. */
   figuresOpen?: boolean;
+  /** What the figures hold, where a page has several: part of the disclosure button's name. */
+  figuresName?: string;
   children: ReactNode;
 }) {
   const titleId = useId();
@@ -40,7 +43,7 @@ export function ViewCard({
           {toolbar && <div className="flex flex-wrap items-center gap-2">{toolbar}</div>}
         </div>
         {children}
-        {figures && <FiguresDisclosure defaultOpen={figuresOpen}>{figures}</FiguresDisclosure>}
+        {figures && <FiguresDisclosure defaultOpen={figuresOpen} name={figuresName}>{figures}</FiguresDisclosure>}
       </section>
     </Card>
   );

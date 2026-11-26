@@ -16,6 +16,8 @@ function resolve(token: string): string | null {
   ctx.fillRect(0, 0, 1, 1);
   const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
   if (a === 0) return null;
+  // A translucent token (the dark border) keeps its alpha, or it would read as opaque white.
+  if (a < 255) return `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(3)})`;
   return `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
 }
 

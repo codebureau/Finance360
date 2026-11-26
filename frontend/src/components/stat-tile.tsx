@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 
 import { Card } from "@/components/ui/card";
+import { toneBg, type Tone } from "@/lib/entity-colour";
+import { cn } from "@/lib/utils";
 
 /**
  * The `figure` shape (ADR-0031 section 6): one hero value with up to two beside it. Neutral (no
@@ -12,6 +14,9 @@ export function StatTile({
   hero,
   headline,
   supporting,
+  accent,
+  flat = false,
+  compact = false,
   children,
 }: {
   label: string;
@@ -19,16 +24,29 @@ export function StatTile({
   hero: ReactNode;
   headline?: ReactNode;
   supporting: { label: string; value: ReactNode }[];
+  /** An entity's colour as a small accent bar on the left (a Scenario's tile), never a status. */
+  accent?: Tone;
+  /** Sits inside another card: no shadow of its own. */
+  flat?: boolean;
+  /** One of a set in a grid (a value per Scenario): smaller hero and padding, so the set stays short on a phone. */
+  compact?: boolean;
   /** Below the figures: a note that belongs to the tile (what is not counted). */
   children?: ReactNode;
 }) {
   return (
-    <Card>
-      <section aria-label={label} className="flex flex-col gap-3 p-4">
+    <Card className={cn("relative overflow-hidden", flat && "shadow-none")}>
+      {accent && <span aria-hidden className={cn("absolute inset-y-0 left-0 w-1", toneBg(accent))} />}
+      <section
+        aria-label={label}
+        className={cn("flex flex-col", compact ? "gap-1 p-3" : "gap-3 p-4", accent && (compact ? "pl-4" : "pl-5"))}
+      >
         <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
           <div className="flex flex-col gap-1">
             <span className="text-sm text-muted-foreground">{label}</span>
-            <span className="text-3xl leading-tight font-semibold tabular-nums" data-testid="stat-hero">
+            <span
+              className={cn("leading-tight font-semibold tabular-nums", compact ? "text-lg" : "text-3xl")}
+              data-testid="stat-hero"
+            >
               {hero}
             </span>
           </div>

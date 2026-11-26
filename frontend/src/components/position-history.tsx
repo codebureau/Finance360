@@ -1,44 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
-import { lazy, Suspense, useMemo } from "react";
+import { useMemo } from "react";
 
 import { GeneralError } from "@/components/form-fields";
 import { Badge } from "@/components/ui/badge";
 import { Money } from "@/components/ui/money";
+import { SeriesChart } from "@/components/series-chart";
 import { ViewCard } from "@/components/view-card";
-import { paletteFromTokens } from "@/lib/chart-palette";
-import { buildOption } from "@/lib/history-chart";
 import { formatMoney } from "@/lib/money";
 import {
   fetchPositionHistory,
+  historyModel,
   seriesFor,
   type HistoryPoint,
   type HistorySeries,
   type PositionView,
 } from "@/lib/position";
-import { useChartTheme } from "@/lib/use-chart-theme";
-
-// ECharts is a large dependency, so it loads on demand.
-const EChart = lazy(() => import("@/components/echart"));
-
-function Chart({ points, series }: { points: HistoryPoint[]; series: HistorySeries[] }) {
-  const theme = useChartTheme();
-  // The palette is read from the theme tokens (re-read when the theme flips).
-  const option = useMemo(
-    () => buildOption(points, series, theme, paletteFromTokens(theme)),
-    [points, series, theme],
-  );
-  return (
-    <div className="w-full min-w-0" data-testid="history-chart">
-      <Suspense fallback={<p className="text-sm text-muted-foreground">Loading chart</p>}>
-        <EChart
-          option={option}
-          label={`Line chart of ${series.map((s) => s.label).join(", ")} over time. The figures are under Show figures.`}
-          className="h-64 w-full"
-        />
-      </Suspense>
-    </div>
-  );
-}
 
 function HistoryTable({ points, series }: { points: HistoryPoint[]; series: HistorySeries[] }) {
   return (
@@ -115,6 +91,7 @@ export function PositionHistory({ tag, view }: { tag: string; view: PositionView
   });
   const h = history.data;
   const series = useMemo(() => (h ? seriesFor(view, h.members) : []), [h, view]);
+  const model = useMemo(() => (h ? historyModel(h.points, series) : { labels: [], lines: [] }), [h, series]);
   const headline = h ? headlineOf(h.points, series) : null;
   return (
     <ViewCard
@@ -127,7 +104,15 @@ export function PositionHistory({ tag, view }: { tag: string; view: PositionView
       {h && h.points.length === 0 && (
         <p className="text-sm text-muted-foreground">No Valuations recorded yet.</p>
       )}
-      {h && h.points.length > 0 && <Chart points={h.points} series={series} />}
+      {h && h.points.length > 0 && (
+        <SeriesChart
+          model={model}
+          what="Assets, Liabilities and Net over time"
+          headline={headline}
+          height={280}
+          testId="history-chart"
+        />
+      )}
       {h && h.points.some((p) => p.flagged > 0) && (
         <p className="text-xs text-muted-foreground">
           Hollow markers are incomplete: some Accounts had no Valuation or FX rate by then and are

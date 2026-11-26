@@ -3,17 +3,17 @@
  * filter. The colour follows the entity, never its rank or its position in a list. Pure.
  */
 
-/** A chart token (0 based: `--chart-1` is 0), muted (Other and residual lines) or the warning tone
- * (an explicit line that needs attention: No profile). */
-export type Tone = { token: number } | "muted" | "warning";
+/** A chart token (0 based: `--chart-1` is 0), muted (Other and residual lines), the warning tone
+ * (an explicit line that needs attention: No profile) or neutral ink (the answer line: Net). */
+export type Tone = { token: number } | "muted" | "warning" | "ink";
 
 /** The six categorical tokens. A seventh hue is never generated. */
 export const TOKEN_COUNT = 6;
 
-export type Family = "category" | "asset-class" | "member" | "scenario" | "dimension" | "package-part";
+export type Family = "category" | "asset-class" | "member" | "scenario" | "dimension" | "package-part" | "position-part";
 
 /** Families with at most six keys have a fixed table (ADR-0031 section 5). */
-const FIXED: Partial<Record<Family, Record<string, number>>> = {
+const FIXED: Partial<Record<Family, Record<string, number | "ink">>> = {
   category: {
     investments: 0,
     property: 1,
@@ -40,6 +40,15 @@ const FIXED: Partial<Record<Family, Record<string, number>>> = {
     take_home: 4,
     unreconciled: 5,
   },
+  // Assets, Liabilities and Net on Position "Over time". Assets and Liabilities wear the two
+  // Category tokens least likely to sit beside them in the share chart above (Overseas pensions,
+  // magenta; Vehicles, gold). Net is the answer, so it is neutral ink and drawn bold. Never a
+  // status colour: Liabilities is not "bad", and also keeps a dash so colour is not the only cue.
+  "position-part": {
+    assets: 4,
+    liabilities: 5,
+    net: "ink",
+  },
 };
 
 /**
@@ -51,6 +60,7 @@ const FIXED: Partial<Record<Family, Record<string, number>>> = {
 export function toneOf(family: Family, key: string, order?: number): Tone {
   if (key === "other") return "muted";
   const fixed = FIXED[family]?.[key];
+  if (fixed === "ink") return "ink";
   if (fixed !== undefined) return { token: fixed };
   if (order === undefined || order < 0) return "muted";
   return { token: order % TOKEN_COUNT };
@@ -81,3 +91,11 @@ export const TOKEN_TINT = [
   "bg-chart-5/10",
   "bg-chart-6/10",
 ] as const;
+
+/** The background class of a swatch for a tone, written out so the class scanner finds them. */
+export function toneBg(tone: Tone): string {
+  if (tone === "warning") return "bg-warning/85";
+  if (tone === "muted") return "bg-muted-foreground/55";
+  if (tone === "ink") return "bg-foreground";
+  return TOKEN_BG[tone.token % TOKEN_BG.length];
+}

@@ -56,7 +56,9 @@ costs a whole extra Developer and Tester cycle.
    `<Money>`/`<Badge>` used, fine in light/dark and compact.
 8. **Last step, every time:** run **tier 1** (AGENTS.md "Test tiers") after your final edit, plus
    `uv run pytest -m slow -k <area>` for any slow test covering what you changed. Don't run tier 3
-   (platform) unless you changed backup, restore or migration code; CI runs the rest.
+   (platform) unless you changed backup, restore or migration code; CI runs the rest. Any change
+   under `fixtures/` runs the FULL slow tier (`uv run pytest -m slow`) before you report, because the
+   real-server and upgrade tests count fixture rows.
    After your final backend edit (a docstring counts), regenerate the API client (`npm run generate:api`
    in `frontend/`) and check `git diff --exit-code frontend/src/api` is clean: CI fails on drift.
 9. **No workarounds.** If a tool is missing or a command is refused, stop and report the exact

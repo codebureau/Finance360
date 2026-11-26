@@ -865,6 +865,11 @@ class ComparedAgePensionOut(BaseModel):
     )
 
 
+class ComparedBalanceOut(BaseModel):
+    year: int = Field(description="The calendar year the projection year ends in.")
+    closing: str = Field(description="The total closing balance of that year, exact.")
+
+
 class ComparedScenarioOut(BaseModel):
     scenario: ScenarioRefOut
     resolved: bool = Field(description="False: see errors; no figures are given.")
@@ -884,6 +889,10 @@ class ComparedScenarioOut(BaseModel):
     provenance: list[ProvenanceOut]
     age_pension: ComparedAgePensionOut | None = Field(
         description="The Age Pension in brief; null when not resolved."
+    )
+    balances: list[ComparedBalanceOut] = Field(
+        description="The total closing balance at the end of each projection year, the same "
+        "rows the Scenario's own projection shows; empty when not resolved."
     )
 
 
@@ -962,6 +971,7 @@ def compare_scenarios(session: SessionDep, as_at: date | None = None) -> Compari
                     spending=None,
                     provenance=[],
                     age_pension=None,
+                    balances=[],
                 )
             )
             continue
@@ -979,6 +989,10 @@ def compare_scenarios(session: SessionDep, as_at: date | None = None) -> Compari
                 spending=base.spending,
                 provenance=_provenance(o.run.provenance),
                 age_pension=_compared_age_pension(base),
+                balances=[
+                    ComparedBalanceOut(year=r.starts_on.year + 1, closing=r.closing)
+                    for r in base.rows
+                ],
             )
         )
     orders = {tuple(c.key for c in s.drawdown_order) for s in out if s.resolved}
