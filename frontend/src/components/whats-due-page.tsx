@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleAlert, CircleDashed, MoreHorizontal } from "lucide-react";
 import { useState } from "react";
 
+import { useCollectionForm } from "@/components/collection-switch";
 import { GeneralError } from "@/components/form-fields";
 import { WithdrawDialog } from "@/components/rule-figures-page";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -30,7 +32,10 @@ import {
   type SnoozeChoice,
   type SnoozedItem,
 } from "@/lib/due";
+import { dueGroups, DUE_VIEW_KEY, type DueCard, type DueGroup } from "@/lib/due-cards";
+import { TOKEN_BG } from "@/lib/entity-colour";
 import { fetchHousehold } from "@/lib/household";
+import { cn } from "@/lib/utils";
 
 /** The Effort level: how much Finance360 asks. Saved on the Household; the list refreshes. */
 export function EffortLevelControl({ level }: { level: string }) {
@@ -179,6 +184,79 @@ function ItemSection({ title, items }: { title: string; items: DueItem[] }) {
   );
 }
 
+/** The area as a chip: its colour token as a dot beside the area's name, never the colour alone. */
+function AreaLabel({ group }: { group: Pick<DueGroup, "area" | "tone"> }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-xs">
+      <span
+        aria-hidden
+        className={cn("size-2 rounded-full", group.tone === null ? "bg-muted-foreground/55" : TOKEN_BG[group.tone])}
+      />
+      {group.area}
+    </span>
+  );
+}
+
+/**
+ * One Due item as a card: a status tone on the left bar and icon, a word badge (Important or
+ * Optional, so severity is never colour alone), the area chip, the item's own title and effect,
+ * its age, and the one link carrying the from-due marker. Snooze and the item's actions are the
+ * list's own.
+ */
+function ItemCard({ card, group }: { card: DueCard; group: DueGroup }) {
+  const { to, search } = linkTarget(card.item.link);
+  const important = card.importance === "important";
+  const Icon = important ? CircleAlert : CircleDashed;
+  return (
+    <li
+      className={cn(
+        "flex items-start justify-between gap-2 rounded-xl border border-l-4 border-border bg-card p-4",
+        important ? "border-l-warning" : "border-l-muted-foreground/40",
+      )}
+    >
+      <div className="flex min-w-0 flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={important ? "stale" : "closed"} className="gap-1">
+            <Icon size={12} aria-hidden />
+            {card.importanceLabel}
+          </Badge>
+          <AreaLabel group={group} />
+        </div>
+        <p className="text-sm font-medium">{card.title}</p>
+        <p className="text-sm text-muted-foreground">{card.effect}</p>
+        <p className="text-xs text-muted-foreground">{card.age}</p>
+        <Link to={to} search={{ ...search, [FROM_PARAM]: FROM_WHATS_DUE }} className="w-fit text-sm underline">
+          Update it here
+        </Link>
+        <ItemActions item={card.item} />
+      </div>
+      <SnoozeMenu item={card.item} />
+    </li>
+  );
+}
+
+function CardGroups({ items, today }: { items: DueItem[]; today: string }) {
+  return (
+    <div className="flex flex-col gap-6">
+      {dueGroups(items, today).map((group) => {
+        const id = `due-area-${group.area.replace(/\W+/g, "-").toLowerCase()}`;
+        return (
+          <section key={group.area} aria-labelledby={id} className="flex flex-col gap-3">
+            <h3 id={id} className="text-base font-semibold">
+              {group.area} <span className="font-normal text-muted-foreground">({group.count})</span>
+            </h3>
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {group.cards.map((card) => (
+                <ItemCard key={card.id} card={card} group={group} />
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 function snoozeNote(snoozed: SnoozedItem): string {
   return snoozed.until_on ? `Snoozed until ${snoozed.until_on}` : "Skipped for this period";
 }
@@ -225,6 +303,7 @@ export function WhatsDueSection() {
   const data = due.isFetchedAfterMount ? due.data : undefined;
   const important = data?.items.filter((i) => i.importance === "important") ?? [];
   const optional = data?.items.filter((i) => i.importance !== "important") ?? [];
+  const view = useCollectionForm(DUE_VIEW_KEY);
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <div className="flex flex-col gap-1">
@@ -239,8 +318,21 @@ export function WhatsDueSection() {
       {data && (
         <>
           {data.items.length === 0 && <p className="text-sm text-muted-foreground">Nothing to refresh right now.</p>}
-          <ItemSection title="What matters most" items={important} />
-          <ItemSection title="Also useful" items={optional} />
+          {data.items.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-muted-foreground">
+                {data.items.length} to look at, {important.length} that matter most.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">{view.control}</div>
+            </div>
+          )}
+          {view.ready && view.form === "cards" && <CardGroups items={data.items} today={data.today} />}
+          {view.ready && view.form === "list" && (
+            <>
+              <ItemSection title="What matters most" items={important} />
+              <ItemSection title="Also useful" items={optional} />
+            </>
+          )}
           {data.failed_rules.length > 0 && (
             <ul className="flex flex-col gap-1">
               {data.failed_rules.map((f) => (
