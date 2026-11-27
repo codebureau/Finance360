@@ -12,7 +12,7 @@ Most people start with one of these. They are examples, not a complete list, and
 Each page says what to provide, which screens matter, what to ignore for now, and how to grow into another way of using Finance360.
 
 ## How hands-on do you want to be?
-This is a different question from the starting point. It sets how much Finance360 asks you to refresh, and there is no better or worse answer. You choose it in the What's due section of [Home](/), the first screen, and you can change it at any time.
+This is a different question from the starting point. It sets how much Finance360 asks you to refresh, and there is no better or worse answer. You choose it in the What's due section of [Home](/), the first screen, where the items appear as cards or as a list, whichever you prefer, and you can change either at any time.
 - **Light** asks only for the few things that move your numbers most, a few minutes every few months. Your figures are roughly right. This is where everyone starts.
 - **Steady** adds the slower-moving items, a few minutes a month. Your figures are more accurate.
 - **Thorough** asks for everything Finance360 can use as often as it helps. Your figures are the most accurate.

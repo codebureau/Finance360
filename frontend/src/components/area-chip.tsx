@@ -6,12 +6,12 @@ import { cn } from "@/lib/utils";
 
 /** The sidebar item the path belongs to: the longest match (`/accounts/4` is Accounts), exact
  * items only on their own path. */
-export function areaOf(pathname: string): { item: Item; tone: GroupTone } | null {
-  let best: { item: Item; tone: GroupTone } | null = null;
+export function areaOf(pathname: string): { item: Item; tone: GroupTone; heading: string } | null {
+  let best: { item: Item; tone: GroupTone; heading: string } | null = null;
   for (const group of SIDEBAR_GROUPS) {
     for (const item of group.items) {
       const hit = pathname === item.to || (!item.exact && pathname.startsWith(`${item.to}/`));
-      if (hit && (!best || item.to.length > best.item.to.length)) best = { item, tone: group.tone };
+      if (hit && (!best || item.to.length > best.item.to.length)) best = { item, tone: group.tone, heading: group.heading };
     }
   }
   return best;

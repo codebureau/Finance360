@@ -146,7 +146,8 @@ still starts `ci.yml`, but only the `changes` and `CI result` jobs run (backend,
 all skip), so the required check below always reports. On a PR, `ci.yml`'s `changes` job runs only
 the affected jobs:
 - **backend:** any change outside `frontend/` (the backend tests read `scripts/`, `deploy/`,
-  `fixtures/` and the compose files).
+  `fixtures/` and the compose files), and a change under `frontend/src/guide/` (the Ask tests read
+  the Guide Markdown).
 - **frontend:** a change under `frontend/`. A change to the API it is generated from (`backend/`,
   `scripts/export_openapi.py`, `pyproject.toml`, `uv.lock`) runs only its API client drift step.
 - **docker:** a change to anything the image copies in.

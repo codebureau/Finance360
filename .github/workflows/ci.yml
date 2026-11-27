@@ -52,7 +52,8 @@ jobs:
         run: |
           # An area runs when a changed file matches its pattern. backend is the exception: it runs
           # when any file falls outside its pattern, i.e. anything but frontend/, docs and Markdown,
-          # because the backend tests read scripts/, deploy/, fixtures/ and the compose files.
+          # because the backend tests read scripts/, deploy/, fixtures/ and the compose files. It also
+          # runs for a change under frontend/src/guide/: the Ask tests read the Guide Markdown.
           # api is what the generated frontend client depends on; docker is what the image copies in.
           # slow is what the slow tier exercises: the database and migrations, the app and API
           # plumbing, the fixture, dependencies, and the slow test files themselves (SLOW_FILES in
@@ -74,7 +75,7 @@ jobs:
           for area in "${!pattern[@]}"; do
             if [ "$all" = true ]; then hit=true
             elif [ "$area" = backend ]; then
-              hit=$(grep -qvE "${pattern[$area]}" <<<"$files" && echo true || echo false)
+              hit=$({ grep -qvE "${pattern[$area]}" <<<"$files" || grep -q '^frontend/src/guide/' <<<"$files"; } && echo true || echo false)
             else
               hit=$(grep -qE "${pattern[$area]}" <<<"$files" && echo true || echo false)
             fi

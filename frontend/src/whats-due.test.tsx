@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { renderAppAt } from "./test-utils";
@@ -56,10 +56,15 @@ type State = {
 let state: State;
 let calls: { method: string; path: string; body?: unknown }[];
 let dueDelayMs = 0;
+// The Login's Display preferences; these tests exercise the list unless a test says otherwise.
+let prefs: Record<string, string>;
+const puts: Record<string, string | null>[] = [];
 
 beforeEach(() => {
   calls = [];
   dueDelayMs = 0;
+  prefs = { "whats-due.items": "list" };
+  puts.length = 0;
   state = { level: "steady", snoozed: [], failed: [], all: [CASH, SUPER, PROPERTY] };
   vi.stubGlobal(
     "fetch",
@@ -85,6 +90,17 @@ beforeEach(() => {
       if (path === "/api/household" && request.method === "PUT") {
         state.level = (body as { effort_level: string }).effort_level;
         return json({ name: "Sample household", time_zone: "Australia/Melbourne", effort_level: state.level, members: [] });
+      }
+      if (path === "/api/preferences") {
+        if (request.method === "PUT") {
+          const sent = (body as { preferences: Record<string, string | null> }).preferences;
+          puts.push(sent);
+          for (const [k, v] of Object.entries(sent)) {
+            if (v === null) delete prefs[k];
+            else prefs[k] = v;
+          }
+        }
+        return json({ preferences: { ...prefs } });
       }
       if (path === "/api/due" && request.method === "GET") {
         if (dueDelayMs) await new Promise((resolve) => setTimeout(resolve, dueDelayMs));
@@ -327,4 +343,76 @@ test("Use shipped asks first, then withdraws the captured figure", async () => {
   fireEvent.click(within(dialog).getByRole("button", { name: "Withdraw figure" }));
   await waitFor(() => expect(screen.queryByText(DIFFERS.title)).not.toBeInTheDocument());
   expect(calls.some((c) => c.method === "DELETE" && c.path === "/api/rule-figures/9")).toBe(true);
+});
+
+const TAX = item({
+  rule_key: "tax.income_statement",
+  subject_key: "member:1@2026",
+  title: "No income statement for FY 2025-26",
+  effect: "An income statement makes your Tax estimate more accurate.",
+  link: "/tax/records",
+});
+
+test("cards are the default: grouped by area with a count, each with a word badge, area, age and one marked link", async () => {
+  prefs = {};
+  state.all = [CASH, SUPER, PROPERTY, TAX];
+  await renderAppAt("/");
+  const keep = await within(content()).findByRole("heading", { name: /Keep it current/ });
+  expect(keep).toHaveTextContent("Keep it current (3)");
+  expect(within(content()).getByRole("heading", { name: /This tax year/ })).toHaveTextContent("This tax year (1)");
+  expect(screen.queryByRole("heading", { name: "What matters most" })).not.toBeInTheDocument();
+  const group = within(keep.closest("section")!);
+  const cards = group.getAllByRole("listitem");
+  expect(cards).toHaveLength(3);
+  const first = within(cards[0]);
+  expect(first.getByText("Important")).toBeInTheDocument();
+  expect(first.getByText("Keep it current")).toBeInTheDocument();
+  expect(first.getByText(CASH.title)).toBeInTheDocument();
+  expect(first.getByText(CASH.effect)).toBeInTheDocument();
+  expect(first.getByText("Worth refreshing since 1 July 2026 (4 months ago)")).toBeInTheDocument();
+  expect(first.getByRole("link", { name: "Update it here" })).toHaveAttribute("href", "/accounts/1?from=due");
+  expect(within(cards[2]).getByText("Optional")).toBeInTheDocument();
+  // Snooze is the list's own.
+  openMenu(CASH.title);
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Snooze for one week" }));
+  await waitFor(() => expect(screen.queryByText(CASH.title)).not.toBeInTheDocument());
+  expect(await screen.findByRole("button", { name: /Snoozed \(1\)/ })).toBeInTheDocument();
+  expect(within(content()).getByRole("heading", { name: /Keep it current/ })).toHaveTextContent("Keep it current (2)");
+});
+
+test("the Show as switch is a labelled radio group; List keeps the choice and Use as my default stores the default", async () => {
+  prefs = {};
+  await renderAppAt("/");
+  const group = await screen.findByRole("group", { name: "Show as" });
+  const cards = within(group).getByRole("radio", { name: "Cards" });
+  const list = within(group).getByRole("radio", { name: "List" });
+  expect(cards).toBeChecked();
+  expect(screen.queryByRole("button", { name: "Use as my default" })).not.toBeInTheDocument();
+
+  fireEvent.click(list);
+  expect(await screen.findByRole("heading", { name: "What matters most" })).toBeInTheDocument();
+  await waitFor(() => expect(puts).toContainEqual({ "whats-due.items": "list" }));
+  expect(puts.some((p) => "default.collection" in p)).toBe(false);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Use as my default" }));
+  await waitFor(() => expect(puts).toContainEqual({ "default.collection": "list" }));
+});
+
+test("the choice persists across a refresh: the list shows again with the same items and wording", async () => {
+  prefs = {};
+  await renderAppAt("/");
+  const cardTitles = (await within(content()).findAllByRole("listitem")).map((li) => li.textContent ?? "");
+  fireEvent.click(await screen.findByRole("radio", { name: "List" }));
+  await waitFor(() => expect(prefs["whats-due.items"]).toBe("list"));
+  cleanup(); // a refresh: a new page, a new cache, the server's stored preference
+
+  await renderAppAt("/");
+  expect(await screen.findByRole("heading", { name: "What matters most" })).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: "List" })).toBeChecked();
+  const listText = content().textContent ?? "";
+  for (const i of [CASH, SUPER, PROPERTY]) {
+    expect(cardTitles.some((t) => t.includes(i.title) && t.includes(i.effect))).toBe(true);
+    expect(listText).toContain(i.title);
+    expect(listText).toContain(i.effect);
+  }
 });

@@ -84,3 +84,11 @@ def test_docs_only_changes_start_ci_but_run_no_area_job() -> None:
     assert found is not None
     for path in ("docs/adr/0001.md", "README.md", "frontend/src/a.tsx"):
         assert re.search(found.group(1), path), path
+
+
+def test_a_guide_change_runs_backend_because_the_ask_tests_read_the_guide_markdown() -> None:
+    hit = re.search(r"\|\| grep -q '([^']*)' <<<\"\$files\"; \}", TEXT)
+    assert hit is not None
+    guide = re.compile(hit.group(1))
+    assert guide.search("frontend/src/guide/04-what-to-provide.md")
+    assert not guide.search("frontend/src/components/home-page.tsx")
