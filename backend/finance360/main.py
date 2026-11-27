@@ -36,6 +36,7 @@ from finance360.api import (
     preferences,
     prices,
     projection,
+    questions,
     rule_figures,
     scenarios,
     super_statements,
@@ -58,6 +59,7 @@ from finance360.capabilities.auth.redact import RedactFilter
 from finance360.capabilities.auth.types import AuthProvider
 from finance360.capabilities.documents import registry as document_profiles
 from finance360.capabilities.documents import store as document_profile_store
+from finance360.capabilities.household import questions as household_questions
 from finance360.capabilities.household.service import (
     bootstrap,
     household_today,
@@ -74,9 +76,11 @@ from finance360.capabilities.position import accounts as position_accounts
 from finance360.capabilities.position import derived as position_derived
 from finance360.capabilities.position import due as position_due
 from finance360.capabilities.position import link_kinds as position_link_kinds
+from finance360.capabilities.position import questions as position_questions
 from finance360.capabilities.position import super_statements as position_super_statements
 from finance360.capabilities.position import valuations as position_valuations
 from finance360.capabilities.projection import income_streams as projection_income_streams
+from finance360.capabilities.projection import questions as projection_questions
 from finance360.capabilities.projection import scenarios as projection_scenarios
 from finance360.capabilities.projection.seed import seed_assumptions
 from finance360.capabilities.reference import exposure_profiles as reference_exposure_profiles
@@ -89,12 +93,14 @@ from finance360.capabilities.tax import due as tax_due
 from finance360.capabilities.tax import fill_target as tax_fill_target
 from finance360.capabilities.tax import link_kind as tax_link_kind
 from finance360.capabilities.tax import lodged as tax_lodged
+from finance360.capabilities.tax import questions as tax_questions
 from finance360.capabilities.tax import rule_figures_due
 from finance360.capabilities.tax import saved as tax_saved
 from finance360.capabilities.tax import service as tax_service
 from finance360.config import Settings
 from finance360.core import backup as core_backup
 from finance360.core import due as core_due
+from finance360.core import questions as core_questions
 from finance360.core import rulepack_store
 from finance360.core.catalogue import check_behaviour_keys, seed_catalogue
 from finance360.core.db import db_path, make_engine, make_session_factory
@@ -182,6 +188,25 @@ def register_due_rules() -> None:
     owner's package contributes its own, and the ``due`` Capability imports none of them."""
     for rule in (*position_due.RULES, *tax_due.RULES, *rule_figures_due.RULES):
         core_due.register(rule)
+
+
+def register_questions() -> None:
+    """Questions and their inputs register here, the composition root, like Due rules (ADR-0032
+    section 1): the Capability that answers a Question contributes it, the data's owner contributes
+    each input, and the ``questions`` Capability imports none of them. Registry order is the order
+    the cards show: what we own, where we are heading, this tax year."""
+    for question_input in (
+        *household_questions.INPUTS,
+        *position_questions.INPUTS,
+        *tax_questions.INPUTS,
+    ):
+        core_questions.register_input(question_input)
+    for question in (
+        *position_questions.QUESTIONS,
+        *projection_questions.QUESTIONS,
+        *tax_questions.QUESTIONS,
+    ):
+        core_questions.register_question(question)
 
 
 CallNext = Callable[[Request], Awaitable[Response]]
@@ -328,6 +353,7 @@ def create_app(
         if behaviour.derive is not None:  # import behaviours/)
             position_derived.register_hook(behaviour.key, behaviour.derive)
     register_due_rules()
+    register_questions()
     _register_providers(settings)
     _check_providers(settings)
     _register_ai(settings)
@@ -358,6 +384,7 @@ def create_app(
     app.include_router(tax_lodged_results.router, dependencies=signed_in)
     app.include_router(rule_figures.router, dependencies=signed_in)
     app.include_router(due.router, dependencies=signed_in)
+    app.include_router(questions.router, dependencies=signed_in)
     app.include_router(preferences.router, dependencies=signed_in)
     app.include_router(documents.router, dependencies=signed_in)
     app.include_router(document_profiles_api.router, dependencies=signed_in)

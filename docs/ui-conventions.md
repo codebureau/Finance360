@@ -47,6 +47,12 @@ Decisions and values: [ADR-0031](adr/0031-visual-layer-chart-kit-display-prefere
   direction itself means good or bad). With a severity it adds a status-toned left accent bar and
   icon, a word badge, a one-line explanation and a drill-in link. Severity never comes from a numeric
   score.
+- **Question card** (`QuestionCards`, Home, view key `home.questions`): a stat tile with severity.
+  The Question in plain words is its label; the hero is the count of inputs needing attention; the
+  Readiness word wears its status tone and icon (Ready `success`, Partly ready `warning`, Not ready
+  `destructive`, Not started `info`, Could not check muted); one line of reason; "Take the next step"
+  (the first reason's fix link) and "Show items". One headline sentence sits over the group, computed
+  from the states. No gauge, no score and no percentage. Cards stack to one column at 390px.
 - **Cards or list** for a collection: both show the same items, wording and actions; cards stack to
   one column at 390px.
 

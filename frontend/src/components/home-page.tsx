@@ -4,6 +4,7 @@ import { ArrowDown, ArrowRight, ArrowUp } from "lucide-react";
 
 import { GeneralError } from "@/components/form-fields";
 import { NotCounted } from "@/components/position-page";
+import { QuestionCards } from "@/components/question-cards";
 import { StatTile } from "@/components/stat-tile";
 import { Money } from "@/components/ui/money";
 import { PageHeader } from "@/components/ui/page-header";
@@ -59,12 +60,13 @@ function NetPositionTile() {
   );
 }
 
-/** The home screen (`/`, ADR-0032): net Position above What's due. */
+/** The home screen (`/`, ADR-0032): net Position, then your questions, then What's due. */
 export function HomePage() {
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <PageHeader title="Home" />
       <NetPositionTile />
+      <QuestionCards />
       <WhatsDueSection />
     </div>
   );

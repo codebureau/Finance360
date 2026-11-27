@@ -327,6 +327,7 @@ forbidden_modules = [
     "finance360.capabilities.rulecapture",
     "finance360.capabilities.documents",
     "finance360.capabilities.library",
+    "finance360.capabilities.questions",
 ]
 
 [[tool.importlinter.contracts]]
@@ -345,6 +346,7 @@ source_modules = [
     "finance360.capabilities.rulecapture",
     "finance360.capabilities.documents",
     "finance360.capabilities.library",
+    "finance360.capabilities.questions",
 ]
 forbidden_modules = ["finance360.capabilities.auth"]
 
@@ -361,6 +363,7 @@ forbidden_modules = [
     "finance360.capabilities.imports",
     "finance360.capabilities.reference",
     "finance360.capabilities.auth",
+    "finance360.capabilities.questions",
 ]
 
 [[tool.importlinter.contracts]]
@@ -390,6 +393,61 @@ forbidden_modules = [
 ]
 
 [[tool.importlinter.contracts]]
+name = "Questions read core and the due service only: their Questions and inputs live with their owners (ADR-0032 section 1)"
+type = "forbidden"
+source_modules = ["finance360.capabilities.questions"]
+forbidden_modules = [
+    "finance360.capabilities.position",
+    "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
+    "finance360.capabilities.projection",
+    "finance360.capabilities.household",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.auth",
+    "finance360.capabilities.ai",
+    "finance360.capabilities.ask",
+    "finance360.capabilities.rulecapture",
+    "finance360.capabilities.documents",
+    "finance360.capabilities.library",
+]
+
+[[tool.importlinter.contracts]]
+name = "Nothing imports Questions but the API, through its service, and main.py (ADR-0032 section 1)"
+type = "forbidden"
+source_modules = [
+    "finance360.capabilities.position",
+    "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
+    "finance360.capabilities.projection",
+    "finance360.capabilities.household",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.auth",
+    "finance360.capabilities.due",
+    "finance360.capabilities.ai",
+    "finance360.capabilities.ask",
+    "finance360.capabilities.rulecapture",
+    "finance360.capabilities.documents",
+    "finance360.capabilities.library",
+    "finance360.plugins",
+    "finance360.jobs",
+    "finance360.mcp",
+]
+forbidden_modules = ["finance360.capabilities.questions"]
+
+[[tool.importlinter.contracts]]
+name = "Question types are pure: no Capability and no database model (ADR-0032 section 1)"
+type = "forbidden"
+source_modules = ["finance360.core.questions"]
+forbidden_modules = [
+    "finance360.capabilities",
+    "finance360.core.models",
+    "finance360.core.db",
+    "finance360.core.audit",
+]
+
+[[tool.importlinter.contracts]]
 name = "The AI gateway imports core only: no other Capability (ADR-0021 section 2)"
 type = "forbidden"
 source_modules = ["finance360.capabilities.ai"]
@@ -405,6 +463,7 @@ forbidden_modules = [
     "finance360.capabilities.due",
     "finance360.capabilities.ask",
     "finance360.capabilities.rulecapture",
+    "finance360.capabilities.questions",
 ]
 
 [[tool.importlinter.contracts]]
@@ -421,6 +480,7 @@ forbidden_modules = [
     "finance360.capabilities.reference",
     "finance360.capabilities.auth",
     "finance360.capabilities.rulecapture",
+    "finance360.capabilities.questions",
 ]
 
 [[tool.importlinter.contracts]]
@@ -438,6 +498,7 @@ source_modules = [
     "finance360.capabilities.due",
     "finance360.capabilities.ai",
     "finance360.capabilities.rulecapture",
+    "finance360.capabilities.questions",
     "finance360.plugins",
     "finance360.jobs",
     "finance360.mcp",
@@ -459,6 +520,7 @@ forbidden_modules = [
     "finance360.capabilities.auth",
     "finance360.capabilities.due",
     "finance360.capabilities.ask",
+    "finance360.capabilities.questions",
 ]
 
 [[tool.importlinter.contracts]]
@@ -476,6 +538,7 @@ source_modules = [
     "finance360.capabilities.due",
     "finance360.capabilities.ai",
     "finance360.capabilities.ask",
+    "finance360.capabilities.questions",
     "finance360.plugins",
     "finance360.jobs",
     "finance360.mcp",

@@ -52,6 +52,11 @@ GOLDEN = [
     ("I just want to track my investments", "path-investments"),
     ("I want the whole picture of our finances", "path-whole-picture"),
     ("Where did a figure come from?", "what-finance360-answers"),
+    # The Question cards' canned Ask prompts (ADR-0032 section 4): the Guide section for the
+    # Question must come back in the top three. The same strings as the registry (checked below).
+    ("What do we own and owe, and what does the Position need to be right?", "position"),
+    ("Are we on track for retirement, and how does the Projection work it out?", "projection"),
+    ("How much tax will we pay, and what does the Tax estimate need?", "tax"),
 ]
 
 
@@ -64,6 +69,16 @@ def test_the_guide_page_that_answers_a_plain_question_is_in_the_top_three(
     question: str, page: str
 ) -> None:
     assert page in top_pages(question), f"{question!r} -> {top_pages(question)}"
+
+
+def test_every_question_ask_prompt_is_in_the_golden_list() -> None:
+    """A new Question's canned prompt must join the findability test (ADR-0032 section 4)."""
+    from finance360.core import questions as core_questions
+    from finance360.main import register_questions
+
+    register_questions()
+    golden = {q for q, _ in GOLDEN}
+    assert {q.ask_prompt for q in core_questions.questions()} <= golden
 
 
 def test_the_golden_list_is_big_enough_to_be_a_bar() -> None:

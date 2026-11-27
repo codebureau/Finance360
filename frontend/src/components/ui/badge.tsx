@@ -12,6 +12,7 @@ export const badgeVariants = cva(
         ok: "border-success/30 bg-success/10 text-success",
         info: "border-info/30 bg-info/10 text-info",
         flagged: "border-warning/40 bg-warning/10 text-warning",
+        destructive: "border-destructive/30 bg-destructive/10 text-destructive",
         stale: "border-warning/40 bg-warning/10 text-warning",
         closed: "border-border bg-muted text-muted-foreground",
         superseded: "border-border bg-muted text-muted-foreground",
