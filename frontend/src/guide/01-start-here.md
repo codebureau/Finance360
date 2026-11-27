@@ -26,6 +26,7 @@ Words with a capital letter (Position, Account, Member, Tax record) are the name
 It is only the screens you choose to look at. Nothing is switched off, so you can step into another starting point, or back out of one, whenever you like.
 
 ## What next
+- [Home](/) opens with your net position, then **Your questions**: a card for each of three questions that says how ready the answer is and what to do next, then What's due.
 - [What Finance360 answers](/guide/what-finance360-answers) lists the questions and the screen for each.
 - [How the pieces fit](/guide/how-the-pieces-fit) shows one diagram of the whole thing.
 - [What to provide, when](/guide/what-to-provide) is the schedule.

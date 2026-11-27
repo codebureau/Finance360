@@ -38,6 +38,7 @@ function stub(points: ReturnType<typeof point>[], flagged = 0) {
       if (path === "/api/household") {
         return json({ name: "Sample household", time_zone: "Australia/Melbourne", effort_level: "steady", members: [] });
       }
+      if (path === "/api/questions") return json({ today: "2026-11-26", level: "steady", headline: "All 0 questions are ready.", questions: [] });
       if (path === "/api/due") return json({ level: "steady", today: "2026-11-26", items: [], snoozed: [], failed_rules: [] });
       return json({ errors: [{ field: "", message: "Not mocked in this test." }] }, 404);
     }),

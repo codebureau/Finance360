@@ -14,7 +14,7 @@ Left to right: what you provide, what Finance360 works out from it, and the ques
 - **The Rule pack holds the dated figures** that tax and the Projection both rely on, such as tax tables for each financial year, super rates and ages.
 - **Tax can feed the Projection.** A Scenario can switch it on to estimate take-home pay (see [Projection](/guide/projection)). Otherwise you type take-home pay into an [Income stream](/income-streams).
 
-- **Home is the starting point.** [Home](/) shows the net Position, then What's due, which is worked out from the Accounts, Valuations and Tax records you have and says which figures could be refreshed.
+- **Home is the starting point.** [Home](/) shows the net Position, then **Your questions** (how ready each answer is, worked out from the same Accounts, Valuations, Members and Tax records, with the next step to improve it), then What's due, which says which figures could be refreshed.
 
 - **Ask sits above all of it.** The **Ask** button, on every screen, searches this Guide for the best passages to your question. It reads no Account, Valuation or Tax record and changes nothing. See [Ask a question](/guide/ask).
 

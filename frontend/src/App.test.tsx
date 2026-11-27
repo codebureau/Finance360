@@ -56,6 +56,8 @@ function stubBackend(health: Response) {
       if (/^\/api\/accounts\/\d+$/.test(path)) return Promise.resolve(json({ message: "Account not found." }, 404));
       if (path === "/api/due")
         return Promise.resolve(json({ level: "light", today: "2026-10-17", items: [], snoozed: [], failed_rules: [] }));
+      if (path === "/api/questions")
+        return Promise.resolve(json({ today: "2026-10-17", level: "light", headline: "", questions: [] }));
       if (path === "/api/fx-rates") return Promise.resolve(json([]));
       if (path === "/api/auth/security") return Promise.resolve(json({ totp_enabled: false }));
       if (path === "/api/audit") return Promise.resolve(json({ items: [], total: 0, limit: 25, offset: 0 }));

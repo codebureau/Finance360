@@ -1885,6 +1885,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Questions */
+        get: operations["getQuestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/rule-figures": {
         parameters: {
             query?: never;
@@ -5525,6 +5542,33 @@ export interface components {
             /** Currency */
             currency: string;
         };
+        /** NextStepOut */
+        NextStepOut: {
+            /**
+             * Effect
+             * @description What fixing it improves.
+             */
+            effect: string;
+            /** Input Key */
+            input_key: string;
+            /** Input Name */
+            input_name: string;
+            /**
+             * Kind
+             * @description missing, stale or incomplete.
+             */
+            kind: string;
+            /**
+             * Link
+             * @description The app path where it is fixed.
+             */
+            link: string;
+            /**
+             * Title
+             * @description What Finance360 is using now.
+             */
+            title: string;
+        };
         /** NoEarlierOut */
         NoEarlierOut: {
             /** Key */
@@ -6601,6 +6645,51 @@ export interface components {
              * @description A percent, a whole number of years, or a decimal amount.
              */
             value: string;
+        };
+        /** QuestionOut */
+        QuestionOut: {
+            /** Area */
+            area: string;
+            /** Ask Prompt */
+            ask_prompt: string;
+            /**
+             * Count
+             * @description How many of the Question's inputs are not Ready.
+             */
+            count: number;
+            /** Key */
+            key: string;
+            next_step: components["schemas"]["NextStepOut"] | null;
+            /**
+             * Reason
+             * @description One line: why the state is what it is.
+             */
+            reason: string;
+            /** Screen */
+            screen: string;
+            /**
+             * State
+             * @description ready, partly_ready, not_ready, not_started or could_not_check. Never a number: there is no score.
+             */
+            state: string;
+            /** State Word */
+            state_word: string;
+            /** Wording */
+            wording: string;
+        };
+        /** QuestionsOut */
+        QuestionsOut: {
+            /** Headline */
+            headline: string;
+            /** Level */
+            level: string;
+            /** Questions */
+            questions: components["schemas"]["QuestionOut"][];
+            /**
+             * Today
+             * Format: date
+             */
+            today: string;
         };
         /** ReadingOut */
         ReadingOut: {
@@ -15300,6 +15389,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    getQuestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionsOut"];
                 };
             };
         };
