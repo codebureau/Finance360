@@ -199,20 +199,20 @@ test("nothing due reads plainly, without praise or judgment", async () => {
 test("the sidebar badge counts important items only, using the info style", async () => {
   await renderAppAt("/position");
   const nav = screen.getByRole("navigation", { name: "Sections" });
-  const link = await within(nav).findByRole("link", { name: /What's due/ });
+  const link = await within(nav).findByRole("link", { name: /Home/ });
   const badge = await within(link).findByLabelText("2 important");
   expect(badge).toHaveTextContent("2");
   expect(badge.className).toContain("text-info");
 });
 
-test("What's due is the first link in the sidebar, beside the Guide link, and not in a group", async () => {
+test("Home is the first link in the sidebar, beside the Guide link, and not in a group", async () => {
   await renderAppAt("/position");
   const nav = screen.getByRole("navigation", { name: "Sections" });
   const links = within(nav).getAllByRole("link");
-  expect(links[0]).toHaveTextContent("What's due");
+  expect(links[0]).toHaveTextContent("Home");
   expect(links[1]).toHaveTextContent("Guide");
   const group = within(nav).getByRole("heading", { name: "Keep it current" }).parentElement!.parentElement!;
-  expect(within(group).queryByRole("link", { name: /What's due/ })).not.toBeInTheDocument();
+  expect(within(group).queryByRole("link", { name: /Home/ })).not.toBeInTheDocument();
 });
 
 test("the Finance360 name links home on desktop and in the phone header, and in the menu, which it closes", async () => {

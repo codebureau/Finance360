@@ -301,7 +301,7 @@ function Totals({ p, columns, view }: { p: Position; columns: Column[]; view: Po
 }
 
 /** Why some Accounts are missing from the figures, in words, beside the totals. */
-function NotCounted({ p }: { p: Position }) {
+export function NotCounted({ p }: { p: Position }) {
   if (p.flagged === 0) return null;
   return (
     <div className="flex flex-col gap-1" role="status">

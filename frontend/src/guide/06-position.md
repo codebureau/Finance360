@@ -18,6 +18,7 @@ Pictures first, figures one click behind them.
   - **Tag**: narrow to Accounts carrying a Tag you made up, such as "emergency fund".
   - **Layout**: Tree or Table for the figures.
 - Inside the figures, a line shows how the net figure adds up: each Member's solely held Accounts, plus Joint, equals the Household.
+- [Home](/) shows the net Position with a link here.
 
 ## What it is made of, underneath
 The [Exposure](/exposure) screen splits the same Position by what the investments hold (asset class, region and so on), for the Household, each Member, Category or Account. See [Exposure](/guide/exposure).

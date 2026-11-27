@@ -8,7 +8,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
-/** The Finance360 logo: a link home (What's due, `/`). */
+/** The Finance360 logo: a link home (`/`). */
 function Brand({ className }: { className: string }) {
   return (
     <Link to="/" className={className}>
