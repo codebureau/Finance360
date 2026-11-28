@@ -32,6 +32,14 @@ them through the service layer on first run, so audit and validation apply:
   at Light. `Sam Sample` has an income statement for FY 2024-25 and none for FY 2025-26, so What's due
   asks for it from 15 July 2026 (it asks about the latest ended financial year, so as time passes
   every Member without a newer statement is asked).
+  **Relative dates (ADR-0032 section 8).** A Valuation entry may carry `as_at_offset_days` (zero or negative: days from the
+  load date) instead of `as_at`; `load_fixture_valuations` resolves it on the day the fixture is loaded. Four entries use it:
+  the Everyday, Term Deposit and Joint savings Accounts (cash) and `Sample Super Fund`, each at -2 with the same amount as its
+  30 September 2026 Valuation (so no figure moves). They keep "Are we on track for retirement?" **Ready** on any day the slot is
+  loaded (`review --reset` reloads it), while the fixed 30 September 2026 home loan Valuation is stale from the next month, so
+  "What do we own and owe?" is **Partly ready**; recording a fresh loan Valuation turns it Ready (the Family Home estimate
+  stays fresh for a year from 26 September 2026). Every other fixture date stays fixed. A test loads the fixture on three
+  different days and asserts both states.
   The top-level `fx_rates` (six invented GBP to AUD rates, Oct 2024 to Aug 2026, some with more than
   two decimal places) are read by `finance360.capabilities.reference.fx_rates.load_fixture_fx_rates`
   only while no FX rate exists. They are audited with source `fixture`.

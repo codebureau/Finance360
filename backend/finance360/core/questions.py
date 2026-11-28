@@ -9,7 +9,8 @@ Capability evaluates the registries and never imports an owner.
 **Readiness** is how far a Question can be answered from what the household has given. It is
 computed on every request and never stored, and it is never a number: no score, no percentage. The
 shares below are thresholds inside a judgment, held as parts per million and compared in integer
-arithmetic on exact Money, so a boundary is exact (``affected * 1_000_000 > share * total``).
+arithmetic on exact Money, so a boundary is exact (``sum * 1_000_000 > share * total``), where the
+sum is a group's summed ``affected`` (ADR-0032 section 2).
 
 Wording is about accuracy, never about the household: neither a reason's ``title`` nor its
 ``effect`` may say overdue, late or failed (ADR-0020).
@@ -144,19 +145,37 @@ def exceeds(affected: Money, total: Money, share_ppm: int) -> bool:
     return abs(affected.amount_minor) * PPM > share_ppm * total.amount_minor
 
 
-def rate_reason(reason: Reason, total: Money | None) -> Readiness:
-    """One reason's own state (a judgment, never a figure).
+def _weighable(total: Money | None) -> bool:
+    return total is not None and total.amount_minor > 0
 
-    ``missing`` above the misleading share is Not ready; any kind above the material share is
-    Partly ready. Stale and incomplete never give Not ready: an old figure makes an answer
-    approximate, not wrong. A reason with unknown value (or a total that cannot weigh it) is at
-    most Partly ready.
-    """
-    if reason.affected is None or total is None or total.amount_minor <= 0:
-        return PARTLY_READY
-    if reason.kind == MISSING and exceeds(reason.affected, total, MISLEADING_SHARE_PPM):
+
+def _group(kind: ReasonKind) -> ReasonKind:
+    """The group a reason belongs to: ``missing`` alone, and ``stale`` with ``incomplete`` (the
+    answer uses an old or partial figure). The two groups make different claims, so they never
+    blend (ADR-0032 section 2)."""
+    return MISSING if kind == MISSING else STALE
+
+
+def group_sum(reasons: Sequence[Reason], group: ReasonKind, currency: str) -> Money:
+    """The exact sum of the known ``affected`` values of one group's reasons. A reason with an
+    unknown value adds nothing."""
+    total = Money.zero(currency)
+    for reason in reasons:
+        if _group(reason.kind) == group and reason.affected is not None:
+            total += Money(abs(reason.affected.amount_minor), currency)
+    return total
+
+
+def _group_state(result: InputResult, group: ReasonKind) -> Readiness:
+    """One group's state from its summed share of ``result.total`` (strict boundaries). Only the
+    ``missing`` group can be Not ready: an old figure makes an answer approximate, not wrong."""
+    total = result.total
+    if total is None:
+        return READY
+    summed = group_sum(result.reasons, group, total.currency)
+    if group == MISSING and exceeds(summed, total, MISLEADING_SHARE_PPM):
         return NOT_READY
-    if exceeds(reason.affected, total, MATERIAL_SHARE_PPM):
+    if exceeds(summed, total, MATERIAL_SHARE_PPM):
         return PARTLY_READY
     return READY
 
@@ -171,17 +190,36 @@ _SEVERITY: dict[Readiness, int] = {
 
 
 def rate_input(result: InputResult) -> Readiness:
-    """An input's state: empty is Not started, blocking is Not ready, else its worst reason."""
+    """An input's state: empty is Not started, blocking is Not ready, else the worse of its two
+    groups. A reason with unknown value, or a total that cannot weigh the reasons, gives at most
+    Partly ready."""
     if result.empty:
         return NOT_STARTED
     if result.blocking:
         return NOT_READY
-    worst: Readiness = READY
-    for reason in result.reasons:
-        state = rate_reason(reason, result.total)
+    if not result.reasons:
+        return READY
+    if not _weighable(result.total):
+        return PARTLY_READY
+    worst: Readiness = PARTLY_READY if any(r.affected is None for r in result.reasons) else READY
+    for group in (MISSING, STALE):
+        state = _group_state(result, group)
         if _SEVERITY[state] > _SEVERITY[worst]:
             worst = state
     return worst
+
+
+def material_reasons(result: InputResult) -> tuple[Reason, ...]:
+    """The reasons that count, in next-step order. A Not started or blocking input shows its
+    reasons whole (its next step is the first input). Otherwise a group above the material share
+    makes every reason in it material (together they are why), a group at or below makes none
+    material (they are "Small gaps"), and a reason with unknown value is always material (it is
+    why the input is Partly ready)."""
+    reasons = ordered(result.reasons)
+    if result.empty or result.blocking or not _weighable(result.total):
+        return reasons
+    counted = {group for group in (MISSING, STALE) if _group_state(result, group) != READY}
+    return tuple(r for r in reasons if r.affected is None or _group(r.kind) in counted)
 
 
 @dataclass(frozen=True, slots=True)

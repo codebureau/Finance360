@@ -1085,6 +1085,9 @@ def _load_tax_evidence(s: Session, env: Env) -> None:
 
 #: Public `session` functions that deliberately write no audit record, with the reason.
 NOT_AUDITED: dict[str, str] = {
+    "position.questions.freshness_result": (
+        "A read: the stale-Valuation share Questions weigh (a pure computation over Position)."
+    ),
     # reads
     "household.service.find_household": "read",
     "household.service.get_household": "read",

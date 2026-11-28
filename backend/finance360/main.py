@@ -198,6 +198,7 @@ def register_questions() -> None:
     for question_input in (
         *household_questions.INPUTS,
         *position_questions.INPUTS,
+        *projection_questions.INPUTS,
         *tax_questions.INPUTS,
     ):
         core_questions.register_input(question_input)

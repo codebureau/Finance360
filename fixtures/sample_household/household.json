@@ -42,7 +42,8 @@
         { "as_at": "2026-06-30", "amount": "3861.33", "source": "statement", "note": "Invented Sample Bank monthly statement" },
         { "as_at": "2026-07-31", "amount": "3709.37", "source": "statement", "note": "Invented Sample Bank monthly statement" },
         { "as_at": "2026-08-31", "amount": "3090.96", "source": "statement", "note": "Invented Sample Bank monthly statement" },
-        { "as_at": "2026-09-30", "amount": "4264.24", "source": "statement", "note": "Invented Sample Bank monthly statement" }
+        { "as_at": "2026-09-30", "amount": "4264.24", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at_offset_days": -2, "amount": "4264.24", "source": "statement", "note": "Invented Sample Bank monthly statement (recent)" }
       ]
     },
     {
@@ -57,7 +58,8 @@
       "valuations": [
         { "as_at": "2025-03-15", "amount": "10000.00", "source": "statement", "note": "Invented first statement" },
         { "as_at": "2025-09-30", "amount": "10150.00", "source": "statement", "note": "Invented statement" },
-        { "as_at": "2026-09-30", "amount": "10620.50", "source": "statement", "note": "Invented statement" }
+        { "as_at": "2026-09-30", "amount": "10620.50", "source": "statement", "note": "Invented statement" },
+        { "as_at_offset_days": -2, "amount": "10620.50", "source": "statement", "note": "Invented statement (recent)" }
       ]
     },
     {
@@ -94,7 +96,8 @@
         { "as_at": "2026-06-30", "amount": "25248.41", "source": "statement", "note": "Invented Sample Bank monthly statement" },
         { "as_at": "2026-07-31", "amount": "25930.89", "source": "statement", "note": "Invented Sample Bank monthly statement" },
         { "as_at": "2026-08-31", "amount": "26321.46", "source": "statement", "note": "Invented Sample Bank monthly statement" },
-        { "as_at": "2026-09-30", "amount": "26303.79", "source": "statement", "note": "Invented Sample Bank monthly statement" }
+        { "as_at": "2026-09-30", "amount": "26303.79", "source": "statement", "note": "Invented Sample Bank monthly statement" },
+        { "as_at_offset_days": -2, "amount": "26303.79", "source": "statement", "note": "Invented Sample Bank monthly statement (recent)" }
       ]
     },
     {
@@ -158,7 +161,8 @@
         { "as_at": "2026-05-31", "amount": "210678.31", "source": "statement", "note": "Invented Sample Super Fund member statement" },
         { "as_at": "2026-07-31", "amount": "208919.63", "source": "statement", "note": "Invented Sample Super Fund member statement" },
         { "as_at": "2026-08-31", "amount": "211719.09", "source": "statement", "note": "Invented Sample Super Fund member statement" },
-        { "as_at": "2026-09-30", "amount": "215228.07", "source": "statement", "note": "Invented Sample Super Fund member statement" }
+        { "as_at": "2026-09-30", "amount": "215228.07", "source": "statement", "note": "Invented Sample Super Fund member statement" },
+        { "as_at_offset_days": -2, "amount": "215228.07", "source": "statement", "note": "Invented Sample Super Fund member statement (recent)" }
       ]
     },
     {

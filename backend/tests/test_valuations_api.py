@@ -241,7 +241,9 @@ def test_the_sample_household_has_about_two_years_of_valuations_with_gaps_per_ac
         if account["name"].startswith("Sample Term Deposit"):
             # Deliberately short: opened Jan 2025, first valued Mar 2025, so earlier month-ends
             # show an incomplete (flagged) point in the history chart.
-            assert [d.isoformat() for d in dates][0] == "2025-03-15" and len(dates) == 3
+            # The fourth is the one dated relative to the load date (ADR-0032 section 8).
+            assert [d.isoformat() for d in dates][0] == "2025-03-15" and len(dates) == 4
+            assert dates[2] == date(2026, 9, 30) and dates[3] > dates[2]
             continue
         if account["name"].startswith(("Dormant", "Old trailer")):
             # Left untouched on purpose (zero balance): What's due asks for a new figure. The
