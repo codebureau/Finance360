@@ -19,6 +19,14 @@ beforeEach(() => {
     removeItem: (k: string) => void data.delete(k),
     clear: () => data.clear(),
   });
+  // The same for the per-tab return marker (ADR-0032): every test starts with none.
+  const tab = new Map<string, string>();
+  vi.stubGlobal("sessionStorage", {
+    getItem: (k: string) => tab.get(k) ?? null,
+    setItem: (k: string, v: string) => void tab.set(k, String(v)),
+    removeItem: (k: string) => void tab.delete(k),
+    clear: () => tab.clear(),
+  });
 });
 
 // Radix popper/menus measure with ResizeObserver, which jsdom lacks.

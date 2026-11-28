@@ -13,11 +13,12 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from typing import Literal
 
 from finance360.core.fx import FxPoint
 from finance360.core.money import Money
 from finance360.core.price import PricePoint
-from finance360.core.transaction import Change
+from finance360.core.transaction import STREAMS, Change
 
 #: A Price older than this many days is flagged stale unless the instance says otherwise.
 DEFAULT_STALE_DAYS = 7
@@ -72,24 +73,51 @@ class DerivedValue:
 
 
 @dataclass(frozen=True)
+class StreamIssue:
+    """One Stream that cannot support a value: ``missing`` (no committed Import) or ``stale`` (its
+    Coverage ends before the date). ``message`` is the prose built from these fields."""
+
+    stream: str
+    kind: Literal["missing", "stale"]
+    message: str
+
+
+@dataclass(frozen=True)
 class NoDerivedValue:
     """There is no derived value on ``on``, and why. Never a partial total."""
 
     on: date
     reason: str
+    #: The Stream problems behind ``reason``, structured and ordered (``stream_issues``); empty
+    #: when the reason is not about a Stream.
+    issues: tuple[StreamIssue, ...] = ()
 
 
 DeriveHook = Callable[[DeriveInputs, date], DerivedValue | NoDerivedValue]
 
 
-def stream_issue(stream: str, coverage: Mapping[str, date], on: date) -> str | None:
-    """Why a Stream cannot support a value on ``on``, or ``None`` when its Coverage reaches it."""
+def _issue(stream: str, coverage: Mapping[str, date], on: date) -> StreamIssue | None:
     reached = coverage.get(stream)
     if reached is None:
-        return f"The {stream} Stream has no committed Import."
+        return StreamIssue(stream, "missing", f"The {stream} Stream has no committed Import.")
     if reached < on:
-        return (
+        return StreamIssue(
+            stream,
+            "stale",
             f"The {stream} Stream's Coverage ends {reached.isoformat()}, "
-            f"before {on.isoformat()}: it is stale."
+            f"before {on.isoformat()}: it is stale.",
         )
     return None
+
+
+def stream_issues(coverage: Mapping[str, date], on: date) -> tuple[StreamIssue, ...]:
+    """Every Stream that cannot support a value on ``on``: ``missing`` before ``stale`` (nothing
+    imported is the first thing to fix), each group in Stream order."""
+    found = [i for s in STREAMS if (i := _issue(s, coverage, on))]
+    return tuple(sorted(found, key=lambda i: i.kind != "missing"))
+
+
+def stream_issue(stream: str, coverage: Mapping[str, date], on: date) -> str | None:
+    """Why a Stream cannot support a value on ``on``, or ``None`` when its Coverage reaches it."""
+    issue = _issue(stream, coverage, on)
+    return issue.message if issue else None

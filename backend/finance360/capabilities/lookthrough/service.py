@@ -31,7 +31,7 @@ from finance360.capabilities.position import service as position_service
 from finance360.capabilities.position.calculation import AccountLine, Position
 from finance360.capabilities.position.super_statements import SUPER_ACCOUNT_TYPE
 from finance360.capabilities.reference import exposure_profiles
-from finance360.core.derived import DEFAULT_STALE_DAYS, NoDerivedValue
+from finance360.core.derived import DEFAULT_STALE_DAYS, NoDerivedValue, StreamIssue
 from finance360.core.errors import FieldError, ValidationError
 from finance360.core.exposure import ASSET_CLASS, normalise_option_name
 from finance360.core.models.super_statement import SuperStatement
@@ -55,6 +55,8 @@ class LookThrough:
     #: The Super statement the parts come from (``super_statement`` source, when there is one).
     statement_id: int | None = None
     statement_date: date | None = None
+    #: Why the Holdings cannot support a value, structured: ``missing`` before ``stale``.
+    issues: tuple[StreamIssue, ...] = ()
 
 
 def _account_line(position: Position, account_id: int) -> AccountLine | None:
@@ -120,7 +122,11 @@ def account_look_through(
     statement: SuperStatement | None = None
 
     def out(
-        reason: str | None, composition: Composition | None = None, *, applies: bool = True
+        reason: str | None,
+        composition: Composition | None = None,
+        *,
+        applies: bool = True,
+        issues: tuple[StreamIssue, ...] = (),
     ) -> LookThrough:
         status: Literal["ok", "not_analysed"] = "ok" if composition else "not_analysed"
         return LookThrough(
@@ -134,6 +140,7 @@ def account_look_through(
             source,
             statement.id if statement else None,
             statement.period_end if statement else None,
+            issues,
         )
 
     if source is None:
@@ -145,7 +152,10 @@ def account_look_through(
         hook, inputs = found[account_id]
         result = hook(inputs, on)
         if isinstance(result, NoDerivedValue):
-            return out(f"No value can be built from Holdings on {on.isoformat()}. {result.reason}")
+            return out(
+                f"No value can be built from Holdings on {on.isoformat()}. {result.reason}",
+                issues=result.issues,
+            )
         parts_total = result.total
         parts = [
             Part(

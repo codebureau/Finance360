@@ -1,11 +1,11 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { ArrowLeft, Menu } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Menu } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
-import { FROM_PARAM, FROM_WHATS_DUE } from "@/lib/due";
 import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { ReturnBar } from "@/components/return-bar";
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 /** The Finance360 logo: a link home (`/`). */
@@ -13,24 +13,6 @@ function Brand({ className }: { className: string }) {
   return (
     <Link to="/" className={className}>
       <Logo />
-    </Link>
-  );
-}
-
-/**
- * "Back to What's due", shown on whatever screen a What's due link opened, while the link's marker is
- * in the URL. It lives here so every current and future prompt gets it with no per-screen code. The
- * home screen refetches on mount, so the list comes back recalculated.
- */
-function BackToWhatsDue() {
-  const marked = useRouterState({
-    select: (s) => s.location.pathname !== "/" && s.location.search[FROM_PARAM as keyof typeof s.location.search] === FROM_WHATS_DUE,
-  });
-  if (!marked) return null;
-  return (
-    <Link to="/" className={buttonVariants({ variant: "outline", className: "mb-4 w-fit" })}>
-      <ArrowLeft size={16} aria-hidden />
-      Back to What&apos;s due
     </Link>
   );
 }
@@ -112,7 +94,7 @@ export function AppShell({
           </div>
         </header>
         <main data-testid="content" className="mx-auto w-full max-w-7xl min-w-0 flex-1 px-4 py-6 sm:px-6">
-          <BackToWhatsDue />
+          <ReturnBar />
           {children}
         </main>
       </div>

@@ -90,6 +90,17 @@ class LookThroughPartOut(BaseModel):
     )
 
 
+#: Imports are added on one screen, for any Account (there is no per-Account Imports page).
+IMPORTS_LINK = "/imports"
+
+
+class StreamIssueOut(BaseModel):
+    stream: str
+    kind: Literal["missing", "stale"]
+    message: str
+    link: str = Field(description="The app path where it is fixed.")
+
+
 class LookThroughOut(BaseModel):
     applies: bool = Field(
         description="False when the Account has no look-through (not Holdings, not a super fund)."
@@ -106,6 +117,10 @@ class LookThroughOut(BaseModel):
     as_at: date
     status: Literal["ok", "not_analysed"]
     reason: str | None
+    issues: list[StreamIssueOut] = Field(
+        description="When Not analysed because a Stream cannot support the value: each problem, "
+        "missing before stale, with where to fix it."
+    )
     dimension_key: str
     dimension_name: str
     total: MoneyOut | None = Field(description="The Account's value in the Position.")
@@ -205,6 +220,10 @@ def get_look_through(
         as_at=found.on,
         status=found.status,
         reason=found.reason,
+        issues=[
+            StreamIssueOut(stream=i.stream, kind=i.kind, message=i.message, link=IMPORTS_LINK)
+            for i in found.issues
+        ],
         dimension_key=found.dimension_key,
         dimension_name=found.dimension_name,
         total=money_out(c.total) if c else None,

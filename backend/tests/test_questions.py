@@ -626,12 +626,84 @@ def test_the_api_has_no_number_for_readiness(sample: TestClient) -> None:
 # --- the Guide cannot drift from the registry ---------------------------------------------------
 
 
-def test_every_registered_question_is_a_bold_lead_on_the_answers_page_linking_its_screen() -> None:
-    """ADR-0032 section 8: the page stays prose; its bold leads are the Questions' wording. The link
-    to the Question page (``/questions/<key>``) arrives with that page (#121); until then each line
-    links the screen that answers it."""
-    lines = GUIDE.read_text(encoding="utf-8").splitlines()
+def test_every_registered_question_is_a_bold_lead_on_the_answers_page_linking_its_page() -> None:
+    """ADR-0032 section 8: the page stays prose; its bold leads are the Questions' wording, on a
+    line that links the Question page, and every such link has a registered Question."""
+    text = GUIDE.read_text(encoding="utf-8")
+    lines = text.splitlines()
     for question in core.questions():
         mine = [line for line in lines if f"**{question.wording}**" in line]
         assert len(mine) == 1, f"{question.key}: expected one Guide line for **{question.wording}**"
-        assert f"]({question.screen})" in mine[0], f"{question.key}: the line must link its screen"
+        assert f"](/questions/{question.key})" in mine[0], f"{question.key}: link its page"
+    linked = set(re.findall(r"\]\(/questions/([^)\s]+)\)", text))
+    assert linked, "the answers page links no Question page"
+    assert linked <= {q.key for q in core.questions()}, linked - {q.key for q in core.questions()}
+
+
+# --- one Question: the page behind a card -------------------------------------------------------
+
+
+def test_one_question_is_the_same_evaluation_as_its_card_with_every_input_in_order(
+    sample: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The page lists every input the card counts, in the registry's order, with the same states."""
+    cards = sample_states(sample, monkeypatch, date(2026, 11, 27))
+    for question in core.questions():
+        card = cards[question.key]
+        page = sample.get(f"/api/questions/{question.key}").json()
+        assert {k: page[k] for k in card} == card  # the card's own fields, unchanged
+        assert [i["key"] for i in page["inputs"]] == list(question.inputs)
+        assert page["count"] == sum(1 for i in page["inputs"] if i["counted"])
+        for i in page["inputs"]:
+            assert i["state_word"] == core.STATE_WORDS[i["state"]]
+            assert all(r["link"].startswith("/") for r in i["reasons"])
+        step = page["next_step"]
+        if step is not None:  # the card's next step is the first material reason of its input
+            owner = next(i for i in page["inputs"] if i["key"] == step["input_key"])
+            first = next(r for r in owner["reasons"] if r["material"])
+            assert (first["title"], first["link"]) == (step["title"], step["link"])
+
+
+def test_the_partly_ready_sample_question_names_the_stale_inputs_with_fix_links(
+    sample: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sample_states(sample, monkeypatch, date(2026, 11, 27))
+    page = sample.get("/api/questions/own-and-owe").json()
+    by_key = {i["key"]: i for i in page["inputs"]}
+    assert by_key["position.freshness"]["state"] == "partly_ready"
+    material = [r for r in by_key["position.freshness"]["reasons"] if r["material"]]
+    assert material and all(r["kind"] == "stale" for r in material)
+    assert by_key["position.accounts"]["state"] == "ready"
+    assert by_key["position.accounts"]["counted"] is False
+
+
+def test_an_unknown_question_is_a_404_and_ratings_is_not_a_question(sample: TestClient) -> None:
+    assert sample.get("/api/questions/no-such-question").status_code == 404
+    assert sample.get("/api/questions/ratings").status_code == 404
+
+
+def test_an_optional_input_is_shown_but_not_asked_at_light(db: Db) -> None:
+    def stub(_s: Session, _t: date, _l: EffortLevel, _i: Sequence[DueItem]) -> InputResult:
+        return InputResult(reasons=(reason(STALE, "900.00"),), total=aud("1000.00"))
+
+    core.register_input(
+        QuestionInput("t.optional", "Optional thing", OPTIONAL, (), stub),
+    )
+    core.register_input(
+        QuestionInput("t.main", "Main thing", IMPORTANT, (), lambda *_: InputResult())
+    )
+    core.register_question(
+        Question("t-q", "Test?", "/position", "Where we stand", ("t.main", "t.optional"), "Words")
+    )
+    try:
+        for level, asked, count in (("light", False, 0), ("steady", True, 1)):
+            with db.factory() as s:
+                view = service.evaluate_one(s, "t-q", today=TODAY, level=level)  # type: ignore[arg-type]
+            optional = view.inputs[1]
+            assert (optional.asked, view.count) == (asked, count)
+            assert optional.state == PARTLY_READY  # shown with its real state either way
+            assert [i.key for i in view.inputs] == ["t.main", "t.optional"]
+    finally:
+        core.unregister_question("t-q")
+        core.unregister_input("t.optional")
+        core.unregister_input("t.main")

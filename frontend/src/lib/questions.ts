@@ -14,6 +14,9 @@ import { toApiError } from "@/lib/household";
 export type Question = components["schemas"]["QuestionOut"];
 export type Questions = components["schemas"]["QuestionsOut"];
 export type NextStep = components["schemas"]["NextStepOut"];
+export type QuestionDetail = components["schemas"]["QuestionDetailOut"];
+export type QuestionInputView = components["schemas"]["InputOut"];
+export type QuestionReason = components["schemas"]["ReasonOut"];
 
 const client = createClient<paths>({
   baseUrl: window.location.origin,
@@ -27,6 +30,24 @@ export async function fetchQuestions(): Promise<Questions> {
   const { data, error, response } = await client.GET("/api/questions");
   if (!data) throw toApiError(error, response.status);
   return data;
+}
+
+export const questionKey = (key: string) => ["questions", key] as const;
+
+export async function fetchQuestion(key: string): Promise<QuestionDetail> {
+  const { data, error, response } = await client.GET("/api/questions/{key}", { params: { path: { key } } });
+  if (!data) throw toApiError(error, response.status);
+  return data;
+}
+
+/** The marker a fix link from a Question carries (`/accounts/9?from=q.own-and-owe`). */
+export function fromQuestion(key: string): string {
+  return `q.${key}`;
+}
+
+/** The Question key inside a return marker, or `null` for any other marker. */
+export function questionOfMarker(marker: string): string | null {
+  return marker.startsWith("q.") ? marker.slice(2) : null;
 }
 
 /** The five Readiness states (ADR-0032 section 2). Never a number: a state, never a score. */

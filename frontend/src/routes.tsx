@@ -35,6 +35,7 @@ import { LibraryPage } from "@/components/library-page";
 import { PasteProfilePage } from "@/components/paste-profile-page";
 import { ExposurePage } from "@/components/exposure-page";
 import { PositionPage } from "@/components/position-page";
+import { QuestionPage } from "@/components/question-page";
 import { ProjectionPage, parseProjectionSearch } from "@/components/projection-page";
 import { ReferenceDataPage } from "@/components/reference-data-page";
 import { RuleFiguresPage } from "@/components/rule-figures-page";
@@ -53,7 +54,8 @@ import { TaxWhatIfPage, TaxWhatIfsPage } from "@/components/tax-whatifs-page";
 import { buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { parseAuditSearch } from "@/lib/audit";
-import { FROM_PARAM, FROM_WHATS_DUE } from "@/lib/due";
+import { FROM_PARAM } from "@/lib/due";
+import { parseMarker } from "@/lib/return-bar";
 import { parseLibrarySearch } from "@/lib/library";
 import { parseRuleFiguresSearch } from "@/lib/rule-figures";
 import { parseTaxRecordsSearch, parseTaxSearch } from "@/lib/tax";
@@ -96,14 +98,14 @@ function NotFound() {
 }
 
 /**
- * The root route declares the What's due marker once (`?from=due`), so every screen accepts it and
- * the shell can read it; no destination route declares it.
+ * The root route declares the return marker once (`?from=due` or `?from=q.<key>`), so every screen
+ * accepts it and the shell can read it; no destination route declares it.
  */
 const rootRoute = createRootRoute({
   component: RootLayout,
   notFoundComponent: NotFound,
   validateSearch: (search: Record<string, unknown>) => ({
-    [FROM_PARAM]: search[FROM_PARAM] === FROM_WHATS_DUE ? FROM_WHATS_DUE : undefined,
+    [FROM_PARAM]: parseMarker(search[FROM_PARAM]),
   }),
 });
 
@@ -112,6 +114,16 @@ const route = (path: string, component: () => React.ReactNode) =>
 
 /** Home: net Position above What's due (ADR-0032). */
 const indexRoute = route("/", HomePage);
+
+/** One Question: `/questions/own-and-owe` (ADR-0032). */
+const questionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/questions/$questionKey",
+  component: function QuestionRoute() {
+    const { questionKey } = questionRoute.useParams();
+    return <QuestionPage questionKey={questionKey} />;
+  },
+});
 
 /** The chosen Scenario is a URL search param: `/projection?scenario=2`. */
 const projectionRoute = createRoute({
@@ -524,6 +536,7 @@ const shippedProfileRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  questionRoute,
   guideRoute,
   guidePageRoute,
   positionRoute,

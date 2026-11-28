@@ -105,8 +105,11 @@ test("a Question card shows its status as a word, the count, the reason and the 
   expect(c.getByText("input needs attention")).toBeInTheDocument();
   expect(c.getByText(step.title)).toBeInTheDocument();
   expect(c.getByText(step.effect)).toBeInTheDocument();
-  expect(c.getByRole("link", { name: "Take the next step" })).toHaveAttribute("href", "/accounts/9");
-  expect(c.getByRole("link", { name: "Show items" })).toHaveAttribute("href", "/position");
+  expect(c.getByRole("link", { name: "Take the next step" })).toHaveAttribute(
+    "href",
+    "/accounts/9?from=q.own-and-owe",
+  );
+  expect(c.getByRole("link", { name: "Show items" })).toHaveAttribute("href", "/questions/own-and-owe");
 });
 
 test("a next step that carries a query keeps it as search parameters", async () => {
@@ -129,7 +132,7 @@ test("a next step that carries a query keeps it as search parameters", async () 
   const c = await card("How much tax will we pay, or get back?");
   expect(await c.findByRole("link", { name: "Take the next step" })).toHaveAttribute(
     "href",
-    "/rule-figures?fy=2027&missing=1",
+    "/rule-figures?fy=2027&missing=1&from=q.tax-this-year",
   );
   expect(c.getByTestId("question-count")).toHaveTextContent("2");
   expect(c.getByText("inputs need attention")).toBeInTheDocument();

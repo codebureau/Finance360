@@ -338,6 +338,12 @@ def test_an_account_without_a_derived_value_says_why(client: TestClient) -> None
         None,
     )
     assert "Stream has no committed Import" in view["reason"]
+    # the same reasons, structured: nothing imported first, each with where to fix it
+    assert [(i["stream"], i["kind"], i["link"]) for i in view["issues"]] == [
+        ("trade", "missing", "/imports"),
+        ("cash", "missing", "/imports"),
+    ]
+    assert view["reason"].count(view["issues"][0]["message"]) == 1
     simple = _view(client, _account(client, "Everyday account (Sample Bank)"))
     assert (simple["applies"], simple["status"]) == (False, "not_analysed")
 

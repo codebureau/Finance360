@@ -276,9 +276,25 @@ export function LookThroughPanel({
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <DimensionSwitcher selected={selected} onSelect={select} />
-          <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm break-words">
-            Not analysed. {data.reason}
-          </p>
+          {data.issues.length > 0 ? (
+            <div className="flex flex-col gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm break-words">
+              <p>Not analysed. No value can be built from Holdings on {data.as_at}.</p>
+              <ul aria-label="What is missing" className="flex flex-col gap-1">
+                {data.issues.map((i) => (
+                  <li key={i.stream}>
+                    {i.message}{" "}
+                    <Link to={i.link} className="font-medium underline">
+                      Add an Import
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm break-words">
+              Not analysed. {data.reason}
+            </p>
+          )}
         </CardContent>
       </Card>
     );
