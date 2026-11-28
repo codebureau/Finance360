@@ -1902,6 +1902,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/questions/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Question
+         * @description One Question with its inputs in the order to provide them: the same evaluation, so the same
+         *     statuses and count as its Home card. 404 for a key that is not registered.
+         */
+        get: operations["getQuestion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/rule-figures": {
         parameters: {
             query?: never;
@@ -4875,6 +4896,40 @@ export interface components {
             /** Streams */
             streams: components["schemas"]["IncomeStreamUsedOut"][];
         };
+        /** InputOut */
+        InputOut: {
+            /**
+             * Asked
+             * @description False when the Effort level does not ask for it (an optional input at Light): it is shown but weighs on nothing.
+             */
+            asked: boolean;
+            /**
+             * Counted
+             * @description Whether it is one of the inputs the card's count includes.
+             */
+            counted: boolean;
+            /**
+             * Importance
+             * @description important or optional.
+             */
+            importance: string;
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /**
+             * Reasons
+             * @description Every reason, in next-step order.
+             */
+            reasons: components["schemas"]["ReasonOut"][];
+            /**
+             * State
+             * @description The input's Readiness, from the same check as the card.
+             */
+            state: string;
+            /** State Word */
+            state_word: string;
+        };
         /** InstrumentCreate */
         InstrumentCreate: {
             /**
@@ -5368,6 +5423,11 @@ export interface components {
              * @description Unallocated is beyond the reconcile tolerance.
              */
             flagged: boolean;
+            /**
+             * Issues
+             * @description When Not analysed because a Stream cannot support the value: each problem, missing before stale, with where to fix it.
+             */
+            issues: components["schemas"]["StreamIssueOut"][];
             /** Lines */
             lines: components["schemas"]["LookThroughLineOut"][];
             /** Parts */
@@ -6646,6 +6706,42 @@ export interface components {
              */
             value: string;
         };
+        /** QuestionDetailOut */
+        QuestionDetailOut: {
+            /** Area */
+            area: string;
+            /** Ask Prompt */
+            ask_prompt: string;
+            /**
+             * Count
+             * @description How many of the Question's inputs are not Ready.
+             */
+            count: number;
+            /**
+             * Inputs
+             * @description In the order they are best provided.
+             */
+            inputs: components["schemas"]["InputOut"][];
+            /** Key */
+            key: string;
+            next_step: components["schemas"]["NextStepOut"] | null;
+            /**
+             * Reason
+             * @description One line: why the state is what it is.
+             */
+            reason: string;
+            /** Screen */
+            screen: string;
+            /**
+             * State
+             * @description ready, partly_ready, not_ready, not_started or could_not_check. Never a number: there is no score.
+             */
+            state: string;
+            /** State Word */
+            state_word: string;
+            /** Wording */
+            wording: string;
+        };
         /** QuestionOut */
         QuestionOut: {
             /** Area */
@@ -6708,6 +6804,34 @@ export interface components {
             profile_key: string | null;
             /** Profile Version */
             profile_version: number | null;
+        };
+        /** ReasonOut */
+        ReasonOut: {
+            /**
+             * Effect
+             * @description What fixing it improves.
+             */
+            effect: string;
+            /**
+             * Kind
+             * @description missing, stale or incomplete.
+             */
+            kind: string;
+            /**
+             * Link
+             * @description The app path where it is fixed.
+             */
+            link: string;
+            /**
+             * Material
+             * @description False for a small gap: listed, but it does not change the state.
+             */
+            material: boolean;
+            /**
+             * Title
+             * @description What Finance360 is using now.
+             */
+            title: string;
         };
         /** ReferenceIn */
         ReferenceIn: {
@@ -7499,6 +7623,23 @@ export interface components {
             setup_required: boolean;
             /** Totp Required */
             totp_required: boolean;
+        };
+        /** StreamIssueOut */
+        StreamIssueOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "missing" | "stale";
+            /**
+             * Link
+             * @description The app path where it is fixed.
+             */
+            link: string;
+            /** Message */
+            message: string;
+            /** Stream */
+            stream: string;
         };
         /** StreamOwnerOut */
         StreamOwnerOut: {
@@ -15409,6 +15550,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QuestionsOut"];
+                };
+            };
+        };
+    };
+    getQuestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

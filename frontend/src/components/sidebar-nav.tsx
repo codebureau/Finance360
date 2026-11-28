@@ -16,6 +16,7 @@ import {
   Library,
   LineChart,
   LayoutDashboard,
+  MessageCircleQuestion,
   PieChart,
   Receipt,
   Scale,
@@ -29,6 +30,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { TOKEN_TEXT } from "@/lib/entity-colour";
 import { fetchWhatsDue, importantCount, WHATS_DUE_KEY } from "@/lib/due";
+import { fetchQuestions, QUESTIONS_KEY, type Question } from "@/lib/questions";
 import { cn } from "@/lib/utils";
 
 /** `exact`: not active on the screens below it (`/tax` is not `/tax/records`). */
@@ -130,11 +132,67 @@ function NavLink({ item, important, tone }: { item: Item; important: number; ton
   );
 }
 
+/** The heading of a group, linking to the Guide page that covers it. */
+function GroupHeading({ heading, guide }: { heading: string; guide: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2 pl-2">
+      <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{heading}</h2>
+      <Link
+        to={guide}
+        aria-label={`Guide: ${heading}`}
+        title="Read about this in the Guide"
+        className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground aria-[current=page]:text-foreground"
+      >
+        <BookOpen size={14} aria-hidden />
+      </Link>
+    </div>
+  );
+}
+
+/** Where the heading of "Your questions" reads more (the Guide page "What Finance360 answers"). */
+export const QUESTIONS_GUIDE = "/guide/what-finance360-answers";
+
+/**
+ * "Your questions" (ADR-0032 section 3): one item per registered Question, in registry order, built
+ * from the API so a new Question needs no edit here. Each icon takes the colour of the group its
+ * screen sits in (`area` is that group's heading). Nothing renders until there are Questions.
+ */
+function QuestionsGroup({ questions }: { questions: Question[] }) {
+  if (questions.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1" data-testid="questions-group">
+      <GroupHeading heading="Your questions" guide={QUESTIONS_GUIDE} />
+      <ul className="flex flex-col gap-0.5">
+        {questions.map((q) => {
+          const tone = SIDEBAR_GROUPS.find((g) => g.heading === q.area)?.tone ?? null;
+          return (
+            <li key={q.key}>
+              <Link
+                to="/questions/$questionKey"
+                params={{ questionKey: q.key }}
+                className={cn(ITEM_CLASS, "items-start py-1.5")}
+              >
+                <MessageCircleQuestion
+                  size={16}
+                  aria-hidden
+                  className={cn("mt-0.5 shrink-0", tone === null ? "text-muted-foreground" : TOKEN_TEXT[tone])}
+                />
+                <span className="min-w-0 break-words">{q.wording}</span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 /** Section navigation. The router marks the active link with `aria-current="page"`. */
 export function SidebarNav() {
   // The count is important items only, and it is the same query the home screen uses.
   const due = useQuery({ queryKey: WHATS_DUE_KEY, queryFn: fetchWhatsDue });
   const important = importantCount(due.data);
+  const questions = useQuery({ queryKey: QUESTIONS_KEY, queryFn: fetchQuestions });
   return (
     <nav aria-label="Sections" className="flex flex-col gap-4">
       <ul className="flex flex-col gap-0.5">
@@ -144,19 +202,10 @@ export function SidebarNav() {
           </li>
         ))}
       </ul>
+      <QuestionsGroup questions={questions.data?.questions ?? []} />
       {SIDEBAR_GROUPS.map((group) => (
         <div key={group.heading} className="flex flex-col gap-1">
-          <div className="flex items-center justify-between gap-2 pl-2">
-            <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{group.heading}</h2>
-            <Link
-              to={group.guide}
-              aria-label={`Guide: ${group.heading}`}
-              title="Read about this in the Guide"
-              className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground aria-[current=page]:text-foreground"
-            >
-              <BookOpen size={14} aria-hidden />
-            </Link>
-          </div>
+          <GroupHeading heading={group.heading} guide={group.guide} />
           <ul className="flex flex-col gap-0.5">
             {group.items.map(({ to, label, icon: Icon, exact }) => (
               <li key={to}>

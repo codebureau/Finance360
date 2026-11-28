@@ -23,16 +23,31 @@ import {
 import { START_SLUG, findGuidePage } from "@/lib/guide";
 import { ApiError } from "@/lib/household";
 
-type AskControl = { open: boolean; setOpen: (open: boolean) => void };
+/** A question to send as soon as the panel is up ("Ask about this"): the words, and the screen the
+ * server is told the owner is on. `id` makes the same prompt asked twice two requests. */
+type AskRequest = { id: number; prompt: string; screen: string };
+type AskControl = {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  request: AskRequest | null;
+  /** Opens the panel and asks `prompt` at once, with `screen` as the whereabouts. */
+  askAbout: (prompt: string, screen: string) => void;
+};
 const AskContext = createContext<AskControl | null>(null);
 
 /** Whether the Ask panel is open. The panel and its buttons share it; the shell mounts one provider. */
 export function AskProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  return <AskContext.Provider value={{ open, setOpen }}>{children}</AskContext.Provider>;
+  const [request, setRequest] = useState<AskRequest | null>(null);
+  const askAbout = (prompt: string, screen: string) => {
+    setOpen(true);
+    setRequest((r) => ({ id: (r?.id ?? 0) + 1, prompt, screen }));
+  };
+  return <AskContext.Provider value={{ open, setOpen, request, askAbout }}>{children}</AskContext.Provider>;
 }
 
-function useAsk(): AskControl {
+/** The control a screen uses to open Ask with a question already asked. */
+export function useAsk(): AskControl {
   const control = useContext(AskContext);
   if (!control) throw new Error("Ask controls need an AskProvider.");
   return control;
@@ -313,7 +328,7 @@ const DESCRIPTION_ANSWERING =
  * between screens, and go with the page on reload; closing never loses anything, so it never asks.
  */
 export function AskPanel() {
-  const { open, setOpen } = useAsk();
+  const { open, setOpen, request } = useAsk();
   const docked = useDocked();
   const where = useWhereabouts();
   const queryClient = useQueryClient();
@@ -333,8 +348,8 @@ export function AskPanel() {
     setThread((t) => t.map((e) => (e.id === id ? { ...e, ...change } : e)));
 
   /** Step two: the model writes over the Passages the server retrieves again. Search stays on screen either way. */
-  const write = (id: number, question: string, before: Exchange[]) => {
-    writeAnswer(question, before, where).then(
+  const write = (id: number, question: string, before: Exchange[], whereabouts: Whereabouts) => {
+    writeAnswer(question, before, whereabouts).then(
       (answer) => patch(id, { writing: "done", answer }),
       (error: unknown) => {
         patch(id, { writing: "failed", note: error instanceof Error ? error.message : null });
@@ -345,26 +360,39 @@ export function AskPanel() {
   };
 
   const ask = useMutation({
-    mutationFn: async (question: string) => ({ before: thread, search: await searchGuide(question, thread, where) }),
-    onSuccess: ({ before, search }, question) => {
+    mutationFn: async ({ question, screen }: { question: string; screen?: string }) => ({
+      before: thread,
+      screen,
+      search: await searchGuide(question, thread, screen ? { ...where, screen } : where),
+    }),
+    onSuccess: ({ before, search, screen }, { question }) => {
       const id = nextId.current++;
       const writes = answering && status.data?.enabled === true && search.found;
       setThread((t) =>
         appendExchange(t, { id, question, search, writing: writes ? "pending" : "none", answer: null, note: null }),
       );
-      if (writes) write(id, question, before);
+      if (writes) write(id, question, before, screen ? { ...where, screen } : where);
     },
   });
+
+  // "Ask about this": the owner has already chosen the words, so they are asked at once.
+  const handled = useRef(0);
+  const { mutate: send } = ask;
+  useEffect(() => {
+    if (!request || request.id === handled.current) return;
+    handled.current = request.id;
+    send({ question: request.prompt, screen: request.screen });
+  }, [request, send]);
 
   const body = (
     <PanelBody
       thread={thread}
-      pending={ask.isPending ? ask.variables : null}
+      pending={ask.isPending ? (ask.variables?.question ?? null) : null}
       error={ask.error}
       draft={draft}
       setDraft={setDraft}
       status={status.data}
-      onAsk={(question, done) => ask.mutate(question, { onSuccess: done })}
+      onAsk={(question, done) => ask.mutate({ question }, { onSuccess: done })}
       onNew={() => {
         setThread([]);
         ask.reset();

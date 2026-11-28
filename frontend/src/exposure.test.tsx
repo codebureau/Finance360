@@ -44,6 +44,7 @@ const LOOK = {
   as_at: "2026-09-30",
   status: "ok",
   reason: null,
+  issues: [],
   dimension_key: "asset_class",
   dimension_name: "Asset class",
   total: aud("6645.13", 664513),
@@ -229,6 +230,27 @@ test("an Account with no value from Holdings says why", async () => {
   });
   await renderAppAt("/accounts/20");
   expect(await screen.findByText(/Not analysed\. No value can be built from Holdings/)).toBeInTheDocument();
+});
+
+test("a Not analysed Account lists what is missing, nothing imported first, each with a link to Imports", async () => {
+  accountBackend({
+    ...LOOK,
+    status: "not_analysed",
+    reason: "No value can be built from Holdings on 2026-09-30. The cash Stream has no committed Import.",
+    issues: [
+      { stream: "cash", kind: "missing", message: "The cash Stream has no committed Import.", link: "/imports" },
+      { stream: "trade", kind: "stale", message: "The trade Stream's Coverage ends 2026-03-31, before 2026-09-30: it is stale.", link: "/imports" },
+    ],
+    total: null,
+    lines: [],
+    parts: [],
+  });
+  await renderAppAt("/accounts/20");
+  const list = within(await screen.findByRole("list", { name: "What is missing" }));
+  const items = list.getAllByRole("listitem");
+  expect(items[0]).toHaveTextContent("The cash Stream has no committed Import.");
+  expect(items[1]).toHaveTextContent("The trade Stream's Coverage ends 2026-03-31");
+  expect(within(items[0]).getByRole("link", { name: "Add an Import" })).toHaveAttribute("href", "/imports");
 });
 
 test("an Account whose value is not built from Holdings shows no look-through", async () => {
@@ -788,6 +810,7 @@ const optionPart = (over: Record<string, unknown>) => ({
 
 const SUPER_LOOK = {
   applies: true,
+  issues: [],
   source: "super_statement",
   statement_id: 7,
   statement_date: "2026-06-30",

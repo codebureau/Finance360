@@ -10,7 +10,7 @@ write by a later notice (#102); this module is that seam and adds no store.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 
 from sqlalchemy.orm import Session
@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from finance360.capabilities.due import service as due
 from finance360.core import questions as core
 from finance360.core.due import IMPORTANT, OPTIONAL, DueItem, EffortLevel, Importance
+from finance360.core.errors import NotFoundError
 from finance360.core.money import Money
 from finance360.core.questions import (
     COULD_NOT_CHECK,
@@ -50,6 +51,9 @@ class InputView:
     total: Money | None
     #: Reasons whose own state is not Ready, in order: what actually needs attention.
     material: tuple[Reason, ...]
+    #: Whether it weighs on the Question's state and count at this Effort level (an ``optional``
+    #: input does not at Light).
+    asked: bool = True
 
 
 @dataclass(frozen=True)
@@ -147,7 +151,10 @@ def _line(state: Readiness, next_step: NextStep | None, views: tuple[InputView, 
 
 
 def _view(question: Question, views: tuple[InputView, ...], level: EffortLevel) -> QuestionView:
-    considered = [v for v in views if not (v.importance == OPTIONAL and level == "light")]
+    views = tuple(
+        replace(v, asked=not (v.importance == OPTIONAL and level == "light")) for v in views
+    )
+    considered = [v for v in views if v.asked]
     state = core.combine([InputState(v.importance, v.state) for v in considered])
     count = sum(1 for v in considered if core.needs_attention(v.state, v.importance))
     next_step = _next_step(tuple(considered))
@@ -187,3 +194,14 @@ def evaluate(
     return Questions(
         today, level, core.headline([(v.question.wording, v.state) for v in views]), views
     )
+
+
+def evaluate_one(
+    session: Session, key: str, *, today: date | None = None, level: EffortLevel | None = None
+) -> QuestionView:
+    """One Question, from the same evaluation as the Home cards, so its inputs, order and states
+    are exactly what the card counts. An unknown key is a ``NotFoundError``."""
+    for view in evaluate(session, today=today, level=level).questions:
+        if view.question.key == key:
+            return view
+    raise NotFoundError(f"There is no question '{key}'.")

@@ -1,21 +1,47 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { MessageCircleQuestion } from "lucide-react";
+import type { ReactNode } from "react";
 
+import { useAsk } from "@/components/ask-panel";
 import { GeneralError } from "@/components/form-fields";
 import { StatTile } from "@/components/stat-tile";
-import { linkTarget } from "@/lib/due";
-import { fetchQuestions, QUESTIONS_KEY, readiness, type Question } from "@/lib/questions";
+import { Button } from "@/components/ui/button";
+import { FROM_PARAM, linkTarget } from "@/lib/due";
+import { fetchQuestions, fromQuestion, QUESTIONS_KEY, readiness, type Question } from "@/lib/questions";
+
+/** A fix link as a router target that carries the return marker (`?from=q.<key>`). */
+export function fixTarget(link: string, question: { key: string }) {
+  const target = linkTarget(link);
+  return { to: target.to, search: { ...target.search, [FROM_PARAM]: fromQuestion(question.key) } };
+}
+
+/** "Ask about this": opens Ask and asks the Question's fixed prompt at once (ADR-0032 section 4). */
+export function AskAboutThis({ question }: { question: Pick<Question, "key" | "ask_prompt"> }) {
+  const { askAbout } = useAsk();
+  return (
+    <Button
+      variant="ghost"
+      className="h-auto w-fit gap-1 p-0 text-sm font-normal underline hover:bg-transparent"
+      onClick={() => askAbout(question.ask_prompt, `/questions/${question.key}`)}
+    >
+      <MessageCircleQuestion size={14} aria-hidden />
+      Ask about this
+    </Button>
+  );
+}
 
 /**
- * One Question card (view key `home.questions`, shape `figure` with severity, ADR-0032 and
- * ADR-0031 section 6): the Question in plain words, its Readiness as a status tone, an icon and a
- * word, the count of inputs needing attention, one line of reason and the single next step. "Show
- * items" goes to the screen that answers the Question until the Question page arrives (#121).
+ * A Question as a stat tile with severity (view keys `home.questions` and `question.page`, shape
+ * `figure`, ADR-0032 and ADR-0031 section 6): the Question in plain words, its Readiness as a
+ * status tone, an icon and a word, the count of inputs needing attention, one line of reason and
+ * the single next step. The Home card and the Question page lead with the same tile; `children`
+ * are the links that differ.
  */
-function QuestionCard({ question }: { question: Question }) {
+export function QuestionTile({ question, children }: { question: Question; children: ReactNode }) {
   const { tone, icon: Icon } = readiness(question.state);
   const step = question.next_step;
-  const target = step ? linkTarget(step.link) : null;
+  const target = step ? fixTarget(step.link, question) : null;
   return (
     <StatTile
       label={question.wording}
@@ -31,20 +57,28 @@ function QuestionCard({ question }: { question: Question }) {
       supporting={[]}
       severity={{ tone, icon: <Icon size={14} aria-hidden />, word: question.state_word }}
     >
-      {step && target && (
-        <p className="text-sm text-muted-foreground">{step.effect}</p>
-      )}
+      {step && target && <p className="text-sm text-muted-foreground">{step.effect}</p>}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
         {step && target && (
           <Link to={target.to} search={target.search} className="w-fit font-medium underline">
             Take the next step
           </Link>
         )}
-        <Link to={question.screen} className="w-fit underline">
-          Show items
-        </Link>
+        {children}
       </div>
     </StatTile>
+  );
+}
+
+/** One Home card: the tile, with "Show items" to the Question's page. */
+function QuestionCard({ question }: { question: Question }) {
+  return (
+    <QuestionTile question={question}>
+      <Link to="/questions/$questionKey" params={{ questionKey: question.key }} className="w-fit underline">
+        Show items
+      </Link>
+      <AskAboutThis question={question} />
+    </QuestionTile>
   );
 }
 

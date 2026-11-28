@@ -53,6 +53,18 @@ Decisions and values: [ADR-0031](adr/0031-visual-layer-chart-kit-display-prefere
   `destructive`, Not started `info`, Could not check muted); one line of reason; "Take the next step"
   (the first reason's fix link) and "Show items". One headline sentence sits over the group, computed
   from the states. No gauge, no score and no percentage. Cards stack to one column at 390px.
+- **Question page** (`/questions/$questionKey`, view key `question.page`, shape `figure` with
+  severity): leads with the same tile as the Home card (status icon, word and tone; count; one line of
+  reason; the next step), plus "See the answer" (the screen that answers it) and "Ask about this";
+  then "What this answer needs": the inputs in the order to provide them, each with its Readiness
+  badge (icon and word), what needs doing with a "Fix it here" link, and small gaps muted beneath.
+  An input the Effort level does not ask for is shown, labelled, and weighs on nothing. No chart: a
+  state, a count and a list are the data. "Your questions" in the sidebar lists the Questions from
+  the registry, its heading linking the Guide.
+- **Return bar** (shell, every screen): a fix link carries `?from=due` or `?from=q.<key>`; the shell
+  keeps the marker per browser tab (`sessionStorage`) and shows "Back to What's due", or "Back to
+  your next step" with the Question and its next step, until the owner goes back, dismisses it or
+  follows another return link. A screen declares nothing.
 - **Cards or list** for a collection: both show the same items, wording and actions; cards stack to
   one column at 390px.
 

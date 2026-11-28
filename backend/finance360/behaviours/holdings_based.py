@@ -21,12 +21,12 @@ from finance360.core.derived import (
     DerivedValue,
     DeriveInputs,
     NoDerivedValue,
-    stream_issue,
+    stream_issues,
 )
 from finance360.core.fx import FxPoint, NoRate, rate_on_or_before
 from finance360.core.money import Money, convert, decimal_parts, exponent, round_div
 from finance360.core.price import NoPrice, price_on_or_before
-from finance360.core.transaction import STREAMS, derive
+from finance360.core.transaction import derive
 
 
 def _minor(*factors: Decimal, currency: str) -> int:
@@ -47,9 +47,9 @@ def derive_value(inputs: DeriveInputs, on: date) -> DerivedValue | NoDerivedValu
     def no(reason: str) -> NoDerivedValue:
         return NoDerivedValue(on, reason)
 
-    issues = [i for s in STREAMS if (i := stream_issue(s, inputs.coverage, on))]
+    issues = stream_issues(inputs.coverage, on)
     if issues:
-        return no(" ".join(issues))
+        return NoDerivedValue(on, " ".join(i.message for i in issues), issues)
     if not any(c.occurred_on <= on for c in inputs.changes):
         return no(f"Nothing is recorded on or before {on.isoformat()}.")
     held = derive(inputs.changes, on)

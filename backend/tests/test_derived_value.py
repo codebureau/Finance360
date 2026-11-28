@@ -24,7 +24,13 @@ from finance360.capabilities.imports import commit, service
 from finance360.capabilities.reference import instruments as reference
 from finance360.config import Settings
 from finance360.core.audit import AuditContext
-from finance360.core.derived import DerivedValue, DeriveInputs, NoDerivedValue
+from finance360.core.derived import (
+    DerivedValue,
+    DeriveInputs,
+    NoDerivedValue,
+    stream_issue,
+    stream_issues,
+)
 from finance360.core.fx import FxPoint
 from finance360.core.models.account import Account
 from finance360.core.models.audit import AuditEvent
@@ -210,6 +216,21 @@ def test_no_derived_value_says_why_and_is_never_a_partial_total(
     got = derive_value(inputs, ON)
     assert isinstance(got, NoDerivedValue), what
     assert reason in got.reason, got.reason
+
+
+def test_stream_issues_put_a_missing_stream_before_a_stale_one_and_the_prose_follows() -> None:
+    """The look-through dead end led with the stale trade Stream and buried the cash Stream that
+    had no Import at all. Missing now comes first, and the prose is built from the same list."""
+    coverage = {"trade": D(2026, 3, 31)}  # trade is stale, cash has nothing
+    issues = stream_issues(coverage, ON)
+    assert [(i.stream, i.kind) for i in issues] == [("cash", "missing"), ("trade", "stale")]
+    assert stream_issues(FULL, ON) == ()
+    got = derive_value(_inputs([_cash(D(2026, 8, 3), 5)], [], coverage=coverage), ON)
+    assert isinstance(got, NoDerivedValue)
+    assert got.issues == issues
+    assert got.reason == " ".join(i.message for i in issues)
+    assert got.reason.startswith("The cash Stream has no committed Import.")
+    assert stream_issue("trade", coverage, ON) == issues[1].message  # the per-Stream form agrees
 
 
 def test_one_missing_price_refuses_the_whole_value() -> None:

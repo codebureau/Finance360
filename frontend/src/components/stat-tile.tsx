@@ -14,7 +14,7 @@ const SEVERITY_BAR: Record<SeverityTone, string> = {
   info: "bg-info",
   muted: "bg-muted-foreground/55",
 };
-const SEVERITY_BADGE = {
+export const SEVERITY_BADGE = {
   success: "ok",
   warning: "flagged",
   destructive: "destructive",

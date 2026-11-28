@@ -1,31 +1,35 @@
 # What Finance360 answers
 
-Each question below has one screen. If you are lost, start from the question you are asking. The sidebar is grouped the same way, and [Home](/) shows the first three questions as cards that say how ready each answer is.
+Each question below has one screen. If you are lost, start from the question you are asking. The sidebar is grouped the same way, and its **Your questions** group opens a page for each of the first three questions, saying how ready the answer is and what to do next. [Home](/) shows the same three as cards.
 
 ## Where do we stand?
 - **How much are we worth right now?** [Home](/) opens with the net figure and how it moved since the last month-end.
-- **What do we own and owe?** The [Position](/position), and how it has changed. Pick a date, a view (Household, By Member or Joint) and a Tag. The chart underneath shows month-ends over time, with a table of the same figures.
+- **What do we own and owe?** The [Position](/position), and how it has changed. [How ready is this answer?](/questions/own-and-owe). Pick a date, a view (Household, By Member or Joint) and a Tag. The chart underneath shows month-ends over time, with a table of the same figures.
 - **What is it all made of?** The [Exposure](/exposure): the Position split by asset class, region, sector or exposure currency, for the Household, each Member, Category or Account. See [Exposure](/guide/exposure).
 - **Why is an Account missing from the total?** The Position says how many Accounts are not included and why: no Valuation or FX rate on or before that date.
 
 ## Where are we heading?
-- **Are we on track for retirement?** The [Projection](/projection). It runs a Scenario forward year by year from today's Position and says whether the funds last. It is a rough answer, and the screen lists what it leaves out.
+- **Are we on track for retirement?** The [Projection](/projection). It runs a Scenario forward year by year from today's Position and says whether the funds last. It is a rough answer, and the screen lists what it leaves out. [How ready is this answer?](/questions/on-track-for-retirement).
 - **What if we retire earlier, or spend more?** Make your own Scenario on the Projection screen and use [Compare Scenarios](/projection/compare) to see them side by side. Keep a result exactly as computed in [Saved runs](/projection/runs).
 
 ## This tax year
-- **How much tax will we pay, or get back?** The [Tax estimate](/tax).
+- **How much tax will we pay, or get back?** The [Tax estimate](/tax). [How ready is this answer?](/questions/tax-this-year).
 - **Where does our pay go?** The [Income reconciliation](/tax/reconciliation): tax, super, novated lease, other deductions and take-home, with any gap shown as Unreconciled.
 - **What is counted, and where is the proof?** [Tax records](/tax/records), with Documents linked to each, kept in the [Library](/library).
 
 ## How ready is each answer?
-On [Home](/), the **Your questions** cards say how far each of three questions can be answered from what you have given, and what to do next. There is no score and no percentage: each card has one of five states, a count of the things that need attention, one line of reason and one link to the next step.
+Each question has a page: [What do we own and owe?](/questions/own-and-owe), [Are we on track for retirement?](/questions/on-track-for-retirement) and [How much tax will we pay, or get back?](/questions/tax-this-year). Open one from **Your questions** in the sidebar, or from **Show items** on its card on [Home](/). It says how far the question can be answered from what you have given, then lists the things the answer needs, in the order that helps most, each with a link to fix it. There is no score and no percentage: each question has one of five states, a count of the things that need attention, one line of reason and one link to the next step.
 - **Ready**: the answer uses what it needs. Any gap is too small to matter.
 - **Partly ready**: the answer is there, but rests materially on an old, missing or incomplete figure.
 - **Not ready**: the answer cannot be worked out, or leaves out so much it would mislead. An old figure alone never makes an answer Not ready: it makes it approximate, not wrong.
 - **Not started**: nothing of this kind has been given yet. The next step is the first thing to add.
 - **Could not check**: Finance360 could not check one of the things the answer needs, so it does not say the answer is fine.
 
-A gap counts by its size. A small old Account does not lower a question when most of the value is current, and a gap of about a twentieth of the value or less is treated as small. How hands-on you want to be matters too: at Light, a card is never marked down for what Light does not ask you to refresh, and an item you have snoozed is not counted. Each card's **Show items** goes to the screen that answers the question. A page for each question, with every item and a link to fix it, is coming later.
+A gap counts by its size. A small old Account does not lower a question when most of the value is current, and a gap of about a twentieth of the value or less is treated as small; the page lists those under **Small gaps**. How hands-on you want to be matters too: at Light, a question is never marked down for what Light does not ask you to refresh, and an item you have snoozed is not counted.
+
+**Back to your next step.** A link to fix something, from a question's page or card, opens the screen that fixes it. While you work there, a bar at the top says **Back to your next step**, with the thing that is next. It stays with you as you move between screens, and survives a reload, but only in that browser tab. Follow it to see the card improve and the next step move on, or dismiss it. The same bar brings you back to What's due when you came from there.
+
+**Ask about this** on a question's page (and its card) opens [Ask](/guide/ask) and asks a fixed question about it, in words only. No balance, Account name or figure is sent.
 
 ## Is the data current?
 - Each Account's page lists its Valuations with their dates, and the Position flags an Account with no usable figure.
