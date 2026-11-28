@@ -43,6 +43,8 @@ import {
   type Valuation,
   type ValuationInput,
 } from "@/lib/valuations";
+import { announce, NOTICES_KEY } from "@/lib/notices";
+import { QUESTIONS_KEY } from "@/lib/questions";
 
 type Account = { id: number; name: string; currency: string; closed_on?: string | null };
 
@@ -60,7 +62,7 @@ function ValuationForm({
   account: Account;
   timeZone: string;
   initial?: Valuation;
-  onSubmit: (input: ValuationInput) => Promise<unknown>;
+  onSubmit: (input: ValuationInput) => Promise<Valuation>;
   onDone: () => void;
   onCancel: () => void;
 }) {
@@ -71,7 +73,10 @@ function ValuationForm({
   const save = useMutation({
     mutationFn: () =>
       onSubmit({ as_at: asAt, amount, source, provenance_note: note, currency: account.currency }),
-    onSuccess: onDone,
+    onSuccess: (saved) => {
+      announce(saved.notice);
+      onDone();
+    },
   });
   const label = initial ? `Correct Valuation of ${account.name}` : `Add Valuation to ${account.name}`;
 
@@ -273,6 +278,9 @@ export function ValuationsPanel({
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: key });
     void queryClient.invalidateQueries({ queryKey: ["position"] });
+    // The write may have made a Notice and moved a Question's Readiness (ADR-0033).
+    void queryClient.invalidateQueries({ queryKey: NOTICES_KEY });
+    void queryClient.invalidateQueries({ queryKey: QUESTIONS_KEY });
   };
   const rows = showAll ? data : data?.slice(0, PAGE);
 

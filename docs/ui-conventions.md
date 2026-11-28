@@ -65,6 +65,13 @@ Decisions and values: [ADR-0031](adr/0031-visual-layer-chart-kit-display-prefere
   keeps the marker per browser tab (`sessionStorage`) and shows "Back to What's due", or "Back to
   your next step" with the Question and its next step, until the owner goes back, dismisses it or
   follows another return link. A screen declares nothing.
+- **Notices** (ADR-0033): a write that moves the picture answers at once with a toast (a polite live
+  region, always in the page): the headline, what it unlocked in words, the change as an arrow and a
+  sign (never colour alone) and a "Take a look" link. The same Notice is kept as a row of the
+  Recent changes list: a `collection` in list form only (no Cards and List switch), the last ten
+  undismissed on Home, every one on `/recent-changes` with dismissed rows muted. Dismiss is an `x` on
+  the row; a Notice is deleted after 30 days and nothing nags. A toast is a transient surface, not a
+  chart-kit shape.
 - **Cards or list** for a collection: both show the same items, wording and actions; cards stack to
   one column at 390px.
 

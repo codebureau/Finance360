@@ -11,6 +11,7 @@ import {
   FileDown,
   FlaskConical,
   ClipboardList,
+  History,
   Home,
   Layers,
   Library,
@@ -43,6 +44,7 @@ export type GroupTone = number | null;
 /** Above the groups: the home screen (ADR-0020) and the Guide. */
 export const TOP_ITEMS: Item[] = [
   { to: "/", label: "Home", icon: LayoutDashboard, exact: true },
+  { to: "/recent-changes", label: "Recent changes", icon: History, exact: true },
   { to: "/guide", label: "Guide", icon: BookOpen, exact: true },
 ];
 

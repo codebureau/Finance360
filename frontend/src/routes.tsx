@@ -32,6 +32,8 @@ import { InstrumentDetailPage } from "@/components/instrument-detail-page";
 import { InstrumentsPage } from "@/components/instruments-page";
 import { LibraryDocumentPage } from "@/components/library-document-page";
 import { LibraryPage } from "@/components/library-page";
+import { NoticeToaster } from "@/components/notice-toast";
+import { RecentChangesPage } from "@/components/recent-changes";
 import { PasteProfilePage } from "@/components/paste-profile-page";
 import { ExposurePage } from "@/components/exposure-page";
 import { PositionPage } from "@/components/position-page";
@@ -81,6 +83,7 @@ function RootLayout() {
         }
       >
         <Outlet />
+        <NoticeToaster />
       </AppShell>
     </AskProvider>
   );
@@ -114,6 +117,9 @@ const route = (path: string, component: () => React.ReactNode) =>
 
 /** Home: net Position above What's due (ADR-0032). */
 const indexRoute = route("/", HomePage);
+
+/** Recent changes: every Notice, dismissed ones muted (ADR-0033). */
+const recentChangesRoute = route("/recent-changes", RecentChangesPage);
 
 /** One Question: `/questions/own-and-owe` (ADR-0032). */
 const questionRoute = createRoute({
@@ -536,6 +542,7 @@ const shippedProfileRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  recentChangesRoute,
   questionRoute,
   guideRoute,
   guidePageRoute,

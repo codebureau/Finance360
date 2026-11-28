@@ -226,7 +226,8 @@ test("Home is the first link in the sidebar, beside the Guide link, and not in a
   const nav = screen.getByRole("navigation", { name: "Sections" });
   const links = within(nav).getAllByRole("link");
   expect(links[0]).toHaveTextContent("Home");
-  expect(links[1]).toHaveTextContent("Guide");
+  expect(links[1]).toHaveTextContent("Recent changes");
+  expect(links[2]).toHaveTextContent("Guide");
   const group = within(nav).getByRole("heading", { name: "Keep it current" }).parentElement!.parentElement!;
   expect(within(group).queryByRole("link", { name: /Home/ })).not.toBeInTheDocument();
 });

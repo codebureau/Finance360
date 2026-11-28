@@ -1700,6 +1700,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Notices
+         * @description Recent changes, newest first, never expired. Home asks for the last ten undismissed.
+         */
+        get: operations["listNotices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notices/{notice_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss Notice
+         * @description Dismiss a Notice (idempotent). It leaves Home and stays, muted, on Recent changes.
+         */
+        post: operations["dismissNotice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/position": {
         parameters: {
             query?: never;
@@ -5681,6 +5721,63 @@ export interface components {
             reason: string;
             /** Required */
             required: boolean;
+        };
+        /** NoticeDeltaOut */
+        NoticeDeltaOut: {
+            /**
+             * Amount
+             * @description The same as a plain decimal string, e.g. -1200.00.
+             */
+            amount: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Minor
+             * @description Exact net Position change in minor units (signed).
+             */
+            minor: number;
+        };
+        /** NoticeOut */
+        NoticeOut: {
+            /**
+             * Created At
+             * Format: date-time
+             * @description UTC.
+             */
+            created_at: string;
+            /** @description Null when only a Question changed. */
+            delta: components["schemas"]["NoticeDeltaOut"] | null;
+            /**
+             * Direction
+             * @description From the sign of the delta.
+             */
+            direction: ("up" | "down") | null;
+            /** Dismissed */
+            dismissed: boolean;
+            /**
+             * Effect
+             * @description What it unlocked, in words.
+             */
+            effect: string | null;
+            /** Headline */
+            headline: string;
+            /** Id */
+            id: number;
+            /**
+             * Kind
+             * @description What was written, e.g. valuation.added.
+             */
+            kind: string;
+            /**
+             * Link Path
+             * @description An in-app route.
+             */
+            link_path: string;
+        };
+        /** NoticesOut */
+        NoticesOut: {
+            /** Items */
+            items: components["schemas"]["NoticeOut"][];
         };
         /** ObservedOut */
         ObservedOut: {
@@ -9839,6 +9936,8 @@ export interface components {
             currency: string;
             /** Id */
             id: number;
+            /** @description Set on add and correct when the write moved the picture (ADR-0033). */
+            notice?: components["schemas"]["NoticeOut"] | null;
             /** Provenance Note */
             provenance_note: string | null;
             /**
@@ -15029,6 +15128,85 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RollupOut"];
                 };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    listNotices: {
+        parameters: {
+            query?: {
+                include_dismissed?: boolean;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoticesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismissNotice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notice_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Not Found */
             404: {
