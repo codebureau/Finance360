@@ -559,7 +559,7 @@ _Avoid_: Requirement, Dependency, Projection input (that is the resolved value a
 **Readiness**:
 How far a Question can be answered from what the household has given: **Ready**, **Partly ready**,
 **Not ready**, **Not started** or **Could not check**. Computed on demand, never stored, weighted by the
-value each gap affects with named tolerances, and never a number. Stale figures alone make an answer
+value each gap affects (summed per input, then compared with named tolerances), and never a number. Stale figures alone make an answer
 Partly ready, never Not ready, and nothing counts that the Effort level does not ask for or the owner
 has snoozed. The **next step** is the first reason to fix, in a fixed order (ADR-0032).
 _Avoid_: Score, Health, Data quality, Completeness, RAG (as a label), Rating (that is an Answer rating)
@@ -569,6 +569,18 @@ The owner's Yes, Partly or No on whether a Question's answer was useful, with an
 in the instance with its history, never audited, never sent anywhere, and never combined with
 Readiness (ADR-0032).
 _Avoid_: Feedback, Score, Survey, Owner signal (the design-discussion name)
+
+**Notice**:
+A short, stored, owner-facing record that one write moved the picture: what was added, what it moved
+(the net Position change as an exact amount, or a Question whose Readiness changed) and a link to the
+affected view. Made by the same service call as the write, never audited, never a status history, and
+holding no account number, provider reference or document content (ADR-0033). Not a notice of
+assessment (see Lodged result).
+_Avoid_: Notification, Alert, Event, Activity, Toast (that is only how one is first shown)
+
+**Recent changes**:
+The list of Notices: the last ten on Home, and a page. Dismissible and expiring (ADR-0033).
+_Avoid_: Activity feed, Inbox, Log, History
 
 **What's due**:
 The home screen's list of **Due items**: places where the data Finance360 uses has gone stale or a new
