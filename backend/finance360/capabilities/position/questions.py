@@ -3,7 +3,8 @@
 ``own-and-owe`` is answered by the Position screen. Its three inputs are owned here because Position
 owns the data: ``position.accounts`` (any open Account, else Not started), ``position.figures``
 (Accounts with no usable figure today, ``missing``) and ``position.freshness`` (a stale Valuation,
-from the three Valuation Due rules, weighted by value). The projection Question shares the last two.
+from the three Valuation Due rules, weighted by value). The projection Question shares
+``position.figures``; its own freshness is ``retirement.freshness`` (projection, same helper).
 An Account with no figure today has no value to weigh: a Valuation cannot be dated in the future,
 and an Account in another currency with no rate has no AUD value, so its ``affected`` is unknown
 and it makes the answer at most Partly ready. Everything is read-only and values are exact Money in
@@ -12,7 +13,7 @@ the Base currency; a share is judged in ``core.questions``, never here.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from datetime import date
 
 from sqlalchemy.orm import Session
@@ -124,22 +125,35 @@ def _account_id(subject_key: str) -> int | None:
     return int(ident)
 
 
-def _freshness_check(
-    session: Session, today: date, level: EffortLevel, items: Sequence[DueItem]
+def freshness_result(
+    session: Session,
+    today: date,
+    items: Sequence[DueItem],
+    categories: Collection[str] | None = None,
 ) -> InputResult:
+    """Stale Valuations, weighted by value. ``categories`` limits both the reasons and the total
+    to the Accounts of those Categories (``None``: every Account). A Question that uses only some
+    Categories (the projection) calls this with its own, so a share is "of what it uses"."""
     position, _ = _loaded(session, today)
-    lines = _lines(position)
-    if not lines:
+    in_scope = [
+        line
+        for class_ in position.classes
+        for node in class_.categories
+        if categories is None or node.key in categories
+        for line in node.accounts
+    ]
+    if not _lines(position):
         return InputResult(empty=True)
     value = {
         line.account_id: Money(abs(line.value.amount_minor), BASE_CURRENCY)
-        for line in lines
+        for line in in_scope
         if line.value is not None
     }
+    scoped = {line.account_id for line in in_scope}
     reasons: list[Reason] = []
     for item in items:
         account_id = _account_id(item.subject_key)
-        if account_id is None:
+        if account_id is None or account_id not in scoped:
             continue
         reasons.append(
             Reason(
@@ -151,7 +165,13 @@ def _freshness_check(
                 link=item.link,
             )
         )
-    return InputResult(total=_gross(lines), reasons=tuple(reasons))
+    return InputResult(total=_gross(in_scope), reasons=tuple(reasons))
+
+
+def _freshness_check(
+    session: Session, today: date, level: EffortLevel, items: Sequence[DueItem]
+) -> InputResult:
+    return freshness_result(session, today, items)
 
 
 INPUTS: tuple[QuestionInput, ...] = (

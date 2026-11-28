@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -391,15 +391,19 @@ def write_closing_valuation(
 # --- First run -----------------------------------------------------------------------------
 
 
-def load_fixture_valuations(session: Session, data_dir: Path) -> int:
+def load_fixture_valuations(session: Session, data_dir: Path, *, today: date | None = None) -> int:
     """Create the fixture's Valuations through the service, once, while there are none.
 
     Reads ``valuations`` from each Account entry in ``<data_dir>/household.json`` (matched by
-    Account name). Fixture dates are in the past, so the usual date checks apply unchanged.
+    Account name). A Valuation dates itself with ``as_at`` (a fixed date, in the past, so the usual
+    date checks apply unchanged) or with ``as_at_offset_days`` (days from the load date, zero or
+    negative, so it is as fresh or as stale on any day the fixture is loaded). ``today`` defaults
+    to today in the Household's time zone; tests inject it.
     """
     path = data_dir / household.FIXTURE_FILENAME
     if not path.is_file() or session.scalar(select(func.count()).select_from(Valuation)):
         return 0
+    today = today or household.household_today(session)
     entries = json.loads(path.read_text(encoding="utf-8")).get("accounts", [])
     ids = {a.name: a.id for a in session.scalars(select(Account))}
     created = 0
@@ -407,16 +411,22 @@ def load_fixture_valuations(session: Session, data_dir: Path) -> int:
         for item in entry.get("valuations", []):
             if entry["name"] not in ids:
                 continue
+            as_at = (
+                today + timedelta(days=int(item["as_at_offset_days"]))
+                if "as_at_offset_days" in item
+                else date.fromisoformat(item["as_at"])
+            )
             add_valuation(
                 session,
                 FIXTURE_CONTEXT,
                 ids[entry["name"]],
                 ValuationInput(
-                    as_at=date.fromisoformat(item["as_at"]),
+                    as_at=as_at,
                     amount=item["amount"],
                     source=item["source"],
                     provenance_note=item["note"],
                 ),
+                today=today,
             )
             created += 1
     return created

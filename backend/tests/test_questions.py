@@ -23,6 +23,7 @@ from finance360.capabilities.due import service as due
 from finance360.capabilities.household import service as household
 from finance360.capabilities.position import accounts, valuations
 from finance360.capabilities.questions import service
+from finance360.capabilities.reference import fx_rates
 from finance360.config import Settings
 from finance360.core import due as core_due
 from finance360.core import questions as core
@@ -79,6 +80,10 @@ def reason(
 TOTAL = aud("1000.00")  # 5% is 50.00 and 25% is 250.00
 
 
+def rate(*reasons: Reason, total: Money | None = TOTAL) -> core.Readiness:
+    return core.rate_input(InputResult(total=total, reasons=reasons))
+
+
 @pytest.mark.parametrize(
     ("kind", "affected", "expected"),
     [
@@ -100,15 +105,64 @@ TOTAL = aud("1000.00")  # 5% is 50.00 and 25% is 250.00
 def test_the_thresholds_hold_at_exactly_5_and_25_percent(
     kind: core.ReasonKind, affected: str, expected: core.Readiness
 ) -> None:
-    assert core.rate_reason(reason(kind, affected), TOTAL) == expected
+    assert rate(reason(kind, affected)) == expected
+
+
+def test_stale_shares_across_several_accounts_sum_to_exactly_5_percent_and_stay_ready() -> None:
+    parts = ("10.00", "15.00", "25.00")  # 50.00 in all: exactly 5% of 1000.00
+    assert rate(*(reason(STALE, a, f"a{n}") for n, a in enumerate(parts))) == READY
+    one_cent_more = ("10.00", "15.00", "25.01")
+    assert rate(*(reason(STALE, a, f"a{n}") for n, a in enumerate(one_cent_more))) == PARTLY_READY
+
+
+def test_stale_and_incomplete_reasons_are_one_group() -> None:
+    assert rate(reason(STALE, "30.00"), reason(INCOMPLETE, "20.00", "b")) == READY  # 5% exactly
+    assert rate(reason(STALE, "30.00"), reason(INCOMPLETE, "20.01", "b")) == PARTLY_READY
+
+
+def test_missing_shares_sum_to_exactly_25_percent_then_one_cent_more_is_not_ready() -> None:
+    assert rate(reason(MISSING, "100.00"), reason(MISSING, "150.00", "b")) == PARTLY_READY
+    assert rate(reason(MISSING, "100.00"), reason(MISSING, "150.01", "b")) == NOT_READY
+
+
+def test_a_stale_sum_never_gives_not_ready() -> None:
+    many = [reason(STALE, "300.00", f"a{n}") for n in range(3)]  # 90% of the total
+    assert rate(*many) == PARTLY_READY
+
+
+def test_a_missing_and_a_stale_reason_at_3_percent_each_do_not_blend() -> None:
+    assert rate(reason(MISSING, "30.00"), reason(STALE, "30.00", "b")) == READY
+
+
+def test_a_reason_with_an_unknown_value_adds_nothing_to_a_sum() -> None:
+    # 50.00 known is exactly 5%; the unknown one adds no cent, so the sum stays at 5%
+    unknown = reason(STALE, None, "u")
+    result = InputResult(total=TOTAL, reasons=(reason(STALE, "50.00"), unknown))
+    assert core.group_sum(result.reasons, STALE, BASE_CURRENCY) == aud("50.00")
+    # it is still itself a reason to say Partly ready, and it is material
+    assert core.rate_input(result) == PARTLY_READY
+    assert core.material_reasons(result) == (unknown,)
 
 
 def test_a_reason_with_an_unknown_value_is_at_most_partly_ready() -> None:
     for kind in (MISSING, STALE, INCOMPLETE):
-        assert core.rate_reason(reason(kind, None), TOTAL) == PARTLY_READY
+        assert rate(reason(kind, None)) == PARTLY_READY
     # and so is one the total cannot weigh (no value to compare with)
-    assert core.rate_reason(reason(MISSING, "10.00"), None) == PARTLY_READY
-    assert core.rate_reason(reason(MISSING, "10.00"), aud("0.00")) == PARTLY_READY
+    assert rate(reason(MISSING, "10.00"), total=None) == PARTLY_READY
+    assert rate(reason(MISSING, "10.00"), total=aud("0.00")) == PARTLY_READY
+
+
+def test_material_reasons_make_a_group_above_5_percent_count_whole_and_small_ones_not() -> None:
+    small_stale = [reason(STALE, "20.00", "s1"), reason(STALE, "20.00", "s2")]  # 4%
+    big_missing = reason(MISSING, "60.00", "m1")  # 6% on its own
+    result = InputResult(total=TOTAL, reasons=(*small_stale, big_missing))
+    assert core.material_reasons(result) == (big_missing,)
+    # add up to above 5%: both stale reasons are now why, the larger first
+    tipped = InputResult(
+        total=TOTAL, reasons=(reason(STALE, "20.00", "s1"), reason(STALE, "31.00", "s2"))
+    )
+    assert [r.subject_key for r in core.material_reasons(tipped)] == ["s2", "s1"]
+    assert core.material_reasons(InputResult(total=TOTAL, reasons=tuple(small_stale))) == ()
 
 
 def test_an_input_is_not_started_when_empty_and_not_ready_when_blocking() -> None:
@@ -116,7 +170,42 @@ def test_an_input_is_not_started_when_empty_and_not_ready_when_blocking() -> Non
     assert core.rate_input(InputResult(blocking=True)) == NOT_READY
     assert core.rate_input(InputResult(total=TOTAL)) == READY
     mixed = InputResult(total=TOTAL, reasons=(reason(STALE, "10.00"), reason(STALE, "60.00")))
-    assert core.rate_input(mixed) == PARTLY_READY  # the worst reason decides
+    assert core.rate_input(mixed) == PARTLY_READY
+    # a Not started or blocking input shows its reasons whole
+    only = InputResult(empty=True, reasons=(reason(MISSING, None),))
+    assert core.material_reasons(only) == only.reasons
+
+
+@given(
+    amounts=st.lists(st.integers(min_value=0, max_value=10**9), max_size=8),
+    kinds=st.lists(st.sampled_from([MISSING, STALE, INCOMPLETE]), min_size=8, max_size=8),
+    total=st.integers(min_value=1, max_value=10**10),
+)
+def test_the_sum_rule_equals_fraction_arithmetic(
+    amounts: list[int], kinds: list[core.ReasonKind], total: int
+) -> None:
+    reasons = tuple(
+        Reason(
+            kind=k,
+            subject_key=f"r{n}",
+            title="t",
+            effect="e",
+            affected=Money(a, BASE_CURRENCY),
+            link="/a",
+        )
+        for n, (a, k) in enumerate(zip(amounts, kinds, strict=False))
+    )
+    missing = Fraction(sum(a for a, k in zip(amounts, kinds, strict=False) if k == MISSING), total)
+    old = Fraction(sum(a for a, k in zip(amounts, kinds, strict=False) if k != MISSING), total)
+    material, misleading = Fraction(5, 100), Fraction(25, 100)
+    if missing > misleading:
+        expected = NOT_READY
+    elif missing > material or old > material:
+        expected = PARTLY_READY
+    else:
+        expected = READY
+    result = InputResult(total=Money(total, BASE_CURRENCY), reasons=reasons)
+    assert core.rate_input(result) == expected
 
 
 @given(
@@ -237,7 +326,9 @@ def test_the_three_questions_register_in_card_order_with_registered_inputs() -> 
         for key in question.inputs:
             assert core.get_input(key) is not None, f"{question.key}: {key} is not registered"
     shared = [set(q.inputs) for q in questions[:2]]
-    assert {"position.figures", "position.freshness"} <= shared[0] & shared[1]
+    assert {"position.figures"} <= shared[0] & shared[1]
+    assert "position.freshness" not in shared[1]  # retirement weighs only what it uses
+    assert "retirement.freshness" in shared[1] - shared[0]
 
 
 def test_no_ask_prompt_carries_a_figure_or_a_name() -> None:
@@ -382,6 +473,45 @@ def test_a_stale_account_just_above_5_percent_makes_the_question_partly_ready(db
     db.account("cash", "savings_account", name="Big", value="94999.99")
     db.account("cash", "savings_account", name="Small", value="5000.00", as_at=LONG_AGO)
     assert db.ask()["own-and-owe"].state == PARTLY_READY  # 5000 of 99999.99
+
+
+def test_a_stale_loan_or_property_lowers_own_and_owe_but_not_retirement(db: Db) -> None:
+    db.account("cash", "savings_account", name="Cash", value="100000.00")
+    db.account("superannuation", "super_fund_account", name="Super", value="100000.00")
+    db.account("loans_credit", "home_loan", name="Sample Loan", value="100000.00", as_at=LONG_AGO)
+    db.account("property", "principal_residence", name="House", value="500000.00", as_at=LONG_AGO)
+    views = db.ask()
+    assert views["own-and-owe"].state == PARTLY_READY
+    retirement = views["on-track-for-retirement"]
+    assert retirement.state == READY
+    freshness = next(i for i in retirement.inputs if i.key == "retirement.freshness")
+    assert freshness.reasons == ()  # the loan and the house are not in what it uses
+
+
+@pytest.mark.parametrize(
+    ("category", "type_key"),
+    [("cash", "savings_account"), ("superannuation", "super_fund_account")],
+)
+def test_a_stale_cash_or_super_account_lowers_both_questions(
+    db: Db, category: str, type_key: str
+) -> None:
+    db.account(category, type_key, name="Stale one", value="100000.00", as_at=LONG_AGO)
+    db.account("investments", "brokerage_account", name="Fresh", value="100000.00")
+    views = db.ask()
+    assert views["own-and-owe"].state == PARTLY_READY
+    assert views["on-track-for-retirement"].state == PARTLY_READY
+    step = views["on-track-for-retirement"].next_step
+    assert step is not None and step.input_key == "retirement.freshness"
+
+
+def test_many_small_stale_accounts_add_up_to_lower_a_question(db: Db) -> None:
+    db.account("investments", "brokerage_account", name="Big", value="90000.00")
+    for n in range(3):  # 3 x 2,000.00 stale is 6% of 96,000.00; each alone is 2.1%
+        db.account("cash", "savings_account", name=f"Small {n}", value="2000.00", as_at=LONG_AGO)
+    view = db.ask()["own-and-owe"]
+    assert view.state == PARTLY_READY
+    freshness = next(i for i in view.inputs if i.key == "position.freshness")
+    assert len(freshness.material) == 3  # together they are why
 
 
 def test_an_account_in_another_currency_with_no_rate_is_missing_with_an_unknown_value(
@@ -597,7 +727,47 @@ def test_the_sample_household_is_partly_ready_when_its_loan_and_super_balances_a
     assert step["input_key"] == "position.freshness" and step["kind"] == "stale"
     assert "Sample Home Loan" in step["title"]  # the largest of the two material gaps
     assert str(step["link"]).startswith("/accounts/")
-    assert got["on-track-for-retirement"]["state"] == "partly_ready"
+    # retirement is not asserted here: it depends on the real load date (see the test below)
+
+
+@pytest.mark.parametrize("load_day", [date(2026, 12, 10), date(2027, 6, 1), date(2027, 9, 1)])
+def test_the_sample_household_is_partly_ready_and_ready_on_the_day_it_is_loaded(
+    session_factory: sessionmaker[Session], tmp_path: Path, load_day: date
+) -> None:
+    """The review slot loads the fixture on the real date: own-and-owe Partly ready (the home loan
+    is a stale Valuation the projection does not use) and retirement Ready, whatever that date is
+    (ADR-0032 section 8; the fixture's Valuations of the Accounts the projection uses are dated
+    relative to the load date)."""
+    shutil.copy(REPO / "fixtures" / "sample_household" / "household.json", tmp_path)
+    with session_factory.begin() as s:
+        seed_catalogue(s)
+        household.bootstrap(s, tmp_path)
+        assert accounts.load_fixture_accounts(s, tmp_path)
+        valuations.load_fixture_valuations(s, tmp_path, today=load_day)
+        fx_rates.load_fixture_fx_rates(s, tmp_path)
+    with session_factory() as s:
+        views = {v.question.key: v for v in service.evaluate(s, today=load_day).questions}
+    own, retirement = views["own-and-owe"], views["on-track-for-retirement"]
+    assert (own.state, retirement.state) == (PARTLY_READY, READY)
+    assert own.next_step is not None
+    stale = next(i for i in own.inputs if i.key == "position.freshness")
+    assert any("Sample Home Loan" in r.title for r in stale.material)
+    retirement_inputs = {i.key: i for i in retirement.inputs}
+    assert retirement_inputs["position.figures"].reasons == ()  # nothing without a figure
+    assert retirement_inputs["retirement.freshness"].material == ()
+    # recording a fresh Valuation of the loan turns the first one Ready
+    loan = next(i for i in own.inputs if i.key == "position.freshness").material[0].link
+    with session_factory.begin() as s:
+        valuations.add_valuation(
+            s,
+            CTX,
+            int(loan.rsplit("/", 1)[1]),
+            valuations.ValuationInput(load_day, "496000.00", "statement", "Invented statement"),
+            today=load_day,
+        )
+    with session_factory() as s:
+        again = {v.question.key: v for v in service.evaluate(s, today=load_day).questions}
+    assert again["own-and-owe"].state == READY
 
 
 def test_the_sample_households_tax_year_waits_for_rule_figures_the_pack_does_not_have_yet(

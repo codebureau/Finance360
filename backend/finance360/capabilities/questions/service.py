@@ -105,16 +105,11 @@ def _evaluate_input(
     try:
         result: InputResult = question_input.check(session, today, level, items)
         state = core.rate_input(result)
+        material = core.material_reasons(result)
     except Exception:
         log.exception("Question input %s could not be checked", question_input.key)
         return _could_not_check(question_input)
     reasons = core.ordered(result.reasons)
-    # A Not started or blocking input shows its reasons whole (its next step is the first input);
-    # otherwise only a reason that is itself above a threshold needs attention.
-    if state in (NOT_STARTED, NOT_READY) and (result.empty or result.blocking):
-        material = reasons
-    else:
-        material = tuple(r for r in reasons if core.rate_reason(r, result.total) != READY)
     return InputView(
         question_input.key,
         question_input.name,
