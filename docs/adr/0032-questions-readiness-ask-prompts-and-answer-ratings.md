@@ -4,6 +4,8 @@
 **Date:** 2026-11-23
 **Issue:** #103 (epic #94; folds in the design of #72 and the Question part of #24)
 **Amends:** ADR-0020 section 5 (the "Back to What's due" marker becomes one return mechanism, section 3)
+**Amended 2026-11-28 (#121 follow-up):** section 2 (shares are summed per input, not judged per reason), section 8 (the
+retirement Question gets its own freshness input; fixture states). Amended passages are marked.
 
 ## Context
 
@@ -92,19 +94,28 @@ Five states, each with a status tone, an icon and a word (ADR-0031 section 4):
 
 **Rating an input** (pure, in `core/questions.py`, thresholds as named constants):
 
-- `MATERIAL_SHARE = 5%` and `MISLEADING_SHARE = 25%`, held as parts per million. A reason's share is
-  `affected / total`, in integer arithmetic on exact Money. Shares are a judgment: no reason is
-  dropped, and the Question page lists immaterial ones muted under "Small gaps".
+- `MATERIAL_SHARE = 5%` and `MISLEADING_SHARE = 25%`, held as parts per million. Shares are a
+  judgment: no reason is dropped, and the Question page lists immaterial ones muted under "Small gaps".
+- _Amended 2026-11-28: shares are summed per input._ An input's reasons fall in two **groups**:
+  `missing`, and `stale` with `incomplete` (the answer uses an old or partial figure). A group's
+  share is the **sum of its reasons' `affected`** over the input's `total`, compared in integer
+  arithmetic on exact Money (`sum * 1_000_000 > share_ppm * total`). Many small stale Accounts
+  therefore add up, but a missing Account and a stale one never blend, as they make different
+  claims. A reason with unknown `affected` adds nothing to a sum (see below).
 - `empty` gives **Not started**. `blocking` gives **Not ready**.
-- `missing` reasons (value the answer leaves out): above `MISLEADING_SHARE` in total, **Not ready**;
-  above `MATERIAL_SHARE`, **Partly ready**.
-- `stale` and `incomplete` reasons (the answer uses an old or partial figure): above
-  `MATERIAL_SHARE`, **Partly ready**. **They never give Not ready**: an old figure makes an answer
-  approximate, not wrong, and a red card for an unrefreshed balance is exactly the judging ADR-0020
-  forbids.
+- The `missing` group: its sum above `MISLEADING_SHARE`, **Not ready**; above `MATERIAL_SHARE`,
+  **Partly ready**.
+- The `stale`/`incomplete` group: its sum above `MATERIAL_SHARE`, **Partly ready**. **It never gives
+  Not ready**: an old figure makes an answer approximate, not wrong, and a red card for an
+  unrefreshed balance is exactly the judging ADR-0020 forbids.
+- **Boundaries are strict, on the sum.** Exactly 5% summed is Ready; exactly 25% summed is Partly
+  ready, not Not ready. One cent more tips each. Only the `missing` sum can give Not ready.
 - A reason with unknown value (`affected` none: an Account never valued, a label not modelled)
-  gives at most **Partly ready**, unless its input says `blocking`.
+  gives at most **Partly ready** on its own, unless its input says `blocking`.
 - Otherwise **Ready**.
+- A group above a threshold makes **every reason in it** material (they together are why), in the
+  usual order, so the next step is still its largest. A group at or below `MATERIAL_SHARE` makes none
+  material: all of its reasons are "Small gaps".
 
 **Effort level and Snoozes.** An input weighs only the Due items What's due would show: a rule not
 asked at this level returns nothing, Light drops `optional` rules, and a Snoozed item does not count
@@ -194,7 +205,8 @@ registered: a summary would then only count states, never weigh them.
 
 #102 ("you added X, which unlocked Y") may call the Questions service before and after a write to
 see a state change. Readiness stays computed; this ADR adds no status history and no notices
-table, and decides nothing about #102's store.
+table, and decides nothing about #102's store. **Amended by ADR-0033**, which adds the Notices
+store; "no status history" stands.
 
 ### 8. First slices
 
@@ -207,14 +219,34 @@ group, the return bar, "Ask about this"; three Questions:
 | Question | Screen | Inputs, in order |
 |---|---|---|
 | `own-and-owe` | `/position` | `position.accounts` (any open Account; else Not started) · `position.figures` (Accounts with no usable figure today, `missing`, weighted by last known value) · `position.freshness` (`stale`, from the three Valuation Due rules, weighted by value) |
-| `on-track-for-retirement` | `/projection` | `household.birth_dates` (`blocking` without them) · `position.figures` · `position.freshness` |
+| `on-track-for-retirement` | `/projection` | `household.birth_dates` (`blocking` without them) · `position.figures` · `retirement.freshness` (_amended 2026-11-28_, below) |
 | `tax-this-year` | `/tax` | `tax.records` (any Tax record; else Not started) · `tax.income_statement` (the Due rule) · `tax.rule_figures` (the Rule figure Due rules) · `tax.modelled` (unmodelled labels, `incomplete`, value unknown) |
+
+_Amended 2026-11-28: `retirement.freshness`._ One stale Account lowered both Position and retirement,
+though the projection does not use every Account. **Projection** owns `retirement.freshness` (it
+alone knows its Accounts; `projection` may import `position` by the layer contract). It weighs only
+Accounts in `PROJECTED_CATEGORIES` (cash, investments, superannuation, overseas pensions):
+`stale` reasons from the `position.manual_valuation` items whose Account is in cash, and from
+`position.super_valuation` (`due_rules` names both; the input drops a manual item for any other
+category, such as a loan). Its `total` is the gross value of the Accounts in those categories, so a
+share is "of what the projection uses", with its own denominator. Investments and overseas pensions
+have no Valuation Due rule today: they sit in the denominator only and gain reasons when such a rule
+exists (add its key to `due_rules`). Property, vehicles and loans no longer lower retirement; they
+still lower `own-and-owe`, which keeps `position.freshness` unchanged. `position.figures` stays
+shared by both (not decided here).
 
 Tests: injected `today`; each threshold boundary at 5% and 25% exactly; stale never Not ready; Light
 ignores optional; a Snoozed item does not count; a raising check gives Could not check; reason
 order; no digits in any `ask_prompt`; the Guide drift test (below). The fixture gains a state per
-card: one Ready, one Partly ready (a stale super Valuation on a material share), one with a small
-stale Account that stays Ready.
+card: one Ready, one Partly ready, one with a small stale Account that stays Ready. _Amended
+2026-11-28:_ Partly ready is `own-and-owe`, from a stale Valuation on a loan or property Account
+(not projected) above 5% of gross; Ready is `on-track-for-retirement`, whose cash and super Valuations
+are recent. Fixture Valuations for the Accounts that drive those two states are dated **relative to the
+load date** (an offset in days in the fixture file, resolved by its loader), not fixed. A fixed date
+decays: the Ready card would turn Partly ready as the Valuation ages, and the maintainer's review slot
+runs on the real date. A relative stale date stays stale as time passes, and a relative fresh one
+holds until its rule's period runs out (the slot is reloaded by `review --reset`). Tests that assert
+exact figures keep injecting `today`, and every other fixture date stays fixed.
 
 **#105 (R2)** builds the `answer_rating` table and migration, its two endpoints, the Yes / Partly /
 No control on the Question page and card, the latest answer beside the state, and the ratings
@@ -246,6 +278,28 @@ Question. The rest of the page stays prose.
 
 ## Not decided here / routine follow-on
 
+- **Amendment 2026-11-28, Developer remainder (routine):**
+  - `core/questions.py`: replace per-reason `rate_reason` with a group rating (sum `affected` per
+    group in exact Money, skip unknown values, one currency check, `exceeds` on the sum), used by
+    `rate_input` and by a `material_reasons(result)` the service calls instead of `rate_reason`
+    per reason. Zero or unknown `total` keeps today's "at most Partly ready".
+  - `capabilities/projection/questions.py`: register `retirement.freshness` (`important`;
+    `due_rules` = the manual and super Valuation rules; Account category from the Position tree);
+    the Question lists it in place of `position.freshness`. Position's inputs are unchanged.
+  - Tests: change the per-reason boundary test to sums; add a 5% / 25% boundary on sums across
+    several Accounts (exactly 5% of stale sums Ready, plus one cent Partly ready; missing exactly 25%
+    Partly ready, plus one cent Not ready); stale sums never give Not ready; a missing and a stale
+    reason each at 3% do not blend; an unknown-value reason adds nothing to a sum; a Hypothesis test
+    that the sum rule equals `Fraction` arithmetic; retirement stays Ready while a stale loan or
+    property lowers `own-and-owe`; a stale cash or super Account lowers both.
+  - Fixture and its README: the two states above, with relative dates; extend the fixture test to
+    assert Ready beside Partly ready; update the Guide's "How ready is each answer?" with one line
+    that small gaps add up and that retirement weighs only the Accounts it uses.
+  - How to test (synthetic household, any day): Home shows "What do we own and owe?" Partly ready
+    and "Are we on track for retirement?" Ready; recording a fresh Valuation for the stale Account
+    turns the first Ready.
+  - `position.figures` is still shared (a no-figure Account outside the projection's categories
+    would lower retirement); revisit only if the fixture or the owner shows it.
 - **From the issue's Outcome, routine:** exact copy for states, reasons and the headline; lucide
   icons for each state and for "Ask about this" (existing set, no new iconography); API field names;
   the Question page's layout within the view card pattern.

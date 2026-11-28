@@ -68,3 +68,4 @@ Superseding is explicit: the new ADR names what it supersedes, and the old one's
 | [0030](0030-exposure-profiles-look-through-and-asset-class-returns.md) | Exposure profiles, look-through lines and asset-class returns | Accepted |
 | [0031](0031-visual-layer-chart-kit-display-preferences-and-palette.md) | Visual layer: chart kit, switchable chart forms, Display preferences, palette and colour | Proposed |
 | [0032](0032-questions-readiness-ask-prompts-and-answer-ratings.md) | Questions as the navigation spine: readiness, the next step, Ask prompts and Answer ratings | Proposed |
+| [0033](0033-notices-recent-changes.md) | Notices: a small stored record of what a write moved, kept as Recent changes | Accepted |
