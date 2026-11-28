@@ -23,6 +23,8 @@ const base = {
   screen: "/position",
   area: "Where we stand",
   ask_prompt: ASK_PROMPT,
+  rating: null,
+  earlier_ratings: [],
 };
 
 const input = (over: Record<string, unknown>) => ({
@@ -34,6 +36,7 @@ const input = (over: Record<string, unknown>) => ({
   asked: true,
   counted: false,
   reasons: [],
+  snoozed: [],
   ...over,
 });
 

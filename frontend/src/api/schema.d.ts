@@ -1942,6 +1942,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/questions/ratings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ratings
+         * @description Every Question with its current Answer rating (null if unrated), for the ratings screen.
+         */
+        get: operations["getRatings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/questions/{key}": {
         parameters: {
             query?: never;
@@ -1957,6 +1977,27 @@ export interface paths {
         get: operations["getQuestion"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/questions/{key}/ratings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rate Question
+         * @description Add an Answer rating (Yes, Partly or No, and an optional note). Append-only: the newest is
+         *     current. 404 for a key that is not registered; 422 for a note with an amount or six digits.
+         */
+        post: operations["rateQuestion"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4963,6 +5004,11 @@ export interface components {
              */
             reasons: components["schemas"]["ReasonOut"][];
             /**
+             * Snoozed
+             * @description Gaps the owner has Snoozed: listed, and never counted towards the state.
+             */
+            snoozed: components["schemas"]["SnoozedOut"][];
+            /**
              * State
              * @description The input's Readiness, from the same check as the card.
              */
@@ -6815,6 +6861,11 @@ export interface components {
              */
             count: number;
             /**
+             * Earlier Ratings
+             * @description Earlier Answer ratings, newest first.
+             */
+            earlier_ratings: components["schemas"]["RatingOut"][];
+            /**
              * Inputs
              * @description In the order they are best provided.
              */
@@ -6822,6 +6873,8 @@ export interface components {
             /** Key */
             key: string;
             next_step: components["schemas"]["NextStepOut"] | null;
+            /** @description The current Answer rating, or null while the Question is unrated. Separate from the state: the two are never combined. */
+            rating: components["schemas"]["RatingOut"] | null;
             /**
              * Reason
              * @description One line: why the state is what it is.
@@ -6853,6 +6906,8 @@ export interface components {
             /** Key */
             key: string;
             next_step: components["schemas"]["NextStepOut"] | null;
+            /** @description The current Answer rating, or null while the Question is unrated. Separate from the state: the two are never combined. */
+            rating: components["schemas"]["RatingOut"] | null;
             /**
              * Reason
              * @description One line: why the state is what it is.
@@ -6883,6 +6938,67 @@ export interface components {
              * Format: date
              */
             today: string;
+        };
+        /** RatingIn */
+        RatingIn: {
+            /**
+             * Answer
+             * @enum {string}
+             */
+            answer: "yes" | "partly" | "no";
+            /**
+             * Note
+             * @description Optional, at most 200 characters. Refused if it carries a currency amount or a run of six or more digits.
+             */
+            note?: string | null;
+        };
+        /** RatingOut */
+        RatingOut: {
+            /**
+             * Answer
+             * @enum {string}
+             */
+            answer: "yes" | "partly" | "no";
+            /**
+             * Answer Word
+             * @description Yes, Partly or No.
+             */
+            answer_word: string;
+            /**
+             * Created At
+             * Format: date-time
+             * @description UTC.
+             */
+            created_at: string;
+            /**
+             * Note
+             * @description What the owner was hoping to see; never a figure.
+             */
+            note: string | null;
+            /**
+             * Readiness At Rating
+             * @description The Question's Readiness state when it was rated.
+             */
+            readiness_at_rating: string;
+            /** Readiness Word */
+            readiness_word: string;
+        };
+        /** RatingRowOut */
+        RatingRowOut: {
+            /** Key */
+            key: string;
+            /** @description Null while the Question is unrated. */
+            rating: components["schemas"]["RatingOut"] | null;
+            /** Wording */
+            wording: string;
+        };
+        /** RatingsOut */
+        RatingsOut: {
+            /**
+             * Items
+             * @description Every Question, in card order.
+             */
+            items: components["schemas"]["RatingRowOut"][];
         };
         /** ReadingOut */
         ReadingOut: {
@@ -7485,6 +7601,18 @@ export interface components {
             /** Snooze Id */
             snooze_id: number;
             /** Until On */
+            until_on: string | null;
+        };
+        /** SnoozedOut */
+        SnoozedOut: {
+            /** Link */
+            link: string;
+            /** Title */
+            title: string;
+            /**
+             * Until On
+             * @description The day the Snooze ends; null when skipped this time.
+             */
             until_on: string | null;
         };
         /** SourceOut */
@@ -15732,6 +15860,26 @@ export interface operations {
             };
         };
     };
+    getRatings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RatingsOut"];
+                };
+            };
+        };
+    };
     getQuestion: {
         parameters: {
             query?: never;
@@ -15751,6 +15899,48 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["QuestionDetailOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rateQuestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RatingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RatingOut"];
+                };
+            };
+            /** @description No such Question. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

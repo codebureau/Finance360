@@ -37,6 +37,7 @@ import { RecentChangesPage } from "@/components/recent-changes";
 import { PasteProfilePage } from "@/components/paste-profile-page";
 import { ExposurePage } from "@/components/exposure-page";
 import { PositionPage } from "@/components/position-page";
+import { RatingsPage } from "@/components/answer-rating";
 import { QuestionPage } from "@/components/question-page";
 import { ProjectionPage, parseProjectionSearch } from "@/components/projection-page";
 import { ReferenceDataPage } from "@/components/reference-data-page";
@@ -120,6 +121,10 @@ const indexRoute = route("/", HomePage);
 
 /** Recent changes: every Notice, dismissed ones muted (ADR-0033). */
 const recentChangesRoute = route("/recent-changes", RecentChangesPage);
+
+/** Your Answer ratings (ADR-0032 section 6). Declared before the Question route: `ratings` is
+ * reserved and never a Question key. */
+const ratingsRoute = route("/questions/ratings", RatingsPage);
 
 /** One Question: `/questions/own-and-owe` (ADR-0032). */
 const questionRoute = createRoute({
@@ -543,6 +548,7 @@ const shippedProfileRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   recentChangesRoute,
+  ratingsRoute,
   questionRoute,
   guideRoute,
   guidePageRoute,

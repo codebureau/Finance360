@@ -42,6 +42,7 @@ import finance360.capabilities.library as library_pkg
 import finance360.capabilities.notices as notices_pkg
 import finance360.capabilities.position as position_pkg
 import finance360.capabilities.projection as projection_pkg
+import finance360.capabilities.questions as questions_pkg
 import finance360.capabilities.reference as reference_pkg
 import finance360.capabilities.tax as tax_pkg
 import finance360.core
@@ -111,6 +112,7 @@ SCANNED = (
     notices_pkg,
     position_pkg,
     projection_pkg,
+    questions_pkg,
     reference_pkg,
     tax_pkg,
     finance360.core,
@@ -1106,6 +1108,15 @@ def _load_tax_evidence(s: Session, env: Env) -> None:
 
 #: Public `session` functions that deliberately write no audit record, with the reason.
 NOT_AUDITED: dict[str, str] = {
+    "questions.service.evaluate": "A read: Readiness is computed on every request, never stored.",
+    "questions.service.evaluate_one": "A read: one Question from the same computation.",
+    "questions.ratings.record_rating": (
+        "An Answer rating is the owner's opinion of an answer, not household data, so it is not "
+        "audited (ADR-0032 section 6). It stays in the instance: not read by Ask, MCP or the "
+        "Audit trail."
+    ),
+    "questions.ratings.rating_history": "A read.",
+    "questions.ratings.latest_ratings": "A read.",
     "notices.service.list_notices": "A read.",
     "notices.service.dismiss": (
         "A Notice is a derived convenience record, not audited (ADR-0033 section 2); dismissing "

@@ -10,19 +10,22 @@ from __future__ import annotations
 import re
 import shutil
 from collections.abc import Iterator, Sequence
-from datetime import date
+from datetime import date, datetime
 from fractions import Fraction
 from pathlib import Path
 
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from finance360.capabilities.ai.redact import Redactor, Vocabulary
+from finance360.capabilities.auth import logins
 from finance360.capabilities.due import service as due
 from finance360.capabilities.household import service as household
 from finance360.capabilities.position import accounts, valuations
-from finance360.capabilities.questions import service
+from finance360.capabilities.questions import ratings, service
 from finance360.capabilities.reference import fx_rates
 from finance360.config import Settings
 from finance360.core import due as core_due
@@ -30,6 +33,10 @@ from finance360.core import questions as core
 from finance360.core.audit import AuditContext
 from finance360.core.catalogue import seed_catalogue
 from finance360.core.due import IMPORTANT, OPTIONAL, DueItem, EffortLevel
+from finance360.core.errors import NotFoundError, ValidationError
+from finance360.core.figures import has_figure
+from finance360.core.models.answer_rating import AnswerRating
+from finance360.core.models.audit import AuditEvent
 from finance360.core.money import BASE_CURRENCY, Money
 from finance360.core.questions import (
     COULD_NOT_CHECK,
@@ -849,7 +856,8 @@ def test_the_partly_ready_sample_question_names_the_stale_inputs_with_fix_links(
 
 def test_an_unknown_question_is_a_404_and_ratings_is_not_a_question(sample: TestClient) -> None:
     assert sample.get("/api/questions/no-such-question").status_code == 404
-    assert sample.get("/api/questions/ratings").status_code == 404
+    # ``ratings`` is routed to the ratings list, never read as a Question key.
+    assert sample.get("/api/questions/ratings").json()["items"][0]["key"] == "own-and-owe"
 
 
 def test_an_optional_input_is_shown_but_not_asked_at_light(db: Db) -> None:
@@ -877,3 +885,250 @@ def test_an_optional_input_is_shown_but_not_asked_at_light(db: Db) -> None:
         core.unregister_question("t-q")
         core.unregister_input("t.optional")
         core.unregister_input("t.main")
+
+
+# --- Answer ratings (ADR-0032 section 6) --------------------------------------------------------
+
+
+@pytest.fixture
+def login_id(session_factory: sessionmaker[Session], fast_hash: None) -> int:
+    with session_factory.begin() as s:
+        return logins.create_login(s, "synthetic-test-passphrase-1", now=datetime(2026, 1, 1)).id
+
+
+def rate_now(db: Db, login: int, key: str, answer: str, note: str | None = None) -> ratings.Rating:
+    with db.factory.begin() as s:
+        return ratings.record_rating(s, login, key, answer, note, today=TODAY, level="steady")
+
+
+def test_the_newest_rating_is_current_and_earlier_ones_are_kept(db: Db, login_id: int) -> None:
+    first = rate_now(db, login_id, "own-and-owe", "no", "I wanted the split by owner")
+    second = rate_now(db, login_id, "own-and-owe", "partly")
+    rate_now(db, login_id, "tax-this-year", "yes")
+    with db.factory() as s:
+        history = ratings.rating_history(s, login_id)
+        latest = ratings.latest_ratings(s, login_id)
+    assert [r.answer for r in history["own-and-owe"]] == ["partly", "no"]  # newest first
+    assert latest["own-and-owe"].id == second.id and latest["tax-this-year"].answer == "yes"
+    assert set(latest) == {"own-and-owe", "tax-this-year"}  # an unrated Question has no entry
+    assert history["own-and-owe"][1] == first  # the earlier row is untouched
+    assert second.note is None and first.note == "I wanted the split by owner"
+    with db.factory() as s:
+        assert s.scalar(select(func.count()).select_from(AnswerRating)) == 3
+
+
+def test_the_state_word_at_the_time_is_stamped_ready_and_not_ready(db: Db, login_id: int) -> None:
+    db.account("cash", "savings_account", name="Cash", value="1000.00")
+    assert rate_now(db, login_id, "own-and-owe", "no").readiness_at_rating == READY
+    core.register_input(
+        QuestionInput(
+            "t.gap",
+            "A missing figure",
+            IMPORTANT,
+            (),
+            lambda *_: InputResult(reasons=(reason(MISSING, "1000.00"),), total=aud("1000.00")),
+        )
+    )
+    core.register_question(Question("t-q", "Test?", "/position", "Where we stand", ("t.gap",), "W"))
+    assert db.ask()["t-q"].state == NOT_READY
+    stamped = rate_now(db, login_id, "t-q", "yes")
+    assert stamped.readiness_at_rating == NOT_READY
+    with db.factory() as s:
+        assert ratings.rating_history(s, login_id)["t-q"][0].readiness_at_rating == NOT_READY
+
+
+def test_a_rating_never_changes_readiness(db: Db, login_id: int) -> None:
+    db.account("cash", "savings_account", name="Cash", value="1000.00")
+    with db.factory() as s:
+        before = service.evaluate(s, today=TODAY, level="steady")
+    for answer in ("no", "partly", "yes"):
+        rate_now(db, login_id, "own-and-owe", answer, "about the same")
+        with db.factory() as s:
+            assert service.evaluate(s, today=TODAY, level="steady") == before
+    assert before.questions[0].state == READY  # Ready, and rated No: both are true at once
+
+
+@pytest.mark.parametrize(
+    "note",
+    [None, "", "   ", "I wanted it by owner", "x" * 200, "12345", "1 2 3", "6 Nov 2026"]
+    + ["2026-11-06", "FY 2026-27", "about 5 accounts"],
+)
+def test_a_plain_note_is_accepted(db: Db, login_id: int, note: str | None) -> None:
+    stored = rate_now(db, login_id, "own-and-owe", "partly", note)
+    assert stored.note == ((note or "").strip() or None)
+
+
+@pytest.mark.parametrize(
+    ("note", "message"),
+    [
+        ("x" * 201, ratings.NOTE_TOO_LONG),
+        ("it was $5", ratings.NOTE_HAS_FIGURE),
+        ("AUD 500 or so", ratings.NOTE_HAS_FIGURE),
+        ("about 2k", ratings.NOTE_HAS_FIGURE),
+        ("1,200 dollars", ratings.NOTE_HAS_FIGURE),
+        ("123456", ratings.NOTE_HAS_FIGURE),
+        ("acct 12 34 56", ratings.NOTE_HAS_FIGURE),
+        ("ref 123-456-7", ratings.NOTE_HAS_FIGURE),
+    ],
+)
+def test_a_note_with_an_amount_or_six_digits_or_too_long_is_refused_and_nothing_is_stored(
+    db: Db, login_id: int, note: str, message: str
+) -> None:
+    rate_now(db, login_id, "own-and-owe", "yes", "kept")
+    with pytest.raises(ValidationError) as caught:
+        rate_now(db, login_id, "own-and-owe", "no", note)
+    assert [(e.field, e.message) for e in caught.value.errors] == [("note", message)]
+    with db.factory() as s:
+        rows = ratings.rating_history(s, login_id)["own-and-owe"]
+    assert [(r.answer, r.note) for r in rows] == [("yes", "kept")]  # not stored, not edited
+
+
+def test_the_note_limits_are_exactly_200_characters_and_six_digits(db: Db, login_id: int) -> None:
+    assert rate_now(db, login_id, "own-and-owe", "yes", "y" * 200).note == "y" * 200
+    with pytest.raises(ValidationError):
+        rate_now(db, login_id, "own-and-owe", "yes", "y" * 201)
+    rate_now(db, login_id, "own-and-owe", "yes", "12345")
+    with pytest.raises(ValidationError):
+        rate_now(db, login_id, "own-and-owe", "yes", "123456")
+
+
+def test_an_unknown_key_ratings_and_an_unknown_answer_are_refused(db: Db, login_id: int) -> None:
+    for key in ("no-such-question", "ratings"):
+        with pytest.raises(NotFoundError):
+            rate_now(db, login_id, key, "yes")
+    with pytest.raises(ValidationError) as caught:
+        rate_now(db, login_id, "own-and-owe", "maybe")
+    assert caught.value.errors[0].field == "answer"
+    with db.factory() as s:
+        assert s.scalar(select(func.count()).select_from(AnswerRating)) == 0
+
+
+@given(st.text(alphabet="0123456789 -.,$kmAUDa", max_size=30))
+def test_the_note_check_finds_what_redaction_would_replace(text: str) -> None:
+    """One definition of a figure (``core.figures``): redaction changes the text exactly when the
+    note check refuses it, so the two cannot drift apart."""
+    redacted = Redactor(Vocabulary()).redact(text) != text
+    assert has_figure(text) == redacted
+
+
+@pytest.fixture
+def api(tmp_path: Path, fast_hash: None) -> Iterator[TestClient]:
+    settings = Settings(data_dir=tmp_path, port=8000, git_sha="dev", static_dir=None)
+    app = create_app(settings)
+    with owner_client(app) as client:
+        with app.state.session_factory.begin() as s:
+            made = logins.create_login(s, "synthetic-test-passphrase-1", now=datetime(2026, 1, 1))
+            assert made.id == 1  # the id the test owner signs in as
+        yield client
+
+
+def test_the_api_rates_a_question_and_reads_it_back_beside_an_unchanged_state(
+    api: TestClient,
+) -> None:
+    before = api.get("/api/questions/own-and-owe").json()
+    assert before["rating"] is None and before["earlier_ratings"] == []
+    assert all(q["rating"] is None for q in api.get("/api/questions").json()["questions"])
+
+    posted = api.post(
+        "/api/questions/own-and-owe/ratings", json={"answer": "no", "note": "Wanted it by owner"}
+    )
+    assert posted.status_code == 201
+    body = posted.json()
+    assert (body["answer"], body["answer_word"], body["note"]) == ("no", "No", "Wanted it by owner")
+    assert body["readiness_at_rating"] == before["state"]
+    assert body["readiness_word"] == before["state_word"]
+
+    api.post("/api/questions/own-and-owe/ratings", json={"answer": "partly"})
+    after = api.get("/api/questions/own-and-owe").json()
+    assert after["rating"]["answer"] == "partly"
+    assert [r["answer"] for r in after["earlier_ratings"]] == ["no"]
+    for field in ("state", "state_word", "count", "reason", "next_step", "inputs"):
+        assert after[field] == before[field]  # a rating moves nothing about Readiness
+    home = {q["key"]: q for q in api.get("/api/questions").json()["questions"]}
+    assert home["own-and-owe"]["rating"]["answer"] == "partly"
+    assert home["tax-this-year"]["rating"] is None
+    listed = api.get("/api/questions/ratings").json()["items"]
+    assert {i["key"]: i["rating"] and i["rating"]["answer"] for i in listed} == {
+        "own-and-owe": "partly",
+        "on-track-for-retirement": None,
+        "tax-this-year": None,
+    }
+
+
+def test_a_ready_question_rated_no_shows_both(api: TestClient) -> None:
+    detail = api.get("/api/questions/tax-this-year").json()
+    api.post("/api/questions/tax-this-year/ratings", json={"answer": "no"})
+    after = api.get("/api/questions/tax-this-year").json()
+    assert after["state"] == detail["state"]
+    assert after["rating"]["answer"] == "no"
+    assert after["rating"]["readiness_at_rating"] == detail["state"]
+
+
+def test_the_api_refuses_a_bad_note_a_bad_answer_and_a_bad_key(api: TestClient) -> None:
+    refused = api.post("/api/questions/own-and-owe/ratings", json={"answer": "yes", "note": "$40"})
+    assert refused.status_code == 422
+    assert refused.json() == {"errors": [{"field": "note", "message": ratings.NOTE_HAS_FIGURE}]}
+    bad = api.post("/api/questions/own-and-owe/ratings", json={"answer": "maybe"})
+    assert bad.status_code == 422 and bad.json()["errors"][0]["field"] == "answer"
+    assert api.post("/api/questions/nope/ratings", json={"answer": "yes"}).status_code == 404
+    assert api.post("/api/questions/ratings/ratings", json={"answer": "yes"}).status_code == 404
+    assert api.get("/api/questions/own-and-owe").json()["rating"] is None  # nothing was stored
+
+
+def test_a_rating_writes_no_audit_event(api: TestClient) -> None:
+    def audits() -> int:
+        with api.app.state.session_factory() as s:  # type: ignore[attr-defined]
+            return s.scalar(select(func.count()).select_from(AuditEvent)) or 0
+
+    before = audits()
+    assert api.post("/api/questions/own-and-owe/ratings", json={"answer": "yes"}).status_code == 201
+    assert audits() == before
+
+
+def test_ratings_are_not_read_by_ask_or_exposed_over_mcp() -> None:
+    """Nothing leaves the instance (ADR-0032 section 6): neither the Ask Capability nor the MCP
+    layer so much as names the table or the ratings service."""
+    root = Path(__file__).resolve().parents[1] / "finance360"
+    for folder in (root / "capabilities" / "ask", root / "mcp"):
+        for source in folder.rglob("*.py"):
+            text = source.read_text(encoding="utf-8")
+            for name in ("answer_rating", "AnswerRating", "questions.ratings", "record_rating"):
+                assert name not in text, f"{source.name} mentions {name}"
+
+
+# --- Snoozed gaps on the Question page ----------------------------------------------------------
+
+
+def snooze_the_stale_item(db: Db, choice: str) -> None:
+    with db.factory() as s:
+        item = due.whats_due(s, today=TODAY, level="steady").items[0]
+    with db.factory.begin() as s:
+        due.snooze(s, CTX, item.rule_key, item.subject_key, choice, today=TODAY)
+
+
+def test_a_snoozed_gap_is_listed_with_its_end_date_and_still_not_counted(db: Db) -> None:
+    db.account("cash", "savings_account", name="Cash", value="1000.00", as_at=LONG_AGO)
+    assert db.ask()["own-and-owe"].state == PARTLY_READY
+    snooze_the_stale_item(db, "month")
+    view = db.ask()["own-and-owe"]
+    assert (view.state, view.count) == (READY, 0)  # the Snoozed gap weighs on nothing
+    gaps = [g for i in view.inputs for g in i.snoozed]
+    assert len(gaps) == 1
+    assert gaps[0].until_on == date(2026, 12, 4)  # 31 days from TODAY
+    assert "Cash" in gaps[0].title and gaps[0].link.startswith("/accounts/")
+    assert [g for i in db.ask()["tax-this-year"].inputs for g in i.snoozed] == []
+
+
+def test_a_gap_skipped_for_this_period_is_listed_without_a_date(db: Db) -> None:
+    db.account("cash", "savings_account", name="Cash", value="1000.00", as_at=LONG_AGO)
+    snooze_the_stale_item(db, "skip")
+    gaps = [g for i in db.ask()["own-and-owe"].inputs for g in i.snoozed]
+    assert [g.until_on for g in gaps] == [None]
+
+
+def test_a_snoozed_gap_sits_under_the_input_that_weighs_it(db: Db) -> None:
+    db.account("cash", "savings_account", name="Cash", value="1000.00", as_at=LONG_AGO)
+    snooze_the_stale_item(db, "month")
+    snoozed = {i.key: len(i.snoozed) for i in db.ask()["own-and-owe"].inputs}
+    assert snoozed["position.freshness"] == 1
+    assert snoozed["position.accounts"] == 0

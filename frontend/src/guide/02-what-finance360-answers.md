@@ -29,6 +29,10 @@ A gap counts by its size. A small old Account does not lower a question when mos
 
 **Back to your next step.** A link to fix something, from a question's page or card, opens the screen that fixes it. While you work there, a bar at the top says **Back to your next step**, with the thing that is next. It stays with you as you move between screens, and survives a reload, but only in that browser tab. Follow it to see the card improve and the next step move on, or dismiss it. The same bar brings you back to What's due when you came from there.
 
+**Did this answer your question?** At the foot of a question's page you can say **Yes**, **Partly** or **No**, and add a few words about what you were hoping to see. Nothing asks you to: rating is your choice, and you can rate again later (the newest is the one shown, and earlier ones are kept behind **Earlier ratings**). It sits beside the state, never inside it: a question can be **Ready** and still rated **No**, which tells you the data is fine but the answer was not useful. A rated question shows your latest word on its Home card. The **Your ratings** screen (linked from a question's page and from Your questions on Home) lists every question with your rating, note and the state it had then, as text you can copy. There is no score. Please do not type amounts or account numbers: a note with an amount or a run of six or more digits is refused. Ratings stay in this instance (they are in your Backup) and are not sent to Ask, not shown to any AI client and not tracked.
+
+**Snoozed items.** A gap you have snoozed is not counted, but the question's page still lists it, muted, under **Snoozed**, with the day the snooze ends, so it is not silently missing.
+
 **Ask about this** on a question's page (and its card) opens [Ask](/guide/ask) and asks a fixed question about it, in words only. No balance, Account name or figure is sent.
 
 ## Is the data current?

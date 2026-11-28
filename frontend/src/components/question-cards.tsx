@@ -8,6 +8,7 @@ import { GeneralError } from "@/components/form-fields";
 import { StatTile } from "@/components/stat-tile";
 import { Button } from "@/components/ui/button";
 import { FROM_PARAM, linkTarget } from "@/lib/due";
+import { AnswerWord } from "@/components/answer-rating";
 import { fetchQuestions, fromQuestion, QUESTIONS_KEY, readiness, type Question } from "@/lib/questions";
 
 /** A fix link as a router target that carries the return marker (`?from=q.<key>`). */
@@ -74,6 +75,11 @@ export function QuestionTile({ question, children }: { question: Question; child
 function QuestionCard({ question }: { question: Question }) {
   return (
     <QuestionTile question={question}>
+      {question.rating && (
+        <p className="w-full text-sm text-muted-foreground" data-testid="question-rating">
+          Your rating: <AnswerWord answer={question.rating.answer} word={question.rating.answer_word} className="font-medium text-foreground" />
+        </p>
+      )}
       <Link to="/questions/$questionKey" params={{ questionKey: question.key }} className="w-fit underline">
         Show items
       </Link>
@@ -101,6 +107,9 @@ export function QuestionCards() {
             {data.headline}
           </p>
         )}
+        <Link to="/questions/ratings" className="w-fit text-sm underline">
+          Your ratings
+        </Link>
       </div>
       {query.isPending && <p className="text-sm text-muted-foreground">Loading...</p>}
       <GeneralError error={query.error} />

@@ -279,6 +279,29 @@ def test_settings_read_the_backup_environment(tmp_path: Path) -> None:
         Settings.from_env({"FINANCE360_BACKUP_TIME": "teatime"})
 
 
+def test_an_answer_rating_is_in_the_database_copy_that_is_backed_up(settings: Settings) -> None:
+    """Ratings live in the instance database (ADR-0032 section 6), so the staged copy has them."""
+    conn = sqlite3.connect(db_path(settings.data_dir))
+    with conn:
+        conn.execute(
+            "INSERT INTO login (id, role, password_hash, failed_count) VALUES (1, 'owner', 'x', 0)"
+        )
+        conn.execute(
+            "INSERT INTO answer_rating (login_id, question_key, answer, note, readiness_at_rating,"
+            " created_at) VALUES (1, 'own-and-owe', 'no', 'Wanted it by owner', 'ready',"
+            " '2026-11-28 01:00:00')"
+        )
+    conn.close()
+    backup._stage(settings, "manual", datetime(2026, 11, 28))
+    staged = sqlite3.connect(backup._staging(settings.data_dir) / "finance360.sqlite")
+    try:
+        assert staged.execute(
+            "SELECT question_key, answer, note, readiness_at_rating FROM answer_rating"
+        ).fetchall() == [("own-and-owe", "no", "Wanted it by owner", "ready")]
+    finally:
+        staged.close()
+
+
 def test_the_manifest_has_what_restore_needs_and_no_secret(settings: Settings) -> None:
     now = datetime(2026, 3, 10, 12, 0)
     paths = backup._stage(settings, "pre-deploy", now)

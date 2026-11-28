@@ -61,6 +61,15 @@ Decisions and values: [ADR-0031](adr/0031-visual-layer-chart-kit-display-prefere
   An input the Effort level does not ask for is shown, labelled, and weighs on nothing. No chart: a
   state, a count and a list are the data. "Your questions" in the sidebar lists the Questions from
   the registry, its heading linking the Guide.
+- **Answer rating** (ADR-0032 section 6): on the Question page, after "What this answer needs", a
+  "Did this answer your question?" card: Yes, Partly and No (each an icon and a word, never colour
+  alone, and never a status tone: a No is not an error), an optional one-line note with the hint
+  "Please do not type amounts or account numbers", one primary "Save rating", and a muted line for the
+  current state ("Not rated", or "You said Partly on <date>, when it was Ready"). Earlier ratings sit
+  behind a disclosure. A rated Question's Home card gains the latest word as a second line, beside
+  the Readiness word and never combined with it; an unrated card shows nothing extra. `/questions/ratings`
+  (view key `questions.ratings`) is a plain text list with a "Copy" button. No chart, no score.
+  Snoozed gaps are listed muted beneath the inputs, with the day the Snooze ends.
 - **Return bar** (shell, every screen): a fix link carries `?from=due` or `?from=q.<key>`; the shell
   keeps the marker per browser tab (`sessionStorage`) and shows "Back to What's due", or "Back to
   your next step" with the Question and its next step, until the owner goes back, dismisses it or
