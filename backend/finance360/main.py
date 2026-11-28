@@ -32,6 +32,7 @@ from finance360.api import (
     instruments,
     library,
     look_through,
+    notices,
     position,
     preferences,
     prices,
@@ -386,6 +387,7 @@ def create_app(
     app.include_router(rule_figures.router, dependencies=signed_in)
     app.include_router(due.router, dependencies=signed_in)
     app.include_router(questions.router, dependencies=signed_in)
+    app.include_router(notices.router, dependencies=signed_in)
     app.include_router(preferences.router, dependencies=signed_in)
     app.include_router(documents.router, dependencies=signed_in)
     app.include_router(document_profiles_api.router, dependencies=signed_in)

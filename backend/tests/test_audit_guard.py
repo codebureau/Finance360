@@ -39,6 +39,7 @@ import finance360.capabilities.due as due_pkg
 import finance360.capabilities.household as household_pkg
 import finance360.capabilities.imports as imports_pkg
 import finance360.capabilities.library as library_pkg
+import finance360.capabilities.notices as notices_pkg
 import finance360.capabilities.position as position_pkg
 import finance360.capabilities.projection as projection_pkg
 import finance360.capabilities.reference as reference_pkg
@@ -58,6 +59,7 @@ from finance360.capabilities.imports import service as import_service
 from finance360.capabilities.library import profiles as library_profiles
 from finance360.capabilities.library import registry as link_kinds
 from finance360.capabilities.library import service as library
+from finance360.capabilities.notices import service as notices
 from finance360.capabilities.position import accounts, super_statements, valuations
 from finance360.capabilities.projection import income_streams, scenarios
 from finance360.capabilities.reference import (
@@ -106,6 +108,7 @@ SCANNED = (
     household_pkg,
     imports_pkg,
     library_pkg,
+    notices_pkg,
     position_pkg,
     projection_pkg,
     reference_pkg,
@@ -391,6 +394,22 @@ MUTATORS: dict[str, tuple[dict[str, bool | str], Exerciser]] = {
     "position.valuations.correct_valuation": (
         {"accounts": True},
         lambda s, e, i: valuations.correct_valuation(
+            s, CTX, i["valuation"], _valuation("250.00"), today=TODAY
+        ),
+    ),
+    "notices.service.add_valuation": (
+        {"accounts": True},
+        lambda s, e, i: notices.add_valuation(
+            s,
+            CTX,
+            i["account"],
+            valuations.ValuationInput(date(2026, 10, 2), "5.00", "manual", "Checked"),
+            today=TODAY,
+        ),
+    ),
+    "notices.service.correct_valuation": (
+        {"accounts": True},
+        lambda s, e, i: notices.correct_valuation(
             s, CTX, i["valuation"], _valuation("250.00"), today=TODAY
         ),
     ),
@@ -757,6 +776,8 @@ EXPECTED: dict[str, tuple[str, str]] = {
     "position.accounts.close_account": ("account", "close"),
     "position.valuations.add_valuation": ("valuation", "create"),
     "position.valuations.correct_valuation": ("valuation", "supersede"),
+    "notices.service.add_valuation": ("valuation", "create"),
+    "notices.service.correct_valuation": ("valuation", "supersede"),
     "position.valuations.remove_valuation": ("valuation", "supersede"),
     "position.valuations.write_closing_valuation": ("valuation", "create"),
     "reference.fx_rates.add_fx_rate": ("fx_rate", "create"),
@@ -1085,6 +1106,12 @@ def _load_tax_evidence(s: Session, env: Env) -> None:
 
 #: Public `session` functions that deliberately write no audit record, with the reason.
 NOT_AUDITED: dict[str, str] = {
+    "notices.service.list_notices": "A read.",
+    "notices.service.dismiss": (
+        "A Notice is a derived convenience record, not audited (ADR-0033 section 2); dismissing "
+        "one only hides it."
+    ),
+    "notices.service.expire": "Housekeeping on Notices, which are not audited (ADR-0033 s2).",
     "position.questions.freshness_result": (
         "A read: the stale-Valuation share Questions weigh (a pure computation over Position)."
     ),

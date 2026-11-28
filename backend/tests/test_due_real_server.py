@@ -91,3 +91,29 @@ def test_display_preferences_are_written_over_a_real_server_and_read_back_at_onc
     assert (
         http.get("/api/audit", params={"entity_type": "display_preference"}).json()["items"] == []
     )
+
+
+def test_a_valuation_makes_a_notice_that_is_dismissed_over_a_real_server(
+    signed_in: httpx.Client,  # noqa: F811
+) -> None:
+    """The Notices write route (ADR-0033): a real sign-in and session; the Valuation and its Notice
+    commit together before the response returns, and dismissal is read back at once. Lives here
+    because this file already drives a real server and is a slow file."""
+    http = signed_in
+    assert http.get("/api/notices").json() == {"items": []}  # the fixture pre-seeds none
+    accounts = {a["name"]: a for a in http.get("/api/accounts").json()}
+    loan = accounts["Sample Home Loan"]
+    saved = http.post(
+        f"/api/accounts/{loan['id']}/valuations",
+        json={"amount": "-1.00", "source": "manual", "provenance_note": "Synthetic check"},
+    )
+    assert saved.status_code == 201, saved.text
+    notice = saved.json()["notice"]
+    assert notice is not None, saved.text
+    assert notice["headline"] == "You added a Valuation for Sample Home Loan."
+    listed = http.get("/api/notices").json()["items"]  # committed before the response returned
+    assert [n["id"] for n in listed] == [notice["id"]]
+    assert http.post(f"/api/notices/{notice['id']}/dismiss").status_code == 204
+    assert http.get("/api/notices").json() == {"items": []}
+    kept = http.get("/api/notices", params={"include_dismissed": "true"}).json()["items"]
+    assert [n["dismissed"] for n in kept] == [True]

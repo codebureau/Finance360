@@ -347,6 +347,16 @@ VIOLATIONS = [
         "import finance360.capabilities.documents.loader",
         "Nothing imports Document intake but the API",
     ),
+    (
+        "capabilities/projection/bad.py",
+        "import finance360.capabilities.notices",
+        "projection > tax | lookthrough > position > library > documents > household",
+    ),
+    (
+        "capabilities/questions/bad.py",
+        "import finance360.capabilities.notices",
+        "Nothing imports Notices but the API",
+    ),
     ("api/bad.py", "import finance360.plugins", "service layer"),
     ("api/bad.py", "import finance360.behaviours", "service layer"),
     ("jobs/bad.py", "import finance360.mcp", "do not depend on each other"),

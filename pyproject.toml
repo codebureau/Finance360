@@ -97,10 +97,10 @@ modules = ["finance360.api", "finance360.mcp", "finance360.jobs"]
 
 [[tool.importlinter.contracts]]
 # Capability layers: ADR-0015 section 1, ADR-0019 section 1, ADR-0026 section 3, ADR-0030 section 1.
-name = "projection > tax | lookthrough > position > library > documents > household (never the reverse)"
+name = "projection > tax | lookthrough > position > library > documents > household, under notices (never the reverse)"
 type = "layers"
 containers = ["finance360.capabilities"]
-layers = ["projection", "tax | lookthrough", "position", "library", "documents", "household"]
+layers = ["notices", "projection", "tax | lookthrough", "position", "library", "documents", "household"]
 
 [[tool.importlinter.contracts]]
 name = "The projection engine and its input are pure: no database, audit, service or other Capability (ADR-0015 section 1)"
@@ -435,6 +435,32 @@ source_modules = [
     "finance360.mcp",
 ]
 forbidden_modules = ["finance360.capabilities.questions"]
+
+[[tool.importlinter.contracts]]
+name = "Nothing imports Notices but the API (ADR-0033 section 3)"
+type = "forbidden"
+source_modules = [
+    "finance360.capabilities.position",
+    "finance360.capabilities.questions",
+    "finance360.capabilities.tax",
+    "finance360.capabilities.lookthrough",
+    "finance360.capabilities.projection",
+    "finance360.capabilities.household",
+    "finance360.capabilities.imports",
+    "finance360.capabilities.reference",
+    "finance360.capabilities.auth",
+    "finance360.capabilities.due",
+    "finance360.capabilities.ai",
+    "finance360.capabilities.ask",
+    "finance360.capabilities.rulecapture",
+    "finance360.capabilities.documents",
+    "finance360.capabilities.library",
+    "finance360.core",
+    "finance360.plugins",
+    "finance360.jobs",
+    "finance360.mcp",
+]
+forbidden_modules = ["finance360.capabilities.notices"]
 
 [[tool.importlinter.contracts]]
 name = "Question types are pure: no Capability and no database model (ADR-0032 section 1)"

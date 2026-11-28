@@ -141,7 +141,7 @@ test("the sidebar groups are the agreed questions, and every earlier destination
   ]);
   const destinations = SIDEBAR_GROUPS.flatMap((g) => g.items.map((i) => i.to));
   const top = TOP_ITEMS.map((i) => i.to);
-  expect(top).toEqual(["/", "/guide"]);
+  expect(top).toEqual(["/", "/recent-changes", "/guide"]);
   expect([...destinations, "/"].sort()).toEqual([...EARLIER_DESTINATIONS].sort());
   for (const to of destinations) expect(routeExists(to), to).toBe(true);
 });

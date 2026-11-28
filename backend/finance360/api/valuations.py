@@ -13,7 +13,10 @@ from fastapi import APIRouter, Response
 from pydantic import BaseModel, Field
 
 from finance360.api.household import ERRORS, ContextDep, MessageBody, SessionDep
+from finance360.api.notices import NoticeOut, notice_out
+from finance360.capabilities.notices import service as notices
 from finance360.capabilities.position import valuations as service
+from finance360.core.models.notice import Notice
 from finance360.core.models.valuation import Valuation
 from finance360.core.money import format_amount
 
@@ -33,6 +36,10 @@ class ValuationOut(BaseModel):
     status: Literal["current", "corrected", "removed"]
     superseded_at: datetime | None
     superseded_by_id: int | None
+    notice: NoticeOut | None = Field(
+        default=None,
+        description="Set on add and correct when the write moved the picture (ADR-0033).",
+    )
 
 
 class ValuationIn(BaseModel):
@@ -45,7 +52,7 @@ class ValuationIn(BaseModel):
     )
 
 
-def _out(valuation: Valuation) -> ValuationOut:
+def _out(valuation: Valuation, notice: Notice | None = None) -> ValuationOut:
     if valuation.superseded_at is None:
         status: Literal["current", "corrected", "removed"] = "current"
     else:
@@ -63,6 +70,7 @@ def _out(valuation: Valuation) -> ValuationOut:
         status=status,
         superseded_at=valuation.superseded_at,
         superseded_by_id=valuation.superseded_by_id,
+        notice=notice_out(notice) if notice else None,
     )
 
 
@@ -97,7 +105,7 @@ def list_valuations(account_id: int, session: SessionDep) -> list[ValuationOut]:
 def add_valuation(
     account_id: int, body: ValuationIn, session: SessionDep, ctx: ContextDep
 ) -> ValuationOut:
-    return _out(service.add_valuation(session, ctx, account_id, _input(body)))
+    return _out(*notices.add_valuation(session, ctx, account_id, _input(body)))
 
 
 @router.put(
@@ -110,7 +118,7 @@ def correct_valuation(
     valuation_id: int, body: ValuationIn, session: SessionDep, ctx: ContextDep
 ) -> ValuationOut:
     """Correct a current Valuation: returns the new row; the old one stays, marked corrected."""
-    return _out(service.correct_valuation(session, ctx, valuation_id, _input(body)))
+    return _out(*notices.correct_valuation(session, ctx, valuation_id, _input(body)))
 
 
 @router.delete(
