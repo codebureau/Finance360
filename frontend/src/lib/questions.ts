@@ -4,11 +4,15 @@ import {
   CircleDashed,
   CircleHelp,
   CircleX,
+  Meh,
+  ThumbsDown,
+  ThumbsUp,
   type LucideIcon,
 } from "lucide-react";
 import createClient from "openapi-fetch";
 
 import type { components, paths } from "@/api/schema";
+import { longDate } from "@/lib/due-cards";
 import { toApiError } from "@/lib/household";
 
 export type Question = components["schemas"]["QuestionOut"];
@@ -68,4 +72,60 @@ export const READINESS: Record<ReadinessState, { tone: StatusTone; icon: LucideI
 /** The look of a state, falling back to Could not check for a word this client does not know. */
 export function readiness(state: string) {
   return READINESS[state as ReadinessState] ?? READINESS.could_not_check;
+}
+
+export type Rating = components["schemas"]["RatingOut"];
+export type RatingRow = components["schemas"]["RatingRowOut"];
+export type SnoozedGap = components["schemas"]["SnoozedOut"];
+
+/** The Answer rating words (ADR-0032 section 6). An opinion, not a status: so no status tone, and
+ * a No is never red. Each has its own icon and word, never colour alone. */
+export type Answer = "yes" | "partly" | "no";
+export const ANSWERS: { key: Answer; word: string; icon: LucideIcon }[] = [
+  { key: "yes", word: "Yes", icon: ThumbsUp },
+  { key: "partly", word: "Partly", icon: Meh },
+  { key: "no", word: "No", icon: ThumbsDown },
+];
+
+export function answerIcon(answer: string): LucideIcon {
+  return ANSWERS.find((a) => a.key === answer)?.icon ?? Meh;
+}
+
+export const RATINGS_KEY = ["questions", "ratings"] as const;
+
+export async function fetchRatings(): Promise<RatingRow[]> {
+  const { data, error, response } = await client.GET("/api/questions/ratings");
+  if (!data) throw toApiError(error, response.status);
+  return data.items;
+}
+
+export async function rateQuestion(key: string, answer: Answer, note: string): Promise<Rating> {
+  const { data, error, response } = await client.POST("/api/questions/{key}/ratings", {
+    params: { path: { key } },
+    body: { answer, note: note.trim() === "" ? null : note },
+  });
+  if (!data) throw toApiError(error, response.status);
+  return data;
+}
+
+/** The date a rating was given, as "28 November 2026" (UTC, like every stored timestamp). */
+export function ratedOn(rating: Pick<Rating, "created_at">): string {
+  return longDate(rating.created_at.slice(0, 10));
+}
+
+/** "You said Partly on 28 November 2026, when it was Ready": the rating beside the state it met. */
+export function ratingSentence(rating: Rating): string {
+  return `You said ${rating.answer_word} on ${ratedOn(rating)}, when it was ${rating.readiness_word}`;
+}
+
+/** The Ratings screen as plain text the owner can copy: one block per Question, never a score. */
+export function ratingsText(rows: RatingRow[]): string {
+  return rows
+    .map((row) => {
+      const r = row.rating;
+      if (!r) return `${row.wording}\nNot rated`;
+      const note = r.note ? `\nNote: ${r.note}` : "";
+      return `${row.wording}\n${ratingSentence(r)}${note}`;
+    })
+    .join("\n\n");
 }

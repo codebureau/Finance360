@@ -31,6 +31,7 @@ const question = (over: Record<string, unknown>) => ({
   count: 0,
   reason: "Everything this answer needs is current.",
   next_step: null,
+  rating: null,
   ...over,
 });
 

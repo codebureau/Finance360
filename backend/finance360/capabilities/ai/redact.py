@@ -31,6 +31,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from finance360.core.figures import AMOUNT as _AMOUNT
+from finance360.core.figures import DATE_LIKE as _DATE_LIKE
+from finance360.core.figures import DIGITS as _DIGITS
+
 ACCOUNT = "ACCOUNT"
 MEMBER = "MEMBER"
 ENTITY = "ENTITY"
@@ -45,15 +49,6 @@ _RESTORED = (ACCOUNT, MEMBER, ENTITY, EMAIL)
 
 _WORD = "A-Za-z0-9"
 _EMAIL = r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+"
-_CURRENCY = r"(?:A\$|US\$|NZ\$|\$|AUD|USD|NZD)"
-_AMOUNT = (
-    rf"{_CURRENCY}\s?\d+(?:,\d{{3}})*(?:\.\d+)?(?:\s?[km]\b)?"
-    r"|\d+(?:,\d{3})*(?:\.\d+)?\s?(?:AUD|USD|NZD|dollars?)\b"
-    r"|\b\d+(?:\.\d+)?[km]\b"
-)
-_DIGITS = r"\d(?:[ -]?\d){5,}"
-#: A date (2026-11-06) or financial year (2026-27) is not a number worth hiding.
-_DATE_LIKE = re.compile(r"\d{4}-\d{2}(?:-\d{2})?")
 _RESTORE = re.compile(r"\[(ACCOUNT|MEMBER|ENTITY|EMAIL)_(\d+)\]", re.IGNORECASE)
 _DROP = re.compile(r"\[(?:NUMBER_\d+|AMOUNT)\]", re.IGNORECASE)
 

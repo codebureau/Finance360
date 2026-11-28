@@ -1,12 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 
+import { RatingCard } from "@/components/answer-rating";
 import { AskAboutThis, fixTarget, QuestionTile } from "@/components/question-cards";
 import { GeneralError } from "@/components/form-fields";
 import { SEVERITY_BADGE } from "@/components/stat-tile";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { longDate } from "@/lib/due-cards";
 import { ApiError } from "@/lib/household";
 import {
   fetchQuestion,
@@ -24,6 +26,26 @@ function ReadinessBadge({ state, word }: { state: string; word: string }) {
       <Icon size={14} aria-hidden />
       {word}
     </Badge>
+  );
+}
+
+/** Gaps the owner has Snoozed: listed, muted, with the day the Snooze ends. They weigh on nothing. */
+function SnoozedGaps({ inputs }: { inputs: QuestionInputView[] }) {
+  const gaps = inputs.flatMap((i) => i.snoozed.map((g) => ({ ...g, input: i.name })));
+  if (gaps.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1 border-t border-border pt-3 text-sm text-muted-foreground" data-testid="snoozed-gaps">
+      <h3 className="text-xs font-medium tracking-wide uppercase">Snoozed ({gaps.length})</h3>
+      <p>These are not counted towards the state above.</p>
+      <ul className="flex flex-col gap-1">
+        {gaps.map((g) => (
+          <li key={`${g.input}:${g.link}:${g.title}`} className="break-words" data-testid="snoozed-gap">
+            {g.title}{" "}
+            <span>({g.until_on ? `snoozed until ${longDate(g.until_on)}` : "skipped for this period"})</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -129,8 +151,10 @@ export function QuestionPage({ questionKey: key }: { questionKey: string }) {
                   <InputRow key={input.key} n={i + 1} input={input} question={q} />
                 ))}
               </ol>
+              <SnoozedGaps inputs={q.inputs} />
             </section>
           </Card>
+          <RatingCard question={q} />
         </>
       )}
     </div>

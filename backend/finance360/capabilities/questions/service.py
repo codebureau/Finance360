@@ -41,6 +41,16 @@ SMALL_GAPS_REASON = "Some small gaps do not change the answer."
 
 
 @dataclass(frozen=True)
+class SnoozedGap:
+    """A gap the owner has Snoozed: it does not weigh on Readiness, yet is not silently missing."""
+
+    title: str
+    link: str
+    #: The day the Snooze ends; ``None`` when skipped for this period only.
+    until_on: date | None
+
+
+@dataclass(frozen=True)
 class InputView:
     key: str
     name: str
@@ -54,6 +64,8 @@ class InputView:
     #: Whether it weighs on the Question's state and count at this Effort level (an ``optional``
     #: input does not at Light).
     asked: bool = True
+    #: Items the owner has Snoozed that this input would otherwise show: listed, never counted.
+    snoozed: tuple[SnoozedGap, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -182,6 +194,13 @@ def evaluate(
         else:
             items = tuple(i for i in whats_due.items if i.rule_key in question_input.due_rules)
             view = _evaluate_input(session, question_input, today, level, items)
+        if question_input is not None:
+            gaps = tuple(
+                SnoozedGap(s.item.title, s.item.link, s.until_on)
+                for s in whats_due.snoozed
+                if s.item.rule_key in question_input.due_rules
+            )
+            view = replace(view, snoozed=gaps)
         cache[key] = view
         return view
 

@@ -31,6 +31,7 @@ from alembic import command
 from sqlalchemy import Engine
 
 from finance360 import backup as backup_cli
+from finance360.capabilities.auth import logins
 from finance360.config import Settings
 from finance360.core import backup
 from finance360.core.db import db_path
@@ -414,6 +415,38 @@ def test_restore_after_a_bad_change_gives_back_the_same_position(household: Sett
     )
     leftovers = [p.name for p in (household.data_dir / "backups").iterdir()]
     assert not [n for n in leftovers if n.startswith("restore-work-")]
+
+
+@pytest.mark.platform
+@needs_restic
+def test_an_answer_rating_survives_a_backup_and_restore(
+    household: Settings, fast_hash: None
+) -> None:
+    """The rating table is in the instance database, so in the Backup (ADR-0032 section 6): a
+    rating given before the Backup comes back, and one given after it is undone."""
+    with owner_client(create_app(household)) as client:
+        with client.app.state.session_factory.begin() as s:  # type: ignore[attr-defined]
+            logins.create_login(s, "synthetic-test-passphrase-1", now=datetime(2026, 1, 1))
+        given = client.post(
+            "/api/questions/own-and-owe/ratings",
+            json={"answer": "no", "note": "Wanted it by owner"},
+        )
+        assert given.status_code == 201
+        kept = client.get("/api/questions/own-and-owe").json()["rating"]
+    _backup(household)
+    with owner_client(create_app(household)) as client:
+        assert (
+            client.post("/api/questions/own-and-owe/ratings", json={"answer": "yes"}).status_code
+            == 201
+        )
+
+    backup.restore(household, source="local")
+    with owner_client(create_app(household)) as client:
+        restored = client.get("/api/questions/own-and-owe").json()
+    assert restored["rating"] == kept
+    assert restored["earlier_ratings"] == []  # the later rating was undone with the restore
+    rows = _tables(household.data_dir)["answer_rating"]
+    assert len(rows) == 1 and "Wanted it by owner" in rows[0]
 
 
 @pytest.mark.platform
